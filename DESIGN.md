@@ -61,13 +61,20 @@ one line per job; a job move is a rename plus two `links.json` edits.
   and diffs show only real changes. Arrays keep document order.
 - Names in **whitelisted attributes** are stored **without the environment letter**:
   `P77_INGEST_INIT`, `RQ_AM`, `RC_INIT` (export writes `UP77_INGEST_INIT`, `URQ_AM`, `URC_INIT`
-  for `uat`). Whitelist: `FOLDER_NAME`, `JOBNAME`, `PARENT_FOLDER`, `SUB_APPLICATION`,
-  condition `NAME` (INCOND, OUTCOND, DOCOND), `QUANTITATIVE/@NAME`, `CONTROL/@NAME`,
-  `RULE_BASED_CALENDAR(S)/@NAME`. `MEMNAME` is **not** in the whitelist: it is a regular
-  attribute, stored literally and customizable per environment like any other.
-- A value in a whitelisted attribute that must **not** receive the letter is written with the
-  prefix `literal:` (e.g. a calendar `literal:*`, a condition name without the prefix). Import
-  marks them and lists them in the report.
+  for `uat`). Whitelist: `FOLDER_NAME`, `JOBNAME`, `MEMNAME`, `PARENT_FOLDER`,
+  `SUB_APPLICATION`, condition `NAME` (INCOND, OUTCOND, DOCOND), `QUANTITATIVE/@NAME`,
+  `CONTROL/@NAME`, `RULE_BASED_CALENDAR(S)/@NAME`.
+- The letter rule is **pattern-based, not attribute-wide**: import strips the letter only from
+  values matching `^[LETTERS](P77|RQ|RC)` (the bare prefixes are configured in `chain.json`);
+  export prepends the letter only to values that start with a bare prefix. Values that match
+  neither (a calendar `*`, a script-like `MEMNAME`, a condition name without the prefix) are
+  stored and exported as they are, in every environment, with no marker.
+- The only ambiguous case is a value that already starts with a bare prefix in the source
+  (`P77STOCKSERVICE` with no letter): import writes it as `literal:P77STOCKSERVICE` so export
+  does not add a letter. Import lists every `literal:` mark in the report.
+- `MEMNAME` therefore behaves as the author asked: usually equal to `JOBNAME` and adjusted with
+  it; when it has the `xP77` pattern it is adjusted too; otherwise it stays identical in all
+  environments.
 - Table-driven values are constants: `"NODEID": "@{node.batch}"`, `"RUN_AS": "@{user.proc}"`,
   `"DEST": "@{mail.ops}"`, `"%%CFT_DIRS": "@{cft.dirs_main}"`.
 - Regular text tokens: `{ENV}` (display name, used in DOMAIL `SUBJECT`/`MESSAGE`), `{e}`

@@ -47,7 +47,10 @@ UI; diff UI; `xmldiffreport` integration; PyPI release; documentation site.
   Python ≥ 3.11, stdlib-only core, `[web]` and `[dev]` extras), ruff, mypy, pytest, CI workflow
   (lint + test matrix), README stub, MIT licence, CHANGELOG. `ctmchain --version` works.
   *Accept:* CI green with one trivial test.
-- **S0.2 Synthetic fixture generator (M)** — `tests/fixtures/build_fixtures.py` writes a DEFTABLE
+- **S0.2 Synthetic fixture generator (M) — DEFERRED by the author (2026-11-01)**: the PoC runs
+  against the real export in the private data repo (`realdata` tests); public unit tests use
+  small inline synthetic XML snippets. The generator comes back when the public suite needs a
+  full export. Original scope kept below for later. — `tests/fixtures/build_fixtures.py` writes a DEFTABLE
   export of the fictional application `P77` (about 6 folders, 30 jobs) reproducing every measured
   structure: folder-level IN/OUT conditions chaining folders, job chains `A-B_OK` with
   self-cleanup `-`, `ON NOTOK` with DOSHOUT and DOMAIL, a DOCOND conditional edge, QUANTITATIVE,
