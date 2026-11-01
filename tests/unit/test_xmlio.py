@@ -27,7 +27,7 @@ def test_parse_keeps_attribute_order_and_child_order() -> None:
 
     first_four = [k for k, _ in folder.attrs][:4]
     assert first_four == ["JOBISN", "APPLICATION", "SUB_APPLICATION", "JOBNAME"]
-    assert [c.tag for c in folder.elements()] == ["VARIABLE", "INCOND", "OUTCOND", "JOB", "JOB"]
+    assert [c.tag for c in folder.elements()] == ["JOB", "JOB", "VARIABLE", "INCOND", "OUTCOND"]
     load = folder.find_all("JOB")[1]
     assert [c.tag for c in load.find_all("ON")[0].elements()] == ["DOSHOUT", "DOMAIL"]
 

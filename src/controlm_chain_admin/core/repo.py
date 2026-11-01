@@ -1,0 +1,167 @@
+"""The chain repository on disk: ``chain.json`` rules, folder and job files, metadata sidecars.
+
+Layout::
+
+    chain.json                       rules: application, environments, orders, volatile attributes
+    meta/export.json                 declaration, prolog comments, root element and folder order
+    meta/folders/<FOLDER>.json       volatile attributes of the folder and of its jobs
+    folders/<FOLDER>/folder.json     folder attributes and folder-level children, plus "jobs"
+    folders/<FOLDER>/jobs/<JOB>.json one file per job
+    envs/<env>/env.json              per-environment values (letter, display name, constants)
+"""
+
+from __future__ import annotations
+
+import json
+from collections.abc import Sequence
+from dataclasses import dataclass, field, replace
+from pathlib import Path
+from typing import Any
+
+from controlm_chain_admin.core.errors import ModelError, NotAChainRepo, RepoExists
+
+CHAIN_FILE = "chain.json"
+
+DEFAULT_VOLATILE_ATTRIBUTES: tuple[str, ...] = (
+    "JOBISN",
+    "CREATION_USER",
+    "CREATION_DATE",
+    "CREATION_TIME",
+    "CHANGE_USERID",
+    "CHANGE_DATE",
+    "CHANGE_TIME",
+    "VERSION_OPCODE",
+    "IS_CURRENT_VERSION",
+    "VERSION_SERIAL",
+    "VERSION_HOST",
+    "DATACENTER",
+    "VERSION",
+    "MODIFIED",
+    "LAST_UPLOAD",
+    "FOLDER_ORDER_METHOD",
+    "REAL_FOLDER_ID",
+)
+
+
+def _tuple_map(data: Any, what: str) -> dict[str, tuple[str, ...]]:
+    if not isinstance(data, dict):
+        raise ModelError(f"chain.json: {what} must be an object")
+    return {str(k): tuple(str(x) for x in v) for k, v in data.items()}
+
+
+@dataclass(frozen=True)
+class ChainConfig:
+    """Contents of ``chain.json``: the rules of one chain repository."""
+
+    application: str
+    environments: tuple[str, ...]
+    volatile_attributes: tuple[str, ...] = DEFAULT_VOLATILE_ATTRIBUTES
+    attribute_order: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    child_order: dict[str, tuple[str, ...]] = field(default_factory=dict)
+
+    def to_json(self) -> dict[str, Any]:
+        return {
+            "application": self.application,
+            "environments": list(self.environments),
+            "volatile_attributes": list(self.volatile_attributes),
+            "attribute_order": {k: list(v) for k, v in self.attribute_order.items()},
+            "child_order": {k: list(v) for k, v in self.child_order.items()},
+        }
+
+    @classmethod
+    def from_json(cls, data: dict[str, Any]) -> ChainConfig:
+        try:
+            return cls(
+                application=str(data["application"]),
+                environments=tuple(str(e) for e in data["environments"]),
+                volatile_attributes=tuple(
+                    str(a) for a in data.get("volatile_attributes", DEFAULT_VOLATILE_ATTRIBUTES)
+                ),
+                attribute_order=_tuple_map(data.get("attribute_order", {}), "attribute_order"),
+                child_order=_tuple_map(data.get("child_order", {}), "child_order"),
+            )
+        except KeyError as exc:
+            raise ModelError(f"chain.json: missing key {exc}") from exc
+
+
+@dataclass(frozen=True)
+class ChainRepo:
+    """A chain repository rooted at ``root`` with its loaded configuration."""
+
+    root: Path
+    config: ChainConfig
+
+    # paths -----------------------------------------------------------------
+    @property
+    def chain_file(self) -> Path:
+        return self.root / CHAIN_FILE
+
+    @property
+    def export_meta_file(self) -> Path:
+        return self.root / "meta" / "export.json"
+
+    @property
+    def folders_dir(self) -> Path:
+        return self.root / "folders"
+
+    def folder_dir(self, folder: str) -> Path:
+        return self.folders_dir / folder
+
+    def folder_file(self, folder: str) -> Path:
+        return self.folder_dir(folder) / "folder.json"
+
+    def job_file(self, folder: str, job: str) -> Path:
+        return self.folder_dir(folder) / "jobs" / f"{job}.json"
+
+    def folder_meta_file(self, folder: str) -> Path:
+        return self.root / "meta" / "folders" / f"{folder}.json"
+
+    def env_file(self, env: str) -> Path:
+        return self.root / "envs" / env / "env.json"
+
+    # persistence -----------------------------------------------------------
+    def save_config(self, config: ChainConfig) -> ChainRepo:
+        """Write ``chain.json`` and return the repository with the new configuration."""
+        write_json(self.chain_file, config.to_json())
+        return replace(self, config=config)
+
+
+def write_json(path: Path, data: Any) -> None:
+    """Write JSON deterministically: 2-space indent, UTF-8, LF, trailing newline, keys as given."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    text = json.dumps(data, indent=2, ensure_ascii=False) + "\n"
+    with path.open("w", encoding="utf-8", newline="\n") as handle:
+        handle.write(text)
+
+
+def read_json(path: Path) -> Any:
+    try:
+        with path.open(encoding="utf-8") as handle:
+            return json.load(handle)
+    except FileNotFoundError as exc:
+        raise ModelError(f"missing file {path}") from exc
+    except json.JSONDecodeError as exc:
+        raise ModelError(f"invalid JSON in {path}: {exc}") from exc
+
+
+def init_repo(root: Path, application: str, environments: Sequence[str]) -> ChainRepo:
+    """Create ``chain.json`` and one ``envs/<env>/env.json`` per environment in ``root``."""
+    root.mkdir(parents=True, exist_ok=True)
+    if (root / CHAIN_FILE).exists():
+        raise RepoExists(f"{root} already is a chain repository ({CHAIN_FILE} exists)")
+    config = ChainConfig(application=application, environments=tuple(environments))
+    repo = ChainRepo(root=root, config=config).save_config(config)
+    for env in config.environments:
+        write_json(
+            repo.env_file(env),
+            {"name": env, "letter": None, "display": env.upper(), "constants": {}},
+        )
+    return repo
+
+
+def load_repo(root: Path) -> ChainRepo:
+    """Open an existing chain repository; raises :class:`NotAChainRepo` otherwise."""
+    chain_file = root / CHAIN_FILE
+    if not chain_file.is_file():
+        raise NotAChainRepo(f"{root} is not a chain repository: no {CHAIN_FILE} found")
+    return ChainRepo(root=root, config=ChainConfig.from_json(read_json(chain_file)))
