@@ -28,6 +28,7 @@ from controlm_chain_admin.core.jsonmodel import (
     split_volatile,
 )
 from controlm_chain_admin.core.letter import LetterReport, add_letter, strip_letter
+from controlm_chain_admin.core.links import rebuild_links
 from controlm_chain_admin.core.model import XmlDeclaration, XmlDocument, XmlElement
 from controlm_chain_admin.core.repo import ChainRepo, load_repo, read_json, write_json
 from controlm_chain_admin.core.xmlio import parse_xml, serialize_xml
@@ -153,6 +154,7 @@ def import_xml(repo: ChainRepo, data: bytes, env: str | None = None) -> ImportRe
         jobs += len(folder.find_all(JOB_TAG))
 
     write_json(repo.export_meta_file, _export_meta(repo, document, imported))
+    rebuild_links(repo)  # derived links.json per folder
     return ImportReport(
         application=config.application,
         folders=tuple(imported),

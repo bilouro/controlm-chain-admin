@@ -16,6 +16,7 @@ from controlm_chain_admin import __version__
 from controlm_chain_admin.core import ops
 from controlm_chain_admin.core.errors import ChainError
 from controlm_chain_admin.core.repo import init_repo, load_repo
+from controlm_chain_admin.core.validate import render_markdown, render_text, validate
 
 EXIT_OK = 0
 EXIT_FINDINGS = 1
@@ -75,6 +76,18 @@ def build_parser() -> argparse.ArgumentParser:
     exp.add_argument("--env", help="target environment (needed with the letter rule)")
     exp.add_argument("-o", "--output", type=Path, required=True, help="XML file to write")
     exp.set_defaults(func=cmd_export)
+
+    val = commands.add_parser(
+        "validate", help="check links, names and duplicates; exit 1 on findings"
+    )
+    val.add_argument(
+        "--repo", type=Path, default=Path("."), help="repository directory (default: .)"
+    )
+    val.add_argument(
+        "--format", choices=("text", "md", "json"), default="text", help="report format"
+    )
+    val.add_argument("--strict", action="store_true", help="exit 1 on info findings too")
+    val.set_defaults(func=cmd_validate)
     return parser
 
 
@@ -132,6 +145,18 @@ def cmd_export(args: argparse.Namespace) -> int:
     args.output.write_bytes(data)
     print(f"Wrote {args.output} ({len(data)} bytes)")
     return EXIT_OK
+
+
+def cmd_validate(args: argparse.Namespace) -> int:
+    report = validate(load_repo(args.repo))
+    if args.format == "json":
+        print(json.dumps(report.to_json(), indent=2, ensure_ascii=False))
+    elif args.format == "md":
+        print(render_markdown(report), end="")
+    else:
+        print(render_text(report), end="")
+    threshold = ("error", "warning", "info") if args.strict else ("error", "warning")
+    return EXIT_FINDINGS if any(report.count(s) for s in threshold) else EXIT_OK
 
 
 # ---------------------------------------------------------------- entry point
