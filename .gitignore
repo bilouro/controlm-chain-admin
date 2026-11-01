@@ -30,6 +30,8 @@ web/dist/
 web/coverage/
 web/playwright-report/
 web/test-results/
+# Built web UI (produced by `npm run build` in web/, shipped in the wheel by the release workflow)
+src/controlm_chain_admin/web/static/
 
 # Local-only: patterns of real data used by the verify gate (never commit)
 .claude/no-real-data.patterns

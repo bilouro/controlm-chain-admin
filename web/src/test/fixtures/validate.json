@@ -1,0 +1,95 @@
+{
+  "links": 12,
+  "nodes": 11,
+  "counts": {
+    "error": 1,
+    "warning": 5,
+    "info": 6
+  },
+  "findings": [
+    {
+      "severity": "error",
+      "code": "dangling",
+      "node": "P77_CHAIN/P77_E",
+      "name": "P77_A-P77_E_OK",
+      "message": "P77_A exists in the repository but never emits this condition"
+    },
+    {
+      "severity": "warning",
+      "code": "dangling-unknown",
+      "node": "P77_CHAIN/P77_F",
+      "name": "WEIRD_NAME",
+      "message": "waited for, never produced"
+    },
+    {
+      "severity": "warning",
+      "code": "duplicate-jobname",
+      "node": "P77_CHAIN/",
+      "name": "P77_F",
+      "message": "JOBNAME used by more than one job in the folder"
+    },
+    {
+      "severity": "warning",
+      "code": "never-cleaned",
+      "node": "P77_CHAIN/P77_C",
+      "name": "P77_B-P77_C_OK",
+      "message": "waited for but never deleted by the consumer (no OUTCOND SIGN=\"-\")"
+    },
+    {
+      "severity": "warning",
+      "code": "stale-name",
+      "node": "P77_CHAIN/P77_C",
+      "name": "P77_OLDNAME-P77_D_OK",
+      "message": "name embeds P77_OLDNAME -> P77_D but the link is P77_C -> P77_D"
+    },
+    {
+      "severity": "warning",
+      "code": "unconsumed",
+      "node": "P77_CHAIN/P77_A",
+      "name": "P77_A-P77_C_OK",
+      "message": "P77_C exists but never waits for it"
+    },
+    {
+      "severity": "info",
+      "code": "dangling-external",
+      "node": "P77_CHAIN/P77_E",
+      "name": "P77_GHOST-P77_E_OK",
+      "message": "producer P77_GHOST is not in this repository"
+    },
+    {
+      "severity": "info",
+      "code": "dangling-external",
+      "node": "P77_CHAIN/",
+      "name": "P77_OTHER-P77_CHAIN_OK",
+      "message": "producer P77_OTHER is not in this repository"
+    },
+    {
+      "severity": "info",
+      "code": "dangling-external",
+      "node": "P77_INGEST_DAILY/",
+      "name": "P77_PRICING-P77_INGEST_DAILY_OK",
+      "message": "producer P77_PRICING is not in this repository"
+    },
+    {
+      "severity": "info",
+      "code": "non-standard-name",
+      "node": "P77_CHAIN/P77_F",
+      "name": "WEIRD_NAME",
+      "message": "name does not follow <PRODUCER>-<CONSUMER>_OK or <PRODUCER>-TO-<CONSUMER>"
+    },
+    {
+      "severity": "info",
+      "code": "unconsumed-external",
+      "node": "P77_CHAIN/",
+      "name": "P77_CHAIN-P77_NEXT_OK",
+      "message": "consumer P77_NEXT is not in this repository"
+    },
+    {
+      "severity": "info",
+      "code": "unconsumed-external",
+      "node": "P77_CHAIN/P77_D",
+      "name": "P77_D-P77_NOBODY_OK",
+      "message": "consumer P77_NOBODY is not in this repository"
+    }
+  ]
+}

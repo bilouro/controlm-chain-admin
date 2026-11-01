@@ -1,0 +1,119 @@
+{
+  "folder": {
+    "tag": "SMART_FOLDER",
+    "APPLICATION": "P77_RISK_ENGINE",
+    "SUB_APPLICATION": "P77_BATCH",
+    "JOBNAME": "P77_INGEST_DAILY",
+    "DESCRIPTION": "Daily ingest & load",
+    "CREATED_BY": "user01",
+    "RUN_AS": "aup77proc",
+    "TASKTYPE": "SMART Table",
+    "FOLDER_NAME": "P77_INGEST_DAILY",
+    "TYPE": "2",
+    "VARIABLE": [
+      {
+        "NAME": "%%GEIENV",
+        "VALUE": "u"
+      }
+    ],
+    "INCOND": [
+      {
+        "NAME": "P77_PRICING-P77_INGEST_DAILY_OK",
+        "ODATE": "ODAT",
+        "AND_OR": "A"
+      }
+    ],
+    "OUTCOND": [
+      {
+        "NAME": "P77_PRICING-P77_INGEST_DAILY_OK",
+        "ODATE": "ODAT",
+        "SIGN": "-"
+      }
+    ],
+    "jobs": [
+      "P77_INGEST_INIT",
+      "P77_INGEST_LOAD"
+    ],
+    "meta": {
+      "JOBISN": "1"
+    }
+  },
+  "jobs": [
+    {
+      "id": "P77_INGEST_INIT",
+      "name": "P77_INGEST_INIT",
+      "task_type": "Command"
+    },
+    {
+      "id": "P77_INGEST_LOAD",
+      "name": "P77_INGEST_LOAD",
+      "task_type": "Command"
+    }
+  ],
+  "links": [
+    {
+      "name": "P77_INGEST_INIT-P77_INGEST_LOAD_OK",
+      "from": [
+        "P77_INGEST_DAILY/P77_INGEST_INIT"
+      ],
+      "to": [
+        "P77_INGEST_DAILY/P77_INGEST_LOAD"
+      ],
+      "cleanup": [
+        "P77_INGEST_DAILY/P77_INGEST_LOAD"
+      ],
+      "docond": [],
+      "odates": [
+        "ODAT"
+      ],
+      "and_or": [
+        "A"
+      ],
+      "kind": "edge",
+      "external": false
+    },
+    {
+      "name": "P77_PRICING-P77_INGEST_DAILY_OK",
+      "from": [],
+      "to": [
+        "P77_INGEST_DAILY/"
+      ],
+      "cleanup": [
+        "P77_INGEST_DAILY/"
+      ],
+      "docond": [],
+      "odates": [
+        "ODAT"
+      ],
+      "and_or": [
+        "A"
+      ],
+      "kind": "dangling",
+      "external": true
+    }
+  ],
+  "graph": {
+    "folder": "P77_INGEST_DAILY",
+    "nodes": [
+      "P77_INGEST_DAILY/",
+      "P77_INGEST_DAILY/P77_INGEST_INIT",
+      "P77_INGEST_DAILY/P77_INGEST_LOAD"
+    ],
+    "edges": [
+      {
+        "from": "P77_INGEST_DAILY/P77_INGEST_INIT",
+        "to": "P77_INGEST_DAILY/P77_INGEST_LOAD",
+        "name": "P77_INGEST_INIT-P77_INGEST_LOAD_OK",
+        "conditional": false
+      }
+    ],
+    "externals": [],
+    "dangling": [
+      {
+        "node": "P77_INGEST_DAILY/",
+        "name": "P77_PRICING-P77_INGEST_DAILY_OK"
+      }
+    ],
+    "unconsumed": []
+  }
+}

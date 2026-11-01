@@ -67,6 +67,8 @@ path = "src/controlm_chain_admin/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/controlm_chain_admin"]
+# The built web UI is git-ignored; include it in the wheel when present (release workflow builds it).
+artifacts = ["src/controlm_chain_admin/web/static/**"]
 
 [tool.hatch.build.targets.sdist]
 include = ["src/", "tests/", "README.md", "LICENSE", "CHANGELOG.md"]

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter, Depends
 
 from controlm_chain_admin.core.attribute_groups import group_attributes
@@ -10,12 +12,17 @@ from controlm_chain_admin.core.inspect import show_node
 from controlm_chain_admin.core.links import NodeRef
 from controlm_chain_admin.core.repo import ChainRepo
 from controlm_chain_admin.web.deps import get_repo
-from controlm_chain_admin.web.schemas import JobDetail, LinkOut
+from controlm_chain_admin.web.schemas import ErrorOut, JobDetail, LinkOut
 
 router = APIRouter(prefix="/api", tags=["jobs"])
+NOT_FOUND: dict[int | str, dict[str, Any]] = {
+    404: {"model": ErrorOut, "description": "Unknown folder, job or link"}
+}
 
 
-@router.get("/jobs/{folder}/{job}", response_model=JobDetail, summary="Job detail")
+@router.get(
+    "/jobs/{folder}/{job}", response_model=JobDetail, responses=NOT_FOUND, summary="Job detail"
+)
 def job_detail(folder: str, job: str, repo: ChainRepo = Depends(get_repo)) -> JobDetail:
     data = show_node(repo, f"{folder}/{job}")
     meta = data.pop("meta", {})

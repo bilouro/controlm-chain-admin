@@ -29,6 +29,27 @@
         "title": "EdgeOut",
         "type": "object"
       },
+      "ErrorOut": {
+        "properties": {
+          "detail": {
+            "title": "Detail"
+          },
+          "error": {
+            "title": "Error",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "error",
+          "message"
+        ],
+        "title": "ErrorOut",
+        "type": "object"
+      },
       "FindingOut": {
         "properties": {
           "code": {
@@ -654,6 +675,16 @@
             },
             "description": "Successful Response"
           },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unknown folder, job or link"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -705,6 +736,16 @@
             },
             "description": "Successful Response"
           },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unknown folder, job or link"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -746,6 +787,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unknown folder, job or link"
           },
           "422": {
             "content": {

@@ -1,0 +1,19 @@
+{
+  "total": 2,
+  "items": [
+    {
+      "name": "P77_CHAIN",
+      "sub_application": "P77_BATCH",
+      "description": null,
+      "jobs": 7,
+      "links": 10
+    },
+    {
+      "name": "P77_INGEST_DAILY",
+      "sub_application": "P77_BATCH",
+      "description": "Daily ingest & load",
+      "jobs": 2,
+      "links": 2
+    }
+  ]
+}

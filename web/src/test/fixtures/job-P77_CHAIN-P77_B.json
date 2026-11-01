@@ -1,0 +1,129 @@
+{
+  "id": "P77_B",
+  "folder": "P77_CHAIN",
+  "name": "P77_B",
+  "groups": {
+    "identity": {
+      "APPLICATION": "P77_RISK_ENGINE",
+      "SUB_APPLICATION": "P77_BATCH",
+      "MEMNAME": "P77_B",
+      "JOBNAME": "P77_B",
+      "TASKTYPE": "Command",
+      "PARENT_FOLDER": "P77_CHAIN"
+    },
+    "execution": {
+      "RUN_AS": "aup77proc",
+      "NODEID": "UP77_BATCH",
+      "CMDLINE": "/opt/p77/bin/b.ksh"
+    }
+  },
+  "meta": {
+    "JOBISN": "3"
+  },
+  "on": [
+    {
+      "STMT": "*",
+      "CODE": "NOTOK",
+      "children": [
+        {
+          "tag": "DOCOND",
+          "NAME": "P77_B-P77_C_OK",
+          "ODATE": "ODAT",
+          "SIGN": "+"
+        }
+      ]
+    }
+  ],
+  "links": [
+    {
+      "name": "P77_A-P77_B_OK",
+      "from": [
+        "P77_CHAIN/P77_A"
+      ],
+      "to": [
+        "P77_CHAIN/P77_B"
+      ],
+      "cleanup": [
+        "P77_CHAIN/P77_B"
+      ],
+      "docond": [],
+      "odates": [
+        "ODAT"
+      ],
+      "and_or": [
+        "A"
+      ],
+      "kind": "edge",
+      "external": false
+    },
+    {
+      "name": "P77_B-P77_C_OK",
+      "from": [
+        "P77_CHAIN/P77_B"
+      ],
+      "to": [
+        "P77_CHAIN/P77_C"
+      ],
+      "cleanup": [],
+      "docond": [
+        {
+          "node": "P77_CHAIN/P77_B",
+          "on": "NOTOK",
+          "sign": "+"
+        }
+      ],
+      "odates": [
+        "ODAT"
+      ],
+      "and_or": [
+        "A"
+      ],
+      "kind": "edge",
+      "external": false
+    }
+  ],
+  "raw": {
+    "APPLICATION": "P77_RISK_ENGINE",
+    "SUB_APPLICATION": "P77_BATCH",
+    "MEMNAME": "P77_B",
+    "JOBNAME": "P77_B",
+    "RUN_AS": "aup77proc",
+    "TASKTYPE": "Command",
+    "NODEID": "UP77_BATCH",
+    "CMDLINE": "/opt/p77/bin/b.ksh",
+    "PARENT_FOLDER": "P77_CHAIN",
+    "INCOND": [
+      {
+        "NAME": "P77_A-P77_B_OK",
+        "ODATE": "ODAT",
+        "AND_OR": "A"
+      }
+    ],
+    "OUTCOND": [
+      {
+        "NAME": "P77_A-P77_B_OK",
+        "ODATE": "ODAT",
+        "SIGN": "-"
+      },
+      {
+        "NAME": "P77_B-P77_C_OK",
+        "ODATE": "ODAT",
+        "SIGN": "+"
+      }
+    ],
+    "ON": [
+      {
+        "STMT": "*",
+        "CODE": "NOTOK",
+        "children": [
+          {
+            "tag": "DOCOND",
+            "NAME": "P77_B-P77_C_OK",
+            "ODATE": "ODAT",
+            "SIGN": "+"
+          }
+        ]
+      }
+    ]
+  }
+}

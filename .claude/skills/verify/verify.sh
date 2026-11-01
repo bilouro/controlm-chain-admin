@@ -21,7 +21,7 @@ record() { REPORT+=("$(printf '%-14s %s' "$1:" "$2")"); case "$2" in FAIL*) FAIL
 run() { # run <label> <command...>; keeps the last 25 lines of output on failure
   local label="$1"; shift
   local out; out="$("$@" 2>&1)"; local rc=$?
-  if [ $rc -eq 0 ]; then record "$label" "PASS"; else record "$label" "FAIL (exit $rc)"; printf '--- %s\n%s\n' "$label" "$(printf '%s\n' "$out" | tail -25)"; fi
+  if [ $rc -eq 0 ]; then record "$label" "PASS"; else record "$label" "FAIL (exit $rc)"; printf -- '--- %s\n%s\n' "$label" "$(printf '%s\n' "$out" | tail -25)"; fi
   return $rc
 }
 
@@ -39,9 +39,14 @@ fi
 
 # ---------------------------------------------------------------- Frontend
 if [ $RUN_WEB -eq 1 ] && [ -f web/package.json ]; then
-  ( cd web && run "Lint (web)" npm run --silent lint && run "Types (web)" npm run --silent typecheck || true
-    run "Tests (web)" npm test --silent -- --run --coverage || true
-    run "Build (web)" npm run --silent build || true )
+  if [ ! -d web/node_modules ]; then
+    record "Frontend" "SKIPPED (web/node_modules missing: run npm ci in web/)"
+  else
+    run "Lint (web)" npm --prefix web run --silent lint || true
+    run "Types (web)" npm --prefix web run --silent typecheck || true
+    run "Tests (web)" npm --prefix web run --silent test:run -- --coverage || true
+    run "Build (web)" npm --prefix web run --silent build || true
+  fi
   if grep -rn "console.log" web/src >/dev/null 2>&1; then record "Debug left (web)" "FAIL"; grep -rn "console.log" web/src | head; else record "Debug left (web)" "PASS"; fi
 elif [ $RUN_WEB -eq 1 ]; then
   record "Frontend" "SKIPPED (no web/package.json)"

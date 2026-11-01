@@ -13,6 +13,7 @@ from controlm_chain_admin.core.links import LINKS_FILE, folder_names, rebuild_li
 from controlm_chain_admin.core.repo import ChainRepo, read_json
 from controlm_chain_admin.web.deps import get_repo
 from controlm_chain_admin.web.schemas import (
+    ErrorOut,
     FolderDetail,
     FolderList,
     FolderSummary,
@@ -22,6 +23,9 @@ from controlm_chain_admin.web.schemas import (
 )
 
 router = APIRouter(prefix="/api", tags=["folders"])
+NOT_FOUND: dict[int | str, dict[str, Any]] = {
+    404: {"model": ErrorOut, "description": "Unknown folder, job or link"}
+}
 
 
 def _links_index(repo: ChainRepo, folder: str) -> list[dict[str, Any]]:
@@ -55,7 +59,12 @@ def list_folders(
     return FolderList(total=len(names), items=items)
 
 
-@router.get("/folders/{name}", response_model=FolderDetail, summary="Folder with jobs, links and graph")
+@router.get(
+    "/folders/{name}",
+    response_model=FolderDetail,
+    responses=NOT_FOUND,
+    summary="Folder with jobs, links and graph",
+)
 def folder_detail(name: str, repo: ChainRepo = Depends(get_repo)) -> FolderDetail:
     if not repo.folder_file(name).is_file():
         raise ModelError(f"unknown folder {name!r}")

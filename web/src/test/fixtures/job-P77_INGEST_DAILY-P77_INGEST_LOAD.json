@@ -1,0 +1,117 @@
+{
+  "id": "P77_INGEST_LOAD",
+  "folder": "P77_INGEST_DAILY",
+  "name": "P77_INGEST_LOAD",
+  "groups": {
+    "identity": {
+      "APPLICATION": "P77_RISK_ENGINE",
+      "SUB_APPLICATION": "P77_BATCH",
+      "MEMNAME": "P77_INGEST_LOAD",
+      "JOBNAME": "P77_INGEST_LOAD",
+      "DESCRIPTION": "Load positions",
+      "TASKTYPE": "Command",
+      "PARENT_FOLDER": "P77_INGEST_DAILY"
+    },
+    "execution": {
+      "RUN_AS": "aup77proc",
+      "NODEID": "UP77_BATCH",
+      "CMDLINE": "/opt/p77/bin/load.ksh -d %%ODATE"
+    }
+  },
+  "meta": {
+    "JOBISN": "3"
+  },
+  "on": [
+    {
+      "STMT": "*",
+      "CODE": "NOTOK",
+      "children": [
+        {
+          "tag": "DOSHOUT",
+          "URGENCY": "R",
+          "MESSAGE": "Alert",
+          "DEST": "EM"
+        },
+        {
+          "tag": "DOMAIL",
+          "URGENCY": "R",
+          "DEST": "ops@example.com",
+          "SUBJECT": "[P77][UAT] Load failed",
+          "MESSAGE": "Job %%JOBNAME failed",
+          "ATTACH_SYSOUT": "Y"
+        }
+      ]
+    }
+  ],
+  "links": [
+    {
+      "name": "P77_INGEST_INIT-P77_INGEST_LOAD_OK",
+      "from": [
+        "P77_INGEST_DAILY/P77_INGEST_INIT"
+      ],
+      "to": [
+        "P77_INGEST_DAILY/P77_INGEST_LOAD"
+      ],
+      "cleanup": [
+        "P77_INGEST_DAILY/P77_INGEST_LOAD"
+      ],
+      "docond": [],
+      "odates": [
+        "ODAT"
+      ],
+      "and_or": [
+        "A"
+      ],
+      "kind": "edge",
+      "external": false
+    }
+  ],
+  "raw": {
+    "APPLICATION": "P77_RISK_ENGINE",
+    "SUB_APPLICATION": "P77_BATCH",
+    "MEMNAME": "P77_INGEST_LOAD",
+    "JOBNAME": "P77_INGEST_LOAD",
+    "DESCRIPTION": "Load positions",
+    "RUN_AS": "aup77proc",
+    "TASKTYPE": "Command",
+    "NODEID": "UP77_BATCH",
+    "CMDLINE": "/opt/p77/bin/load.ksh -d %%ODATE",
+    "PARENT_FOLDER": "P77_INGEST_DAILY",
+    "INCOND": [
+      {
+        "NAME": "P77_INGEST_INIT-P77_INGEST_LOAD_OK",
+        "ODATE": "ODAT",
+        "AND_OR": "A"
+      }
+    ],
+    "OUTCOND": [
+      {
+        "NAME": "P77_INGEST_INIT-P77_INGEST_LOAD_OK",
+        "ODATE": "ODAT",
+        "SIGN": "-"
+      }
+    ],
+    "ON": [
+      {
+        "STMT": "*",
+        "CODE": "NOTOK",
+        "children": [
+          {
+            "tag": "DOSHOUT",
+            "URGENCY": "R",
+            "MESSAGE": "Alert",
+            "DEST": "EM"
+          },
+          {
+            "tag": "DOMAIL",
+            "URGENCY": "R",
+            "DEST": "ops@example.com",
+            "SUBJECT": "[P77][UAT] Load failed",
+            "MESSAGE": "Job %%JOBNAME failed",
+            "ATTACH_SYSOUT": "Y"
+          }
+        ]
+      }
+    ]
+  }
+}
