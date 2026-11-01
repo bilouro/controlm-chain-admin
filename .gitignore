@@ -1,0 +1,14 @@
+# Control-M exports (local only, never committed)
+*.xml
+
+# OS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Editors
+.idea/
+.vscode/
