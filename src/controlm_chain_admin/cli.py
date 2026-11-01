@@ -9,15 +9,18 @@ from __future__ import annotations
 import argparse
 import contextlib
 import json
+import os
 import sys
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
 
 from controlm_chain_admin import __version__
 from controlm_chain_admin.core import constants as constants_mod
 from controlm_chain_admin.core import graph as graph_mod
 from controlm_chain_admin.core import inspect as inspect_mod
 from controlm_chain_admin.core import ops
+from controlm_chain_admin.core import refactor as refactor_mod
 from controlm_chain_admin.core.errors import ChainError, NotAChainRepo
 from controlm_chain_admin.core.links import NodeRef, folder_names
 from controlm_chain_admin.core.repo import init_repo, load_repo, read_json, write_json
@@ -198,6 +201,8 @@ def build_parser() -> argparse.ArgumentParser:
     envc.add_argument("--format", choices=("text", "json"), default="text")
     envc.set_defaults(func=cmd_env_constants)
     envp.set_defaults(func=cmd_env_help)
+
+    _add_refactorings(commands)
 
     srv = commands.add_parser(
         "serve", help="serve the local web UI and API (needs the [web] extra)"
@@ -469,6 +474,119 @@ def cmd_serve(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------- entry point
 
 
+def _refactor_options(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--repo", type=Path, default=Path("."), help="repository directory (default: .)"
+    )
+    parser.add_argument("--apply", action="store_true", help="write the change (default: preview)")
+    parser.add_argument("--stat", action="store_true", help="list the files instead of the diff")
+    parser.add_argument("--format", choices=("text", "json"), default="text")
+
+
+def _add_refactorings(commands: Any) -> None:
+    """Refactoring subcommands: every one previews a change set and writes only with --apply."""
+    rj = commands.add_parser("rename-job", help="rename a job; condition names follow")
+    rj.add_argument("node", metavar="FOLDER/JOB")
+    rj.add_argument("new_name", metavar="NEW_JOBNAME")
+    rj.add_argument("--keep-names", action="store_true", help="do not rename condition names")
+    rj.add_argument(
+        "--with-memname", action="store_true", help="rename MEMNAME when it equals JOBNAME"
+    )
+    _refactor_options(rj)
+    rj.set_defaults(
+        func=cmd_refactor,
+        build=lambda r, a: refactor_mod.rename_job(
+            r, a.node, a.new_name, update_names=not a.keep_names, with_memname=a.with_memname
+        ),
+    )
+
+    rf = commands.add_parser("rename-folder", help="rename a folder and everything that names it")
+    rf.add_argument("folder")
+    rf.add_argument("new_name", metavar="NEW_FOLDER_NAME")
+    rf.add_argument("--keep-names", action="store_true", help="do not rename condition names")
+    _refactor_options(rf)
+    rf.set_defaults(
+        func=cmd_refactor,
+        build=lambda r, a: refactor_mod.rename_folder(
+            r, a.folder, a.new_name, update_names=not a.keep_names
+        ),
+    )
+
+    rs = commands.add_parser("rename-subapp", help="rename a SUB_APPLICATION (one folder or all)")
+    rs.add_argument("old")
+    rs.add_argument("new")
+    rs.add_argument("--folder", help="only this folder")
+    _refactor_options(rs)
+    rs.set_defaults(
+        func=cmd_refactor,
+        build=lambda r, a: refactor_mod.rename_subapp(r, a.old, a.new, folder=a.folder),
+    )
+
+    mj = commands.add_parser("move-job", help="move a job to another folder")
+    mj.add_argument("node", metavar="FOLDER/JOB")
+    mj.add_argument("target", metavar="TARGET_FOLDER")
+    _refactor_options(mj)
+    mj.set_defaults(
+        func=cmd_refactor, build=lambda r, a: refactor_mod.move_job(r, a.node, a.target)
+    )
+
+    ij = commands.add_parser("insert-job", help="insert a new job between two linked jobs")
+    ij.add_argument("node", metavar="FOLDER/NEW_JOB")
+    ij.add_argument("--after", required=True, metavar="FOLDER/JOB", help="upstream job")
+    ij.add_argument("--before", required=True, metavar="FOLDER/JOB", help="downstream job")
+    ij.add_argument("--like", metavar="FOLDER/JOB", help="copy the attributes of this job")
+    ij.add_argument("--link", help="link id or name when several links join the two jobs")
+    _refactor_options(ij)
+    ij.set_defaults(
+        func=cmd_refactor,
+        build=lambda r, a: refactor_mod.insert_job(
+            r, a.node, after=a.after, before=a.before, like=a.like, link=a.link
+        ),
+    )
+
+    ev = commands.add_parser(
+        "extract-variable", help="move a literal of a command into a job variable"
+    )
+    ev.add_argument("target", metavar="FOLDER/JOB|FOLDER/")
+    ev.add_argument("--literal", required=True, help="text to move out of the attribute")
+    ev.add_argument(
+        "--as", dest="variable", required=True, help="variable name, e.g. %%%%DATASERVER"
+    )
+    ev.add_argument("--attribute", default="CMDLINE", help="attribute to edit (default: CMDLINE)")
+    _refactor_options(ev)
+    ev.set_defaults(
+        func=cmd_refactor,
+        build=lambda r, a: refactor_mod.extract_variable(
+            r, a.target, a.literal, a.variable, attribute=a.attribute
+        ),
+    )
+
+
+def cmd_refactor(args: argparse.Namespace) -> int:
+    repo = load_repo(args.repo)
+    change = args.build(repo, args)
+    result = refactor_mod.apply(repo, change) if args.apply and change.edits else None
+    if args.format == "json":
+        print(
+            json.dumps(
+                {**change.to_json(), "applied": result is not None}, indent=2, ensure_ascii=False
+            )
+        )
+        return EXIT_OK
+    print(change.summary)
+    for warning in change.warnings:
+        print(f"warning: {warning}")
+    if not change.edits:
+        print("Nothing to change.")
+        return EXIT_OK
+    print(change.stat() if args.stat else change.diff(), end="")
+    if result is not None:
+        print(f"Applied: {result.written} written, {result.deleted} deleted")
+    else:
+        print(f"Preview only: {_plural(len(change.edits), 'file')}; re-run with --apply to write.")
+    return EXIT_OK
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Parse ``argv`` and dispatch to one core operation. Returns the process exit code."""
     parser = build_parser()
@@ -481,6 +599,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     except ChainError as exc:
         print(f"ctmchain: error: {exc}", file=sys.stderr)
         return EXIT_ERROR
+    except BrokenPipeError:  # e.g. `ctmchain validate | head`: the reader went away
+        devnull = os.open(os.devnull, os.O_WRONLY)
+        os.dup2(devnull, sys.stdout.fileno())
+        return EXIT_OK
     except OSError as exc:
         print(f"ctmchain: error: {exc}", file=sys.stderr)
         return EXIT_ERROR

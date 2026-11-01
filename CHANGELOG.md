@@ -31,7 +31,14 @@ All notable changes to this project are documented here. The format follows
 - `import --dedupe-jobnames`: repeated JOBNAMEs get a numeric suffix (`X`, `X2`, `X3`), the
   originals are kept in `meta/` and the policy in `chain.json`; `export --jobnames original`
   restores them byte for byte.
+- Refactorings with change-set preview and `--apply`: `rename-job`, `rename-folder`,
+  `rename-subapp`, `move-job`, `insert-job`, `extract-variable`. Previews show a unified diff
+  (`--stat`, `--format json`); apply refuses files changed since the preview.
 - Package skeleton, CI (lint, types, tests, web, build) and release workflows, community files.
 - `DESIGN.md` (architecture and data model) and `BACKLOG.md` (proof-of-concept plan and status).
+
+### Fixed
+
+- Piping CLI output into a reader that closes early (`| head`) no longer prints a BrokenPipe error.
 
 [Unreleased]: https://github.com/bilouro/controlm-chain-admin/commits/main

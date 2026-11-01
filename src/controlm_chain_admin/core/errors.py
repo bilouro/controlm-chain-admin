@@ -49,3 +49,7 @@ class UnresolvedConstant(ChainError):
 
 class ConstantConflict(ChainError):
     """A constant definition contradicts the registry (name, selector or duplicate value)."""
+
+
+class ChangeConflict(ChainError):
+    """A file touched by a change set was modified after the preview was computed."""

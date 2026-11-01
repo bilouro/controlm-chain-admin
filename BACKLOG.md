@@ -167,8 +167,9 @@ or addresses anywhere in this public repository.
    the hosts, users and mail recipients still need their per-environment values.
 2. **Links as the source of truth — DONE (2026-11-01)**, with `--names standard`, collision
    rules and `--dedupe-jobnames` (real data: 119 jobs renamed, standard-name collisions 100 → 0).
-3. **Refactorings** with change-set preview (`rename-job`, `rename-subapp`, `move-job`,
-   `insert-job`, `extract-variable`).
+3. **Refactorings — DONE (2026-11-01)** with change-set preview and `--apply`: `rename-job`,
+   `rename-folder`, `rename-subapp`, `move-job`, `insert-job`, `extract-variable`. Rename and
+   rename back restores the real export byte for byte; a preview takes ~1 s on the real repo.
 
 Later, unordered: overrides and `envs` variants; second-environment import with learning; `diff`
 and `xmldiffreport`; mapping editor and editing in the UI; git bar; PyPI release and bilingual

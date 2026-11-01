@@ -57,8 +57,18 @@ ctmchain export --env prod -o prod.xml --repo ./my-chains           # same chain
 ctmchain serve --repo ./my-chains                                   # local read-only web UI
 ```
 
-Other commands: `show FOLDER/JOB`, `links FOLDER/JOB`, `links --name <condition>`. Every
-command takes `--format json` where a report is produced. All examples use the fictional
+Refactorings preview a change set and write only with `--apply`:
+
+```bash
+ctmchain rename-job P77_INGEST_DAILY/P77_INGEST_LOAD P77_INGEST_POSITIONS   # diff only
+ctmchain rename-subapp P77_BATCH P77_CORE --folder P77_INGEST_DAILY --apply
+ctmchain insert-job P77_INGEST_DAILY/P77_CHECK --after P77_INGEST_DAILY/P77_INGEST_INIT \
+    --before P77_INGEST_DAILY/P77_INGEST_LOAD --apply
+```
+
+Also `rename-folder`, `move-job`, `extract-variable`, `map`, `env constants`, `show FOLDER/JOB`,
+`links FOLDER/JOB`, `links --name <condition>`. Every command takes `--format json` where a
+report is produced. All examples use the fictional
 application `P77`; the repository never contains real exports.
 
 ## Development

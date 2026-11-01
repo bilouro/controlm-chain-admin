@@ -271,10 +271,27 @@ element exists only on one side. It runs as a dry-run report first.
 
 ## 9. Refactorings (change-set with preview)
 
-`rename-job`, `rename-subapp`, `rename-folder`, `move-job`, `insert-job` (re-link a chain
-around a new node), `extract-variable` (move an environment-specific literal from a command into
-a job variable), `dedupe-jobnames`. Each prints the change-set and the affected links before
-writing; each propagates to condition names according to the name policy.
+Implemented (2026-11-01) in `core/refactor.py`, all through the same engine: the refactoring
+runs on a temporary copy of the tracked files (`chain.json`, `meta/`, `folders/` without the
+derived `index.json`), `links.json` is recomputed there, and the change set is the diff of the two
+trees. The CLI prints the summary, warnings and a unified diff (`--stat` for the file list,
+`--format json` for tools) and writes only with `--apply`. `apply` refuses when any file changed
+since the preview, stages every write before replacing, prunes emptied folder directories and
+rebuilds `index.json`. On the real repository a preview takes about 1 s.
+
+| Command | What it changes |
+|---|---|
+| `rename-job F/J NEW [--keep-names] [--with-memname]` | job file, `folder.json` order, metadata; condition names whose dash-separated parts embed the old name follow (`A-B_OK`, `A-TO-B`, `A-B_OK-U26`); MEMNAME only with the flag; an explicit rename drops the deduplication original |
+| `rename-folder F NEW [--keep-names]` | directory, `FOLDER_NAME`/`JOBNAME`/`PARENT_FOLDER`, every job's `PARENT_FOLDER`, metadata file, folder order; names of folder-level conditions follow |
+| `rename-subapp OLD NEW [--folder F]` | `SUB_APPLICATION` on the folder and jobs that carry it |
+| `move-job F/J TARGET` | job file and metadata move, `PARENT_FOLDER`, both folder lists; links travel with the job and their home follows the consumer; warns when the sub-application differs |
+| `insert-job F/NEW --after F/A --before F/B [--like F/J] [--link ID]` | the A→B link now ends at NEW (its name follows when it embeds B); a new link `NEW-B_OK` takes NEW to B, which now waits for and cleans it up; `--like` clones a job without its conditions; otherwise a minimal Dummy |
+| `extract-variable F/J\|F/ --literal V --as %%NAME [--attribute CMDLINE]` | replaces the literal by the variable and adds `VARIABLE NAME=%%NAME VALUE=V` to each job; refuses a variable already defined with another value |
+
+Names given to refactorings are environment-neutral; a name that looks lettered, or that lacks a
+prefix of the letter rule, produces a warning. Renaming a job or folder and renaming it back
+restores the export byte for byte (verified on the real export). Not yet: `remove-job`, `link`,
+`unlink`, and the same change sets through the web API (preview → apply endpoints).
 
 ## 10. Packaging and interface
 
@@ -413,7 +430,7 @@ Comparison
 - `diff <A> <B>` — A and B may be repo directories, git refs, `env:<name>` resolved views or XML files; XML↔XML goes through `xmldiffreport`.
 
 Refactorings
-- `rename-job`, `rename-folder`, `rename-subapp`, `move-job`, `insert-job`, `remove-job`, `link`, `unlink`, `extract-variable`, `dedupe-jobnames`, `standardize-names`.
+- Implemented: `rename-job`, `rename-folder`, `rename-subapp`, `move-job`, `insert-job`, `extract-variable` (see §9); deduplication and standard names are import/export policies (`--dedupe-jobnames`, `--names standard`). Planned: `remove-job`, `link`, `unlink`.
 - `set --where <filter> <ATTR>=<value>...` — bulk attribute change on the nodes matching a filter (folder, sub-application, task type…).
 
 Environments
