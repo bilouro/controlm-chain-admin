@@ -16,7 +16,15 @@ class Settings(BaseSettings):
     host: str = "127.0.0.1"
     port: int = 8765
     open_browser: bool = True
+    #: Session token required by every mutating request (header ``X-Ctmchain-Token``). When
+    #: ``None`` the app generates one; ``ctmchain serve`` passes it in the URL it opens.
+    token: str | None = None
+    #: Host headers accepted (protects the local server from DNS rebinding).
+    allowed_hosts: list[str] = ["127.0.0.1", "localhost"]
 
     @property
     def url(self) -> str:
         return f"http://{self.host}:{self.port}/"
+
+    def editor_url(self, token: str) -> str:
+        return f"{self.url}?token={token}"

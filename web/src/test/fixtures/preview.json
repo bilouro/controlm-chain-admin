@@ -1,0 +1,12 @@
+{
+  "summary": "set 1 attribute(s) on P77_CHAIN/P77_B",
+  "warnings": [],
+  "files": [
+    {
+      "path": "folders/P77_CHAIN/jobs/P77_B.json",
+      "change": "modify"
+    }
+  ],
+  "diff": "--- a/folders/P77_CHAIN/jobs/P77_B.json\n+++ b/folders/P77_CHAIN/jobs/P77_B.json\n@@ -9,4 +9,5 @@\n   \"CMDLINE\": \"/opt/p77/bin/b.ksh\",\n   \"PARENT_FOLDER\": \"P77_CHAIN\",\n+  \"DESCRIPTION\": \"Loaded\",\n   \"INCOND\": [\n     {\n",
+  "fingerprint": "b45f7def8ed309c39803865df5845bd3246941a9a1cc711d932c371bcc8cfbe3"
+}

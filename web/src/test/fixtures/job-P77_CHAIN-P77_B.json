@@ -129,5 +129,47 @@
         ]
       }
     ]
-  }
+  },
+  "predecessors": [
+    {
+      "link": "P77_A-P77_B_OK",
+      "name": "P77_A-P77_B_OK",
+      "peers": [
+        {
+          "node": "P77_CHAIN/P77_A",
+          "and_or": null,
+          "cleanup": false,
+          "conditional": null
+        }
+      ],
+      "odate": "ODAT",
+      "and_or": "A",
+      "cleanup": true,
+      "sign": "",
+      "on_code": null,
+      "kind": "edge",
+      "external": false
+    }
+  ],
+  "successors": [
+    {
+      "link": "P77_B-P77_C_OK",
+      "name": "P77_B-P77_C_OK",
+      "peers": [
+        {
+          "node": "P77_CHAIN/P77_C",
+          "and_or": "A",
+          "cleanup": false,
+          "conditional": null
+        }
+      ],
+      "odate": "ODAT",
+      "and_or": null,
+      "cleanup": false,
+      "sign": "+",
+      "on_code": null,
+      "kind": "edge",
+      "external": false
+    }
+  ]
 }

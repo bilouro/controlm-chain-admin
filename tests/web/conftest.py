@@ -16,6 +16,7 @@ from tests.support.anomalies import ANOMALY_EXPORT
 from tests.support.samples import SAMPLE_EXPORT
 
 APP = "P77_RISK_ENGINE"
+TOKEN = "test-token"
 
 
 @pytest.fixture
@@ -29,6 +30,9 @@ def repo_root(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def client(repo_root: Path) -> Iterator[TestClient]:
-    app = create_app(Settings(repo=repo_root, open_browser=False))
+    settings = Settings(
+        repo=repo_root, open_browser=False, token=TOKEN, allowed_hosts=["testserver"]
+    )
+    app = create_app(settings)
     with TestClient(app) as test_client:
         yield test_client

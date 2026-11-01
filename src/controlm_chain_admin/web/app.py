@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
+import secrets
+import threading
 from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from controlm_chain_admin import __version__
 from controlm_chain_admin.web import errors
-from controlm_chain_admin.web.routers import folders, jobs, repo, validate
+from controlm_chain_admin.web.routers import changes, folders, jobs, repo, table, validate
 from controlm_chain_admin.web.settings import Settings
 
 STATIC_DIR = Path(__file__).with_name("static")
@@ -31,6 +34,8 @@ TAGS = [
     {"name": "folders", "description": "Folders, their jobs, links and chain graph."},
     {"name": "jobs", "description": "One job with grouped attributes, ON blocks and links."},
     {"name": "validate", "description": "Validation findings and links by condition name."},
+    {"name": "table", "description": "Folders and jobs with predecessors and successors."},
+    {"name": "changes", "description": "Preview and apply edits (needs the session token)."},
 ]
 
 
@@ -39,12 +44,17 @@ def create_app(settings: Settings) -> FastAPI:
     app = FastAPI(
         title="controlm-chain-admin",
         version=__version__,
-        description="Read-only API over a chain repository (see DESIGN.md).",
+        description="API over a chain repository; edits go through previewed change sets.",
         openapi_tags=TAGS,
     )
     app.state.settings = settings
+    app.state.token = settings.token or secrets.token_urlsafe(18)
+    app.state.write_lock = threading.Lock()
+    app.add_middleware(
+        TrustedHostMiddleware, allowed_hosts=sorted({*settings.allowed_hosts, settings.host})
+    )
     errors.register(app)
-    for router in (repo.router, folders.router, jobs.router, validate.router):
+    for router in (repo.router, table.router, folders.router, jobs.router, validate.router, changes.router):
         app.include_router(router)
 
     if (STATIC_DIR / "index.html").is_file():

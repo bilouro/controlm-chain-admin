@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, NavLink, Navigate, Route, Routes } from "react-router";
-import { FolderListPage } from "@/features/folders/FolderListPage";
+import { ChainTablePage } from "@/features/chain-table/ChainTablePage";
+import { ChangeProvider } from "@/features/changes/ChangeProvider";
 import { FolderPage } from "@/features/folder-graph/FolderPage";
 import { JobPage } from "@/features/job-detail/JobPage";
 import { ValidatePage } from "@/features/validate/ValidatePage";
@@ -33,7 +34,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <header className="flex items-center gap-4 border-b border-border bg-surface px-4 py-2">
         <span className="font-semibold tracking-tight">ctmchain</span>
         <nav aria-label="Main" className="flex gap-1">
-          <NavItem to="/folders">Folders</NavItem>
+          <NavItem to="/">Chains</NavItem>
           <NavItem to="/validate">Validate</NavItem>
         </nav>
         <div className="ml-auto">
@@ -48,8 +49,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 export function AppRoutes() {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/folders" replace />} />
-      <Route path="/folders" element={<FolderListPage />} />
+      <Route path="/" element={<ChainTablePage />} />
+      <Route path="/folders" element={<Navigate to="/" replace />} />
       <Route path="/folders/:folder" element={<FolderPage />} />
       <Route path="/folders/:folder/jobs/:job" element={<JobPage />} />
       <Route path="/validate" element={<ValidatePage />} />
@@ -62,9 +63,11 @@ export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <AppShell>
-          <AppRoutes />
-        </AppShell>
+        <ChangeProvider>
+          <AppShell>
+            <AppRoutes />
+          </AppShell>
+        </ChangeProvider>
       </BrowserRouter>
     </QueryClientProvider>
   );

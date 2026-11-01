@@ -119,5 +119,35 @@
       }
     ],
     "unconsumed": []
-  }
+  },
+  "groups": {
+    "identity": {
+      "APPLICATION": "P77_RISK_ENGINE",
+      "SUB_APPLICATION": "P77_BATCH",
+      "JOBNAME": "P77_INGEST_DAILY",
+      "DESCRIPTION": "Daily ingest & load",
+      "CREATED_BY": "user01",
+      "TASKTYPE": "SMART Table",
+      "FOLDER_NAME": "P77_INGEST_DAILY",
+      "TYPE": "2"
+    },
+    "execution": {
+      "RUN_AS": "aup77proc"
+    }
+  },
+  "predecessors": [
+    {
+      "link": "P77_PRICING-P77_INGEST_DAILY_OK",
+      "name": "P77_PRICING-P77_INGEST_DAILY_OK",
+      "peers": [],
+      "odate": "ODAT",
+      "and_or": "A",
+      "cleanup": true,
+      "sign": "",
+      "on_code": null,
+      "kind": "dangling",
+      "external": true
+    }
+  ],
+  "successors": []
 }

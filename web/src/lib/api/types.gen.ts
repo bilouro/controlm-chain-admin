@@ -4,6 +4,40 @@
  */
 
 export interface paths {
+  "/api/changes/apply": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Apply a previewed change */
+    post: operations["apply_change_api_changes_apply_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/changes/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Preview a change */
+    post: operations["preview_api_changes_preview_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/folders": {
     parameters: {
       query?: never;
@@ -89,6 +123,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/table": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Folders and jobs with their neighbours */
+    get: operations["table_api_table_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/validate": {
     parameters: {
       query?: never;
@@ -110,6 +161,68 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /** ApplyOut */
+    ApplyOut: {
+      /** Deleted */
+      deleted: number;
+      /** Written */
+      written: number;
+    };
+    /** ApplyRequest */
+    ApplyRequest: {
+      /**
+       * Fingerprint
+       * @description fingerprint returned by the preview
+       */
+      fingerprint: string;
+      /**
+       * Op
+       * @description operation name, e.g. set-attributes, link, unlink, rename-job
+       */
+      op: string;
+      /**
+       * Params
+       * @default {}
+       */
+      params: {
+        [key: string]: unknown;
+      };
+    };
+    /** ChangePreview */
+    ChangePreview: {
+      /** Diff */
+      diff: string;
+      /** Files */
+      files: components["schemas"]["ChangedFile"][];
+      /** Fingerprint */
+      fingerprint: string;
+      /** Summary */
+      summary: string;
+      /** Warnings */
+      warnings: string[];
+    };
+    /** ChangeRequest */
+    ChangeRequest: {
+      /**
+       * Op
+       * @description operation name, e.g. set-attributes, link, unlink, rename-job
+       */
+      op: string;
+      /**
+       * Params
+       * @default {}
+       */
+      params: {
+        [key: string]: unknown;
+      };
+    };
+    /** ChangedFile */
+    ChangedFile: {
+      /** Change */
+      change: string;
+      /** Path */
+      path: string;
+    };
     /** EdgeOut */
     EdgeOut: {
       /** Conditional */
@@ -153,10 +266,29 @@ export interface components {
         [key: string]: unknown;
       };
       graph: components["schemas"]["GraphOut"];
+      /**
+       * Groups
+       * @default {}
+       */
+      groups: {
+        [key: string]: {
+          [key: string]: string;
+        };
+      };
       /** Jobs */
       jobs: components["schemas"]["JobSummary"][];
       /** Links */
       links: components["schemas"]["LinkOut"][];
+      /**
+       * Predecessors
+       * @default []
+       */
+      predecessors: components["schemas"]["RelationOut"][];
+      /**
+       * Successors
+       * @default []
+       */
+      successors: components["schemas"]["RelationOut"][];
     };
     /** FolderList */
     FolderList: {
@@ -222,10 +354,20 @@ export interface components {
       on: {
         [key: string]: unknown;
       }[];
+      /**
+       * Predecessors
+       * @default []
+       */
+      predecessors: components["schemas"]["RelationOut"][];
       /** Raw */
       raw: {
         [key: string]: unknown;
       };
+      /**
+       * Successors
+       * @default []
+       */
+      successors: components["schemas"]["RelationOut"][];
     };
     /** JobSummary */
     JobSummary: {
@@ -280,6 +422,63 @@ export interface components {
       /** Node */
       node: string;
     };
+    /** Neighbour */
+    Neighbour: {
+      /** External */
+      external: boolean;
+      /** Link */
+      link: string;
+      /** Name */
+      name: string;
+      /**
+       * Node
+       * @description FOLDER/JOB or FOLDER/; null when outside the repository
+       */
+      node: string | null;
+    };
+    /** PeerOut */
+    PeerOut: {
+      /** And Or */
+      and_or?: string | null;
+      /**
+       * Cleanup
+       * @default false
+       */
+      cleanup: boolean;
+      /** Conditional */
+      conditional?: string | null;
+      /** Node */
+      node: string;
+    };
+    /** RelationOut */
+    RelationOut: {
+      /** And Or */
+      and_or?: string | null;
+      /**
+       * Cleanup
+       * @default false
+       */
+      cleanup: boolean;
+      /** External */
+      external: boolean;
+      /** Kind */
+      kind: string;
+      /** Link */
+      link: string;
+      /** Name */
+      name: string;
+      /** Odate */
+      odate: string;
+      /** On Code */
+      on_code?: string | null;
+      /** Peers */
+      peers: components["schemas"]["PeerOut"][];
+      /**
+       * Sign
+       * @default
+       */
+      sign: string;
+    };
     /** RepoInfo */
     RepoInfo: {
       /** Application */
@@ -293,6 +492,49 @@ export interface components {
       letter_rule: components["schemas"]["LetterRuleOut"];
       /** Root */
       root: string;
+    };
+    /** TableFolder */
+    TableFolder: {
+      /** Application */
+      application?: string | null;
+      /** Description */
+      description?: string | null;
+      /** Jobs */
+      jobs: components["schemas"]["TableJob"][];
+      /** Name */
+      name: string;
+      /** Predecessors */
+      predecessors: components["schemas"]["Neighbour"][];
+      /** Sub Application */
+      sub_application?: string | null;
+      /** Successors */
+      successors: components["schemas"]["Neighbour"][];
+    };
+    /** TableJob */
+    TableJob: {
+      /** Application */
+      application?: string | null;
+      /** Description */
+      description?: string | null;
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+      /** Node Id */
+      node_id?: string | null;
+      /** Predecessors */
+      predecessors: components["schemas"]["Neighbour"][];
+      /** Sub Application */
+      sub_application?: string | null;
+      /** Successors */
+      successors: components["schemas"]["Neighbour"][];
+      /** Task Type */
+      task_type?: string | null;
+    };
+    /** TableOut */
+    TableOut: {
+      /** Folders */
+      folders: components["schemas"]["TableFolder"][];
     };
     /** ValidateOut */
     ValidateOut: {
@@ -329,6 +571,104 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  apply_change_api_changes_apply_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ApplyRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApplyOut"];
+        };
+      };
+      /** @description Missing or wrong session token */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The repository changed since the preview */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description The change is not allowed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+    };
+  };
+  preview_api_changes_preview_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ChangeRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ChangePreview"];
+        };
+      };
+      /** @description Missing or wrong session token */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The repository changed since the preview */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description The change is not allowed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+    };
+  };
   list_folders_api_folders_get: {
     parameters: {
       query?: {
@@ -500,6 +840,26 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["RepoInfo"];
+        };
+      };
+    };
+  };
+  table_api_table_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TableOut"];
         };
       };
     };

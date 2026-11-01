@@ -9,8 +9,10 @@ from fastapi.responses import JSONResponse
 
 from controlm_chain_admin.core.errors import (
     ChainError,
+    ChangeConflict,
     DuplicateName,
     EnvironmentRequired,
+    InvalidChange,
     ModelError,
     NotAChainRepo,
     OrderConflict,
@@ -22,6 +24,8 @@ from controlm_chain_admin.core.errors import (
 log = logging.getLogger("ctmchain.web")
 
 _STATUS: tuple[tuple[type[ChainError], int], ...] = (
+    (InvalidChange, 422),  # before ModelError, its base class
+    (ChangeConflict, 409),
     (ModelError, 404),
     (UnknownEnvironment, 404),
     (NotAChainRepo, 503),

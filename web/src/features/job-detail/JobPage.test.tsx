@@ -1,6 +1,9 @@
 import { screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
+import preview from "@/test/fixtures/preview.json";
 import { renderAt } from "@/test/render";
+import { calls } from "@/test/server";
 import { JobPage } from "./JobPage";
 
 const at = (folder: string, job: string) =>
@@ -10,27 +13,55 @@ const at = (folder: string, job: string) =>
   });
 
 describe("JobPage", () => {
-  it("shows grouped attributes, metadata, links and ON blocks", async () => {
-    at("P77_INGEST_DAILY", "P77_INGEST_LOAD");
-
-    expect(
-      await screen.findByRole("heading", { level: 1, name: "P77_INGEST_LOAD" }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Identity" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Execution" })).toBeInTheDocument();
-    expect(screen.getByText("/opt/p77/bin/load.ksh -d %%ODATE")).toBeInTheDocument();
-    expect(screen.getByText("JOBISN")).toBeInTheDocument();
-    expect(screen.getByText("P77_INGEST_INIT-P77_INGEST_LOAD_OK")).toBeInTheDocument();
-    expect(screen.getByText("waits for")).toBeInTheDocument();
-    expect(screen.getByText(/ON \* NOTOK/)).toBeInTheDocument();
-    expect(screen.getByText("DOMAIL")).toBeInTheDocument();
-  });
-
-  it("links back to the folder in the breadcrumb", async () => {
+  it("shows the job with its section tabs", async () => {
     at("P77_CHAIN", "P77_B");
 
-    const crumb = await screen.findByRole("navigation", { name: "Breadcrumb" });
-    expect(crumb.querySelector('a[href="/folders/P77_CHAIN"]')).not.toBeNull();
+    expect(await screen.findByRole("heading", { level: 1, name: "P77_B" })).toBeInTheDocument();
+    const tabs = screen.getAllByRole("tab").map((tab) => tab.textContent);
+    expect(tabs).toEqual([
+      "General",
+      "Execution",
+      "Variables",
+      "Predecessors & successors (1/1)",
+      "ON blocks",
+      "Metadata",
+      "Raw JSON",
+    ]);
+    expect(screen.getByRole("tab", { name: "General" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByText("(use Rename)")).toBeInTheDocument();
+  });
+
+  it("edits an attribute through the review dialog", async () => {
+    const user = userEvent.setup();
+    at("P77_CHAIN", "P77_B");
+    await user.click(await screen.findByRole("tab", { name: "Execution" }));
+
+    const cmd = screen.getByLabelText("CMDLINE");
+    await user.clear(cmd);
+    await user.type(cmd, "/opt/p77/bin/b2.ksh");
+    await user.click(screen.getByRole("button", { name: "Review changes" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Review change" });
+    expect(dialog).toHaveTextContent(preview.summary);
+    expect(calls.preview[0]).toEqual({
+      op: "set-attributes",
+      params: { node: "P77_CHAIN/P77_B", changes: { CMDLINE: "/opt/p77/bin/b2.ksh" } },
+    });
+    await user.click(screen.getByRole("button", { name: "Apply" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("Applied: 1 written, 0 deleted.");
+    expect(calls.apply[0]).toMatchObject({
+      op: "set-attributes",
+      fingerprint: preview.fingerprint,
+    });
+  });
+
+  it("shows ON blocks and metadata read-only", async () => {
+    const user = userEvent.setup();
+    at("P77_INGEST_DAILY", "P77_INGEST_LOAD");
+    await user.click(await screen.findByRole("tab", { name: "ON blocks" }));
+    expect(screen.getByText(/ON \* NOTOK/)).toBeInTheDocument();
+    await user.click(screen.getByRole("tab", { name: "Metadata" }));
+    expect(screen.getByText("JOBISN")).toBeInTheDocument();
   });
 
   it("reports an unknown job", async () => {

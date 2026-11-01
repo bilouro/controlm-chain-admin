@@ -11,17 +11,27 @@ from __future__ import annotations
 
 import copy
 import difflib
+import hashlib
+import inspect
+import json
 import os
 import re
 import shutil
 import tempfile
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
-from controlm_chain_admin.core.errors import ChangeConflict, DuplicateName, ModelError
+from controlm_chain_admin.core.errors import (
+    ChangeConflict,
+    DuplicateName,
+    InvalidChange,
+    ModelError,
+    UnsafeName,
+)
+from controlm_chain_admin.core.jsonmodel import json_to_element
 from controlm_chain_admin.core.links import (
     INDEX_FILE,
     LINK_KEY,
@@ -227,14 +237,30 @@ def rename_in_condition(name: str, old: str, new: str) -> str:
     return "-".join(parts)
 
 
-def _require_job(repo: ChainRepo, node: str) -> NodeRef:
+#: A folder or job id as stored on disk: a safe file name, plus ``~n`` for a repeated JOBNAME.
+_SAFE_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._\-]*(?:~\d+)?")
+
+
+def _safe_ref(node: str) -> NodeRef:
+    """Parse ``FOLDER/JOB`` or ``FOLDER/``; names that could leave their directory are refused."""
     ref = NodeRef.parse(node)
+    if not _SAFE_ID.fullmatch(ref.folder) or (
+        ref.job is not None and not _SAFE_ID.fullmatch(ref.job)
+    ):
+        raise UnsafeName(f"invalid node {node!r} (use FOLDER/JOB or FOLDER/)")
+    return ref
+
+
+def _require_job(repo: ChainRepo, node: str) -> NodeRef:
+    ref = _safe_ref(node)
     if ref.job is None or not repo.job_file(ref.folder, ref.job).is_file():
         raise ModelError(f"unknown job {node!r} (use FOLDER/JOB)")
     return ref
 
 
 def _require_folder(repo: ChainRepo, folder: str) -> None:
+    if not _SAFE_ID.fullmatch(folder):
+        raise UnsafeName(f"invalid folder name {folder!r}")
     if not repo.folder_file(folder).is_file():
         raise ModelError(f"unknown folder {folder!r}")
 
@@ -521,7 +547,7 @@ def insert_job(
     now waits for and cleans up that link. ``like`` clones another job's attributes.
     """
     repo = load_repo(repo.root)
-    new = NodeRef.parse(node)
+    new = _safe_ref(node)
     if new.job is None:
         raise ModelError(f"insert-job needs FOLDER/JOB, got {node!r}")
     _require_folder(repo, new.folder)
@@ -612,7 +638,7 @@ def extract_variable(
     if not variable.startswith("%%"):
         raise ModelError(f"Control-M variable names start with %%, got {variable!r}")
     repo = load_repo(repo.root)
-    ref = NodeRef.parse(target)
+    ref = _safe_ref(target)
     _require_folder(repo, ref.folder)
     if ref.job is not None:
         _require_job(repo, target)
@@ -643,3 +669,371 @@ def extract_variable(
             write_json(box.job_file(ref.folder, job_id), updated)
         summary = f"extract {literal!r} from {attribute} into {variable} in {len(hits)} job(s)"
         return _finish(original, box, summary, [])
+
+
+# ---------------------------------------------------------------- editing operations
+
+_ATTRIBUTE_NAME = re.compile(r"[A-Z][A-Z0-9_]*")
+_RENAMED_BY = {
+    "JOBNAME": "rename-job",
+    "FOLDER_NAME": "rename-folder",
+    "PARENT_FOLDER": "move-job",
+}
+_AND_OR = ("A", "O")
+
+
+def fingerprint(change: ChangeSet) -> str:
+    """Identity of a change set's content; apply checks it to refuse stale previews."""
+    payload = json.dumps([[e.path, e.before, e.after] for e in change.edits], ensure_ascii=False)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _require_node(repo: ChainRepo, node: str) -> NodeRef:
+    ref = _safe_ref(node)
+    _require_folder(repo, ref.folder)
+    if ref.job is not None and not repo.job_file(ref.folder, ref.job).is_file():
+        raise ModelError(f"unknown job {node!r}")
+    return ref
+
+
+def _node_file(repo: ChainRepo, ref: NodeRef) -> Path:
+    return repo.folder_file(ref.folder) if ref.job is None else repo.job_file(ref.folder, ref.job)
+
+
+def _node_tag(ref: NodeRef, data: Mapping[str, Any]) -> str:
+    return "JOB" if ref.job is not None else str(data.get("tag", "SMART_FOLDER"))
+
+
+def _write_node(
+    box: ChainRepo, ref: NodeRef, data: Mapping[str, Any], updates: Mapping[str, Any]
+) -> None:
+    """Write a node with group ``updates``; an empty list removes the group."""
+    kept = {key: value for key, value in data.items() if not (key in updates and not updates[key])}
+    groups = {key: value for key, value in updates.items() if value}
+    write_json(_node_file(box, ref), _with_groups(box, _node_tag(ref, kept), kept, groups))
+
+
+def set_attributes(repo: ChainRepo, node: str, changes: Mapping[str, str | None]) -> ChangeSet:
+    """Set (or remove, with ``None``) plain attributes of a job or a folder."""
+    repo = load_repo(repo.root)
+    ref = _require_node(repo, node)
+    if not changes:
+        raise InvalidChange("nothing to change")
+    volatile = set(repo.config.volatile_attributes)
+    warnings: list[str] = []
+    for key, value in changes.items():
+        if key in _RENAMED_BY:
+            raise InvalidChange(f"{key} is changed with {_RENAMED_BY[key]}")
+        if not _ATTRIBUTE_NAME.fullmatch(key):
+            raise InvalidChange(f"invalid attribute name {key!r} (upper case, digits, _)")
+        if key in volatile:
+            raise InvalidChange(f"{key} is export metadata kept in meta/; it is not edited")
+        if value is not None and not isinstance(value, str):
+            raise InvalidChange(f"{key}: the value must be text")
+        if value and key in repo.config.letter_rule.attributes:
+            warnings.extend(_name_warnings(repo, value))
+    original = _tracked(repo.root)
+    with _sandbox(original) as box:
+        data = dict(read_json(_node_file(box, ref)))
+        for key, value in changes.items():
+            if isinstance(data.get(key), list):
+                raise InvalidChange(f"{key} is a group of elements, not an attribute")
+            if value is None:
+                data.pop(key, None)
+            else:
+                data[key] = value
+        _write_node(box, ref, data, {})
+        summary = f"set {len(changes)} attribute(s) on {ref}"
+        return _finish(original, box, summary, warnings)
+
+
+def set_variables(repo: ChainRepo, node: str, variables: Sequence[Mapping[str, Any]]) -> ChangeSet:
+    """Replace the VARIABLE elements of a job or a folder (an empty list removes them)."""
+    repo = load_repo(repo.root)
+    ref = _require_node(repo, node)
+    clean: list[dict[str, str]] = []
+    for variable in variables:
+        name, value = variable.get("NAME"), variable.get("VALUE")
+        if not isinstance(name, str) or not name.startswith("%%"):
+            raise InvalidChange(f"Control-M variable names start with %%, got {name!r}")
+        if not isinstance(value, str):
+            raise InvalidChange(f"{name}: the value must be text")
+        if any(existing["NAME"] == name for existing in clean):
+            raise InvalidChange(f"{name} is defined twice")
+        clean.append({"NAME": name, "VALUE": value})
+    original = _tracked(repo.root)
+    with _sandbox(original) as box:
+        _write_node(box, ref, dict(read_json(_node_file(box, ref))), {"VARIABLE": clean})
+        summary = f"set {len(clean)} variable(s) on {ref}"
+        return _finish(original, box, summary, [])
+
+
+def replace_node(repo: ChainRepo, node: str, data: Mapping[str, Any]) -> ChangeSet:
+    """Replace the whole JSON of a node (advanced editing); identity fields cannot change."""
+    repo = load_repo(repo.root)
+    ref = _require_node(repo, node)
+    if not isinstance(data, Mapping):
+        raise InvalidChange("the node must be a JSON object")
+    current = read_json(_node_file(repo, ref))
+    fixed = ("JOBNAME", "PARENT_FOLDER") if ref.job is not None else ("FOLDER_NAME", "tag", "jobs")
+    for key in fixed:
+        if data.get(key) != current.get(key):
+            raise InvalidChange(
+                f"{key} cannot change here (use {_RENAMED_BY.get(key, 'the refactorings')})"
+            )
+    volatile = sorted(set(data) & set(repo.config.volatile_attributes))
+    if volatile:
+        raise InvalidChange(f"export metadata is kept in meta/, not in the node: {volatile}")
+    original = _tracked(repo.root)
+    with _sandbox(original) as box:
+        tag = _node_tag(ref, data)
+        for key, value in data.items():
+            if isinstance(value, list) and _ATTRIBUTE_NAME.fullmatch(key):
+                _ensure_child_tag(box, tag, key)
+        box = load_repo(box.root)
+        body = {k: v for k, v in data.items() if k not in ("tag", "jobs")}
+        try:
+            json_to_element(tag, body, box.config.child_order)
+        except ModelError as exc:
+            raise InvalidChange(str(exc)) from exc
+        write_json(_node_file(box, ref), _with_groups(box, tag, dict(data), {}))
+        return _finish(original, box, f"replace the JSON of {ref}", [])
+
+
+def _require_link(links: Mapping[str, Link], link_id: str) -> Link:
+    if link_id not in links:
+        raise InvalidChange(f"unknown link {link_id!r}")
+    return links[link_id]
+
+
+def _name_in_use(links: Mapping[str, Link], name: str, except_id: str | None = None) -> str | None:
+    for link in links.values():
+        if link.id != except_id and name in (link.id, link.name):
+            return link.id
+    return None
+
+
+def link_nodes(
+    repo: ChainRepo,
+    consumer: str,
+    *,
+    producer: str | None = None,
+    link: str | None = None,
+    name: str | None = None,
+    odate: str = "ODAT",
+    and_or: str = "A",
+    cleanup: bool = True,
+) -> ChangeSet:
+    """Make ``consumer`` wait for ``producer`` (a new link) or for an existing ``link``.
+
+    The producer emits the condition (OUTCOND ``+``), the consumer waits for it (INCOND with
+    ``and_or``) and, with ``cleanup``, deletes it once it ran (OUTCOND ``-``).
+    """
+    repo = load_repo(repo.root)
+    target = _require_node(repo, consumer)
+    if and_or not in _AND_OR:
+        raise InvalidChange(f"AND_OR must be A or O, got {and_or!r}")
+    source = _require_node(repo, producer) if producer else None
+    if source == target:
+        raise InvalidChange("a node cannot wait for itself")
+    links = load_links(repo)
+    warnings: list[str] = []
+    if link is not None:
+        existing = _require_link(links, link)
+        if target in existing.consumers:
+            raise InvalidChange(f"{target} already waits for {link}")
+        link_id, emit = link, source is not None and source not in existing.all_producers
+        odate = existing.odates[0] if existing.odates else odate
+    else:
+        if source is None:
+            raise InvalidChange("link needs a producer or an existing link")
+        already = [
+            c.id for c in links.values() if source in c.all_producers and target in c.consumers
+        ]
+        if already:
+            raise InvalidChange(f"{target} already waits for {source} ({already[0]})")
+        if name:
+            used = _name_in_use(links, name)
+            if used:
+                raise InvalidChange(f"condition name {name} is already used by link {used}")
+            link_id = name
+            warnings.extend(_name_warnings(repo, name))
+        else:
+            base = f"{source.name}-{target.name}_OK"
+            link_id, suffix = base, 2
+            while _name_in_use(links, link_id):
+                link_id, suffix = f"{base}_{suffix}", suffix + 1
+        emit = True
+    original = _tracked(repo.root)
+    with _sandbox(original) as box:
+        if emit and source is not None:
+            data = dict(read_json(_node_file(box, source)))
+            outs = [*data.get("OUTCOND", []), {LINK_KEY: link_id, "ODATE": odate, "SIGN": "+"}]
+            _write_node(box, source, data, {"OUTCOND": outs})
+        data = dict(read_json(_node_file(box, target)))
+        updates: dict[str, Any] = {
+            "INCOND": [
+                *data.get("INCOND", []),
+                {LINK_KEY: link_id, "ODATE": odate, "AND_OR": and_or},
+            ]
+        }
+        if cleanup:
+            updates["OUTCOND"] = [
+                *data.get("OUTCOND", []),
+                {LINK_KEY: link_id, "ODATE": odate, "SIGN": "-"},
+            ]
+        _write_node(box, target, data, updates)
+        summary = f"{target} now waits for {link_id}" + (f" emitted by {source}" if source else "")
+        return _finish(original, box, summary, warnings)
+
+
+def unlink_nodes(repo: ChainRepo, link_id: str, consumer: str) -> ChangeSet:
+    """``consumer`` stops waiting for ``link_id``; with no consumer left the emission goes too."""
+    repo = load_repo(repo.root)
+    target_link = _require_link(load_links(repo), link_id)
+    target = _require_node(repo, consumer)
+    if target not in target_link.consumers:
+        raise InvalidChange(f"{target} does not wait for {link_id}")
+    remaining = [c for c in target_link.consumers if c != target]
+    warnings: list[str] = []
+    original = _tracked(repo.root)
+    with _sandbox(original) as box:
+        data = dict(read_json(_node_file(box, target)))
+        ins = [e for e in data.get("INCOND", []) if e.get(LINK_KEY) != link_id]
+        outs = [
+            e for e in data.get("OUTCOND", [])
+            if not (e.get(LINK_KEY) == link_id and e.get("SIGN") == "-")
+        ]  # fmt: skip
+        _write_node(box, target, data, {"INCOND": ins, "OUTCOND": outs})
+        summary = f"{target} no longer waits for {link_id}"
+        if not remaining:
+            for producer in target_link.producers:
+                pdata = dict(read_json(_node_file(box, producer)))
+                pouts = [
+                    e for e in pdata.get("OUTCOND", [])
+                    if not (e.get(LINK_KEY) == link_id and e.get("SIGN") == "+")
+                ]  # fmt: skip
+                _write_node(box, producer, pdata, {"OUTCOND": pouts})
+            if target_link.producers:
+                emitters = ", ".join(str(p) for p in target_link.producers)
+                summary += f"; no consumer left: emission removed from {emitters}"
+            for node, code in target_link.docond_add:
+                warnings.append(f"{node} still emits {link_id} from its ON {code} block")
+        return _finish(original, box, summary, warnings)
+
+
+def _set_odate(data: dict[str, Any], link_id: str, odate: str) -> None:
+    for group in ("INCOND", "OUTCOND"):
+        for entry in data.get(group, []):
+            if entry.get(LINK_KEY) == link_id:
+                entry["ODATE"] = odate
+    for block in data.get("ON", []):
+        for child in block.get("children", []):
+            if child.get("tag") == "DOCOND" and child.get(LINK_KEY) == link_id:
+                child["ODATE"] = odate
+
+
+def update_relation(
+    repo: ChainRepo,
+    link_id: str,
+    consumer: str,
+    *,
+    and_or: str | None = None,
+    odate: str | None = None,
+    cleanup: bool | None = None,
+) -> ChangeSet:
+    """Change how ``consumer`` waits for ``link_id``: AND_OR, cleanup (``-``) and the ODATE.
+
+    The ODATE is changed on every element of the link (emission, waits, deletions) so that
+    producer and consumers keep matching.
+    """
+    if and_or is not None and and_or not in _AND_OR:
+        raise InvalidChange(f"AND_OR must be A or O, got {and_or!r}")
+    if odate is not None and not odate.strip():
+        raise InvalidChange("ODATE cannot be empty")
+    if and_or is None and odate is None and cleanup is None:
+        raise InvalidChange("nothing to change")
+    repo = load_repo(repo.root)
+    target_link = _require_link(load_links(repo), link_id)
+    target = _require_node(repo, consumer)
+    if target not in target_link.consumers:
+        raise InvalidChange(f"{target} does not wait for {link_id}")
+    original = _tracked(repo.root)
+    with _sandbox(original) as box:
+        if odate is not None:
+            touched = {*target_link.producers, *target_link.consumers, *target_link.deleters}
+            touched |= {n for n, _ in (*target_link.docond_add, *target_link.docond_delete)}
+            for node in touched:
+                data = dict(read_json(_node_file(box, node)))
+                _set_odate(data, link_id, odate)
+                write_json(_node_file(box, node), data)
+        data = dict(read_json(_node_file(box, target)))
+        current_odate = odate or "ODAT"
+        for entry in data.get("INCOND", []):
+            if entry.get(LINK_KEY) == link_id:
+                current_odate = entry.get("ODATE", current_odate)
+                if and_or is not None:
+                    entry["AND_OR"] = and_or
+        outs = list(data.get("OUTCOND", []))
+        deletes = [e for e in outs if e.get(LINK_KEY) == link_id and e.get("SIGN") == "-"]
+        if cleanup is True and not deletes:
+            outs.append({LINK_KEY: link_id, "ODATE": current_odate, "SIGN": "-"})
+        if cleanup is False:
+            outs = [e for e in outs if e not in deletes]
+        _write_node(box, target, data, {"INCOND": data.get("INCOND", []), "OUTCOND": outs})
+        parts = [
+            f"AND_OR={and_or}" if and_or else "",
+            f"ODATE={odate}" if odate else "",
+            {True: "cleanup on", False: "cleanup off", None: ""}[cleanup],
+        ]
+        summary = f"{target} waiting for {link_id}: " + ", ".join(p for p in parts if p)
+        return _finish(original, box, summary, [])
+
+
+def rename_link(repo: ChainRepo, link_id: str, name: str) -> ChangeSet:
+    """Change the export name of a link (every INCOND/OUTCOND/DOCOND that refers to it)."""
+    repo = load_repo(repo.root)
+    links = load_links(repo)
+    _require_link(links, link_id)
+    if not name or any(ch.isspace() for ch in name):
+        raise InvalidChange(f"invalid condition name {name!r}")
+    used = _name_in_use(links, name, except_id=link_id)
+    if used:
+        raise InvalidChange(f"condition name {name} is already used by link {used}")
+    original = _tracked(repo.root)
+    with _sandbox(original) as box:
+        summary = f"rename condition {links[link_id].name} -> {name}"
+        return _finish(original, box, summary, _name_warnings(repo, name), {link_id: name})
+
+
+# ---------------------------------------------------------------- registry (used by the web API)
+
+OPERATIONS: dict[str, Callable[..., ChangeSet]] = {
+    "set-attributes": set_attributes,
+    "set-variables": set_variables,
+    "replace-node": replace_node,
+    "link": link_nodes,
+    "unlink": lambda repo, link, consumer: unlink_nodes(repo, link, consumer),
+    "update-relation": lambda repo, link, consumer, **kw: update_relation(
+        repo, link, consumer, **kw
+    ),
+    "rename-link": lambda repo, link, name: rename_link(repo, link, name),
+    "rename-job": rename_job,
+    "rename-folder": rename_folder,
+    "rename-subapp": rename_subapp,
+    "move-job": move_job,
+    "insert-job": insert_job,
+    "extract-variable": extract_variable,
+}
+
+
+def run_operation(repo: ChainRepo, op: str, params: Mapping[str, Any]) -> ChangeSet:
+    """Compute the change set of a named operation; parameters are checked before running."""
+    function = OPERATIONS.get(op)
+    if function is None:
+        raise InvalidChange(f"unknown operation {op!r}; known: {', '.join(sorted(OPERATIONS))}")
+    try:
+        inspect.signature(function).bind(repo, **params)
+    except TypeError as exc:
+        raise InvalidChange(f"{op}: {exc}") from exc
+    return function(repo, **params)

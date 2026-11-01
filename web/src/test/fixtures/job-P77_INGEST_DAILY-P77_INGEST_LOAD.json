@@ -115,5 +115,27 @@
         ]
       }
     ]
-  }
+  },
+  "predecessors": [
+    {
+      "link": "P77_INGEST_INIT-P77_INGEST_LOAD_OK",
+      "name": "P77_INGEST_INIT-P77_INGEST_LOAD_OK",
+      "peers": [
+        {
+          "node": "P77_INGEST_DAILY/P77_INGEST_INIT",
+          "and_or": null,
+          "cleanup": false,
+          "conditional": null
+        }
+      ],
+      "odate": "ODAT",
+      "and_or": "A",
+      "cleanup": true,
+      "sign": "",
+      "on_code": null,
+      "kind": "edge",
+      "external": false
+    }
+  ],
+  "successors": []
 }

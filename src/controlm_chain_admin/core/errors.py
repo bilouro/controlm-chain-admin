@@ -53,3 +53,7 @@ class ConstantConflict(ChainError):
 
 class ChangeConflict(ChainError):
     """A file touched by a change set was modified after the preview was computed."""
+
+
+class InvalidChange(ModelError):
+    """A requested edit is not allowed or not consistent (bad attribute, duplicate link...)."""

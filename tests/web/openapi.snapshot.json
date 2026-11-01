@@ -1,6 +1,127 @@
 {
   "components": {
     "schemas": {
+      "ApplyOut": {
+        "properties": {
+          "deleted": {
+            "title": "Deleted",
+            "type": "integer"
+          },
+          "written": {
+            "title": "Written",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "written",
+          "deleted"
+        ],
+        "title": "ApplyOut",
+        "type": "object"
+      },
+      "ApplyRequest": {
+        "properties": {
+          "fingerprint": {
+            "description": "fingerprint returned by the preview",
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "op": {
+            "description": "operation name, e.g. set-attributes, link, unlink, rename-job",
+            "title": "Op",
+            "type": "string"
+          },
+          "params": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Params",
+            "type": "object"
+          }
+        },
+        "required": [
+          "op",
+          "fingerprint"
+        ],
+        "title": "ApplyRequest",
+        "type": "object"
+      },
+      "ChangePreview": {
+        "properties": {
+          "diff": {
+            "title": "Diff",
+            "type": "string"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/ChangedFile"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "summary",
+          "warnings",
+          "files",
+          "diff",
+          "fingerprint"
+        ],
+        "title": "ChangePreview",
+        "type": "object"
+      },
+      "ChangeRequest": {
+        "properties": {
+          "op": {
+            "description": "operation name, e.g. set-attributes, link, unlink, rename-job",
+            "title": "Op",
+            "type": "string"
+          },
+          "params": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Params",
+            "type": "object"
+          }
+        },
+        "required": [
+          "op"
+        ],
+        "title": "ChangeRequest",
+        "type": "object"
+      },
+      "ChangedFile": {
+        "properties": {
+          "change": {
+            "title": "Change",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "change"
+        ],
+        "title": "ChangedFile",
+        "type": "object"
+      },
       "EdgeOut": {
         "properties": {
           "conditional": {
@@ -94,6 +215,17 @@
           "graph": {
             "$ref": "#/components/schemas/GraphOut"
           },
+          "groups": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "default": {},
+            "title": "Groups",
+            "type": "object"
+          },
           "jobs": {
             "items": {
               "$ref": "#/components/schemas/JobSummary"
@@ -106,6 +238,22 @@
               "$ref": "#/components/schemas/LinkOut"
             },
             "title": "Links",
+            "type": "array"
+          },
+          "predecessors": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/RelationOut"
+            },
+            "title": "Predecessors",
+            "type": "array"
+          },
+          "successors": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/RelationOut"
+            },
+            "title": "Successors",
             "type": "array"
           }
         },
@@ -296,10 +444,26 @@
             "title": "On",
             "type": "array"
           },
+          "predecessors": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/RelationOut"
+            },
+            "title": "Predecessors",
+            "type": "array"
+          },
           "raw": {
             "additionalProperties": true,
             "title": "Raw",
             "type": "object"
+          },
+          "successors": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/RelationOut"
+            },
+            "title": "Successors",
+            "type": "array"
           }
         },
         "required": [
@@ -475,6 +639,155 @@
         "title": "LooseEnd",
         "type": "object"
       },
+      "Neighbour": {
+        "properties": {
+          "external": {
+            "title": "External",
+            "type": "boolean"
+          },
+          "link": {
+            "title": "Link",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "node": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "FOLDER/JOB or FOLDER/; null when outside the repository",
+            "title": "Node"
+          }
+        },
+        "required": [
+          "node",
+          "link",
+          "name",
+          "external"
+        ],
+        "title": "Neighbour",
+        "type": "object"
+      },
+      "PeerOut": {
+        "properties": {
+          "and_or": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "And Or"
+          },
+          "cleanup": {
+            "default": false,
+            "title": "Cleanup",
+            "type": "boolean"
+          },
+          "conditional": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conditional"
+          },
+          "node": {
+            "title": "Node",
+            "type": "string"
+          }
+        },
+        "required": [
+          "node"
+        ],
+        "title": "PeerOut",
+        "type": "object"
+      },
+      "RelationOut": {
+        "properties": {
+          "and_or": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "And Or"
+          },
+          "cleanup": {
+            "default": false,
+            "title": "Cleanup",
+            "type": "boolean"
+          },
+          "external": {
+            "title": "External",
+            "type": "boolean"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "link": {
+            "title": "Link",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "odate": {
+            "title": "Odate",
+            "type": "string"
+          },
+          "on_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "On Code"
+          },
+          "peers": {
+            "items": {
+              "$ref": "#/components/schemas/PeerOut"
+            },
+            "title": "Peers",
+            "type": "array"
+          },
+          "sign": {
+            "default": "",
+            "title": "Sign",
+            "type": "string"
+          }
+        },
+        "required": [
+          "link",
+          "name",
+          "peers",
+          "odate",
+          "kind",
+          "external"
+        ],
+        "title": "RelationOut",
+        "type": "object"
+      },
       "RepoInfo": {
         "properties": {
           "application": {
@@ -513,6 +826,181 @@
           "root"
         ],
         "title": "RepoInfo",
+        "type": "object"
+      },
+      "TableFolder": {
+        "properties": {
+          "application": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Application"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "jobs": {
+            "items": {
+              "$ref": "#/components/schemas/TableJob"
+            },
+            "title": "Jobs",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "predecessors": {
+            "items": {
+              "$ref": "#/components/schemas/Neighbour"
+            },
+            "title": "Predecessors",
+            "type": "array"
+          },
+          "sub_application": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sub Application"
+          },
+          "successors": {
+            "items": {
+              "$ref": "#/components/schemas/Neighbour"
+            },
+            "title": "Successors",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "predecessors",
+          "successors",
+          "jobs"
+        ],
+        "title": "TableFolder",
+        "type": "object"
+      },
+      "TableJob": {
+        "properties": {
+          "application": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Application"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "node_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Node Id"
+          },
+          "predecessors": {
+            "items": {
+              "$ref": "#/components/schemas/Neighbour"
+            },
+            "title": "Predecessors",
+            "type": "array"
+          },
+          "sub_application": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sub Application"
+          },
+          "successors": {
+            "items": {
+              "$ref": "#/components/schemas/Neighbour"
+            },
+            "title": "Successors",
+            "type": "array"
+          },
+          "task_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Type"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "predecessors",
+          "successors"
+        ],
+        "title": "TableJob",
+        "type": "object"
+      },
+      "TableOut": {
+        "properties": {
+          "folders": {
+            "items": {
+              "$ref": "#/components/schemas/TableFolder"
+            },
+            "title": "Folders",
+            "type": "array"
+          }
+        },
+        "required": [
+          "folders"
+        ],
+        "title": "TableOut",
         "type": "object"
       },
       "ValidateOut": {
@@ -592,12 +1080,120 @@
     }
   },
   "info": {
-    "description": "Read-only API over a chain repository (see DESIGN.md).",
+    "description": "API over a chain repository; edits go through previewed change sets.",
     "title": "controlm-chain-admin",
     "version": "<version>"
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/changes/apply": {
+      "post": {
+        "operationId": "apply_change_api_changes_apply_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplyOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or wrong session token"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "The repository changed since the preview"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "The change is not allowed"
+          }
+        },
+        "summary": "Apply a previewed change",
+        "tags": [
+          "changes"
+        ]
+      }
+    },
+    "/api/changes/preview": {
+      "post": {
+        "operationId": "preview_api_changes_preview_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangePreview"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or wrong session token"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "The repository changed since the preview"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "The change is not allowed"
+          }
+        },
+        "summary": "Preview a change",
+        "tags": [
+          "changes"
+        ]
+      }
+    },
     "/api/folders": {
       "get": {
         "operationId": "list_folders_api_folders_get",
@@ -852,6 +1448,27 @@
         ]
       }
     },
+    "/api/table": {
+      "get": {
+        "operationId": "table_api_table_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TableOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Folders and jobs with their neighbours",
+        "tags": [
+          "table"
+        ]
+      }
+    },
     "/api/validate": {
       "get": {
         "operationId": "validate_repo_api_validate_get",
@@ -890,6 +1507,14 @@
     {
       "description": "Validation findings and links by condition name.",
       "name": "validate"
+    },
+    {
+      "description": "Folders and jobs with predecessors and successors.",
+      "name": "table"
+    },
+    {
+      "description": "Preview and apply edits (needs the session token).",
+      "name": "changes"
     }
   ]
 }

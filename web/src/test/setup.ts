@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom/vitest";
-import { afterAll, afterEach, beforeAll } from "vitest";
-import { server } from "./server";
+import { afterAll, afterEach, beforeAll, beforeEach } from "vitest";
+import { setToken } from "@/lib/api/session";
+import { calls, server, TEST_TOKEN } from "./server";
 
 // jsdom lacks ResizeObserver and matchMedia, which React Flow uses.
 class ResizeObserverStub {
@@ -24,5 +25,11 @@ if (!window.matchMedia) {
 }
 
 beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
-afterEach(() => server.resetHandlers());
+beforeEach(() => setToken(TEST_TOKEN));
+afterEach(() => {
+  server.resetHandlers();
+  calls.preview.length = 0;
+  calls.apply.length = 0;
+  sessionStorage.clear();
+});
 afterAll(() => server.close());

@@ -1,4 +1,11 @@
-import type { HTMLAttributes, ReactNode } from "react";
+import type {
+  ButtonHTMLAttributes,
+  HTMLAttributes,
+  InputHTMLAttributes,
+  KeyboardEvent,
+  ReactNode,
+  SelectHTMLAttributes,
+} from "react";
 import { cn } from "@/lib/utils";
 
 /* Small, hand-written primitives in the shadcn/ui spirit: tokens from index.css, no library. */
@@ -100,6 +107,120 @@ export function Kv({ label, value }: { label: string; value: ReactNode }) {
     <div className="grid grid-cols-[minmax(10rem,1fr)_2fr] gap-3 border-b border-border/60 py-1.5 text-sm last:border-0">
       <dt className="font-mono text-xs text-muted">{label}</dt>
       <dd className="break-all font-mono text-xs">{value}</dd>
+    </div>
+  );
+}
+
+export function Button({
+  variant = "primary",
+  size = "md",
+  className,
+  type = "button",
+  ...props
+}: ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: "primary" | "ghost" | "danger";
+  size?: "sm" | "md";
+}) {
+  const tones = {
+    primary: "bg-accent text-white hover:opacity-90 disabled:opacity-40",
+    ghost: "border border-border bg-surface hover:bg-surface-2 disabled:opacity-40",
+    danger: "border border-error/40 text-error hover:bg-error/10 disabled:opacity-40",
+  };
+  const sizes = { sm: "px-2 py-0.5 text-xs", md: "px-3 py-1.5 text-sm" };
+  return (
+    <button
+      type={type}
+      className={cn(
+        "rounded-md font-medium transition-colors",
+        tones[variant],
+        sizes[size],
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+export function TextInput({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
+  return (
+    <input
+      className={cn(
+        "w-full rounded-md border border-border bg-bg px-2 py-1 font-mono text-xs",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+export function SelectInput({ className, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
+  return (
+    <select
+      className={cn(
+        "rounded-md border border-border bg-bg px-1.5 py-1 font-mono text-xs",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+export type TabItem = { id: string; label: string };
+
+/** Accessible tab list (arrow keys move between tabs). */
+export function Tabs({
+  tabs,
+  active,
+  onChange,
+  label,
+}: {
+  tabs: TabItem[];
+  active: string;
+  onChange: (id: string) => void;
+  label: string;
+}) {
+  const handleKey = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+    const index = tabs.findIndex((tab) => tab.id === active);
+    const step = event.key === "ArrowRight" ? 1 : -1;
+    const next = tabs[(index + step + tabs.length) % tabs.length];
+    if (next) onChange(next.id);
+  };
+  return (
+    <div
+      role="tablist"
+      aria-label={label}
+      onKeyDown={handleKey}
+      className="flex flex-wrap gap-1 border-b border-border"
+    >
+      {tabs.map((tab) => (
+        <button
+          key={tab.id}
+          type="button"
+          role="tab"
+          id={`tab-${tab.id}`}
+          aria-selected={tab.id === active}
+          aria-controls={`panel-${tab.id}`}
+          tabIndex={tab.id === active ? 0 : -1}
+          onClick={() => onChange(tab.id)}
+          className={cn(
+            "-mb-px border-b-2 px-3 py-1.5 text-sm transition-colors",
+            tab.id === active
+              ? "border-accent font-medium text-accent"
+              : "border-transparent text-muted hover:text-text",
+          )}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export function TabPanel({ id, children }: { id: string; children: ReactNode }) {
+  return (
+    <div role="tabpanel" id={`panel-${id}`} aria-labelledby={`tab-${id}`} className="pt-3">
+      {children}
     </div>
   );
 }

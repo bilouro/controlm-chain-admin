@@ -1,44 +1,68 @@
 import type { components } from "./types.gen";
+import { getToken } from "./session";
 
 // The only source of API types is the generated file (npm run gen:api, from the OpenAPI snapshot).
-export type RepoInfo = components["schemas"]["RepoInfo"];
-export type FolderList = components["schemas"]["FolderList"];
-export type FolderSummary = components["schemas"]["FolderSummary"];
-export type FolderDetail = components["schemas"]["FolderDetail"];
-export type JobSummary = components["schemas"]["JobSummary"];
-export type JobDetail = components["schemas"]["JobDetail"];
-export type LinkOut = components["schemas"]["LinkOut"];
-export type GraphOut = components["schemas"]["GraphOut"];
-export type EdgeOut = components["schemas"]["EdgeOut"];
-export type ValidateOut = components["schemas"]["ValidateOut"];
-export type FindingOut = components["schemas"]["FindingOut"];
-export type ErrorOut = components["schemas"]["ErrorOut"];
+type Schemas = components["schemas"];
+export type RepoInfo = Schemas["RepoInfo"];
+export type FolderDetail = Schemas["FolderDetail"];
+export type JobSummary = Schemas["JobSummary"];
+export type JobDetail = Schemas["JobDetail"];
+export type LinkOut = Schemas["LinkOut"];
+export type GraphOut = Schemas["GraphOut"];
+export type EdgeOut = Schemas["EdgeOut"];
+export type ValidateOut = Schemas["ValidateOut"];
+export type FindingOut = Schemas["FindingOut"];
+export type RelationOut = Schemas["RelationOut"];
+export type PeerOut = Schemas["PeerOut"];
+export type TableOut = Schemas["TableOut"];
+export type TableFolder = Schemas["TableFolder"];
+export type TableJob = Schemas["TableJob"];
+export type Neighbour = Schemas["Neighbour"];
+export type ChangeRequest = Schemas["ChangeRequest"];
+export type ChangePreview = Schemas["ChangePreview"];
+export type ApplyOut = Schemas["ApplyOut"];
+
+export const TOKEN_HEADER = "X-Ctmchain-Token";
 
 export class ApiError extends Error {
   readonly status: number;
-  readonly body: ErrorOut | null;
 
-  constructor(status: number, body: ErrorOut | null, message: string) {
+  constructor(status: number, message: string) {
     super(message);
     this.name = "ApiError";
     this.status = status;
-    this.body = body;
   }
 }
 
-/** GET a JSON endpoint; API errors (common body) become ApiError. */
-export async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, { headers: { Accept: "application/json" }, ...init });
+async function parse<T>(response: Response): Promise<T> {
   if (!response.ok) {
-    let body: ErrorOut | null = null;
+    let message = `HTTP ${response.status}`;
     try {
-      body = (await response.json()) as ErrorOut;
+      const body = (await response.json()) as Record<string, unknown>;
+      const text = body.message ?? body.detail;
+      if (typeof text === "string") message = text;
     } catch {
-      body = null;
+      // not JSON: keep the status line
     }
-    throw new ApiError(response.status, body, body?.message ?? `HTTP ${response.status}`);
+    throw new ApiError(response.status, message);
   }
   return (await response.json()) as T;
+}
+
+/** GET a JSON endpoint; API errors become ApiError with the server's message. */
+export async function api<T>(path: string): Promise<T> {
+  return parse<T>(await fetch(path, { headers: { Accept: "application/json" } }));
+}
+
+/** POST JSON with the session token (editing endpoints). */
+export async function postApi<T>(path: string, body: unknown): Promise<T> {
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+    "Content-Type": "application/json",
+  };
+  const token = getToken();
+  if (token) headers[TOKEN_HEADER] = token;
+  return parse<T>(await fetch(path, { method: "POST", headers, body: JSON.stringify(body) }));
 }
 
 export const encode = encodeURIComponent;

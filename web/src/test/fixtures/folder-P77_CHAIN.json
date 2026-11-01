@@ -352,5 +352,46 @@
         "name": "P77_D-P77_NOBODY_OK"
       }
     ]
-  }
+  },
+  "groups": {
+    "identity": {
+      "APPLICATION": "P77_RISK_ENGINE",
+      "SUB_APPLICATION": "P77_BATCH",
+      "JOBNAME": "P77_CHAIN",
+      "TASKTYPE": "SMART Table",
+      "FOLDER_NAME": "P77_CHAIN",
+      "TYPE": "2"
+    },
+    "execution": {
+      "RUN_AS": "aup77proc"
+    }
+  },
+  "predecessors": [
+    {
+      "link": "P77_OTHER-P77_CHAIN_OK",
+      "name": "P77_OTHER-P77_CHAIN_OK",
+      "peers": [],
+      "odate": "ODAT",
+      "and_or": "A",
+      "cleanup": true,
+      "sign": "",
+      "on_code": null,
+      "kind": "dangling",
+      "external": true
+    }
+  ],
+  "successors": [
+    {
+      "link": "P77_CHAIN-P77_NEXT_OK",
+      "name": "P77_CHAIN-P77_NEXT_OK",
+      "peers": [],
+      "odate": "ODAT",
+      "and_or": null,
+      "cleanup": false,
+      "sign": "+",
+      "on_code": null,
+      "kind": "unconsumed",
+      "external": true
+    }
+  ]
 }

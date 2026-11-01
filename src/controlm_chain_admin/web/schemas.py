@@ -79,11 +79,34 @@ class GraphOut(BaseModel):
     unconsumed: list[LooseEnd]
 
 
+class PeerOut(BaseModel):
+    node: str
+    and_or: str | None = None
+    cleanup: bool = False
+    conditional: str | None = None
+
+
+class RelationOut(BaseModel):
+    link: str
+    name: str
+    peers: list[PeerOut]
+    odate: str
+    and_or: str | None = None
+    cleanup: bool = False
+    sign: str = ""
+    on_code: str | None = None
+    kind: str
+    external: bool
+
+
 class FolderDetail(BaseModel):
     folder: dict[str, Any] = Field(description="folder.json plus its volatile metadata under 'meta'")
     jobs: list[JobSummary]
     links: list[LinkOut]
     graph: GraphOut
+    groups: dict[str, dict[str, str]] = {}
+    predecessors: list[RelationOut] = []
+    successors: list[RelationOut] = []
 
 
 class JobDetail(BaseModel):
@@ -95,6 +118,8 @@ class JobDetail(BaseModel):
     on: list[dict[str, Any]]
     links: list[LinkOut]
     raw: dict[str, Any]
+    predecessors: list[RelationOut] = []
+    successors: list[RelationOut] = []
 
 
 class FindingOut(BaseModel):
@@ -116,3 +141,63 @@ class ErrorOut(BaseModel):
     error: str
     message: str
     detail: Any = None
+
+
+class Neighbour(BaseModel):
+    node: str | None = Field(description="FOLDER/JOB or FOLDER/; null when outside the repository")
+    link: str
+    name: str
+    external: bool
+
+
+class TableJob(BaseModel):
+    id: str
+    name: str
+    task_type: str | None = None
+    node_id: str | None = None
+    application: str | None = None
+    sub_application: str | None = None
+    description: str | None = None
+    predecessors: list[Neighbour]
+    successors: list[Neighbour]
+
+
+class TableFolder(BaseModel):
+    name: str
+    application: str | None = None
+    sub_application: str | None = None
+    description: str | None = None
+    predecessors: list[Neighbour]
+    successors: list[Neighbour]
+    jobs: list[TableJob]
+
+
+class TableOut(BaseModel):
+    folders: list[TableFolder]
+
+
+class ChangeRequest(BaseModel):
+    op: str = Field(description="operation name, e.g. set-attributes, link, unlink, rename-job")
+    params: dict[str, Any] = {}
+
+
+class ApplyRequest(ChangeRequest):
+    fingerprint: str = Field(description="fingerprint returned by the preview")
+
+
+class ChangedFile(BaseModel):
+    path: str
+    change: str
+
+
+class ChangePreview(BaseModel):
+    summary: str
+    warnings: list[str]
+    files: list[ChangedFile]
+    diff: str
+    fingerprint: str
+
+
+class ApplyOut(BaseModel):
+    written: int
+    deleted: int

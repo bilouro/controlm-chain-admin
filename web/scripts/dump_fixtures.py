@@ -36,6 +36,11 @@ ENDPOINTS = {
     "job-P77_INGEST_DAILY-P77_INGEST_LOAD.json": "/api/jobs/P77_INGEST_DAILY/P77_INGEST_LOAD",
     "job-P77_CHAIN-P77_B.json": "/api/jobs/P77_CHAIN/P77_B",
     "validate.json": "/api/validate",
+    "table.json": "/api/table",
+}
+PREVIEW = {
+    "op": "set-attributes",
+    "params": {"node": "P77_CHAIN/P77_B", "changes": {"DESCRIPTION": "Loaded"}},
 }
 
 
@@ -43,12 +48,16 @@ def main() -> int:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp) / "repo"
         repo = init_repo(
-            root, "P77_RISK_ENGINE", ("test", "uat", "bench", "prod"), prefixes=("P77", "RQ_", "RC_")
+            root,
+            "P77_RISK_ENGINE",
+            ("test", "uat", "bench", "prod"),
+            prefixes=("P77", "RQ_", "RC_"),
         )
         import_xml(repo, SAMPLE_EXPORT, env="uat")
         import_xml(repo, ANOMALY_EXPORT, env="uat")
         FIXTURES.mkdir(parents=True, exist_ok=True)
-        with TestClient(create_app(Settings(repo=root, open_browser=False))) as client:
+        settings = Settings(repo=root, open_browser=False, token="t", allowed_hosts=["testserver"])
+        with TestClient(create_app(settings)) as client:
             for filename, path in ENDPOINTS.items():
                 response = client.get(path)
                 response.raise_for_status()
@@ -59,6 +68,14 @@ def main() -> int:
                     json.dumps(body, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
                 )
                 print(f"wrote {filename}")
+            preview = client.post(
+                "/api/changes/preview", json=PREVIEW, headers={"X-Ctmchain-Token": "t"}
+            )
+            preview.raise_for_status()
+            (FIXTURES / "preview.json").write_text(
+                json.dumps(preview.json(), indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+            )
+            print("wrote preview.json")
     return 0
 
 

@@ -6,10 +6,12 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, Query
 
+from controlm_chain_admin.core.attribute_groups import group_attributes
 from controlm_chain_admin.core.errors import ModelError
 from controlm_chain_admin.core.graph import folder_graph
 from controlm_chain_admin.core.inspect import show_node
 from controlm_chain_admin.core.links import INDEX_FILE, folder_names, rebuild_links
+from controlm_chain_admin.core.relations import all_relations
 from controlm_chain_admin.core.repo import ChainRepo, read_json
 from controlm_chain_admin.web.deps import get_repo
 from controlm_chain_admin.web.schemas import (
@@ -20,6 +22,7 @@ from controlm_chain_admin.web.schemas import (
     GraphOut,
     JobSummary,
     LinkOut,
+    RelationOut,
 )
 
 router = APIRouter(prefix="/api", tags=["folders"])
@@ -77,4 +80,15 @@ def folder_detail(name: str, repo: ChainRepo = Depends(get_repo)) -> FolderDetai
         )
     links = [LinkOut.model_validate(entry) for entry in _links_index(repo, name)]
     graph = GraphOut.model_validate(folder_graph(repo, name).to_json())
-    return FolderDetail(folder=folder, jobs=jobs, links=links, graph=graph)
+    relations = all_relations(repo)[f"{name}/"]
+    return FolderDetail(
+        folder=folder,
+        jobs=jobs,
+        links=links,
+        graph=graph,
+        groups=group_attributes(
+            {k: v for k, v in folder.items() if isinstance(v, str) and k != "tag"}
+        ),
+        predecessors=[RelationOut.model_validate(r.to_json()) for r in relations.predecessors],
+        successors=[RelationOut.model_validate(r.to_json()) for r in relations.successors],
+    )

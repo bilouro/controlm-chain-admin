@@ -34,6 +34,10 @@ All notable changes to this project are documented here. The format follows
 - Refactorings with change-set preview and `--apply`: `rename-job`, `rename-folder`,
   `rename-subapp`, `move-job`, `insert-job`, `extract-variable`. Previews show a unified diff
   (`--stat`, `--format json`); apply refuses files changed since the preview.
+- Editing web UI: the *Chains* table (folders collapsible, application, sub-application, folder,
+  job, predecessors, successors) and tabbed folder and job pages to edit attributes, variables,
+  raw JSON and predecessors/successors with their AND_OR, ODATE and `+`/`−` details. Edits are
+  previewed as a diff and applied through `POST /api/changes/preview|apply` with a session token.
 - Package skeleton, CI (lint, types, tests, web, build) and release workflows, community files.
 - `DESIGN.md` (architecture and data model) and `BACKLOG.md` (proof-of-concept plan and status).
 

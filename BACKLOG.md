@@ -171,6 +171,9 @@ or addresses anywhere in this public repository.
    `rename-folder`, `rename-subapp`, `move-job`, `insert-job`, `extract-variable`. Rename and
    rename back restores the real export byte for byte; a preview takes ~1 s on the real repo.
 
+4. **Editing web UI — DONE (2026-11-01)**: Chains table, tabbed folder/job pages, predecessors &
+   successors editor, change preview and apply through the API with a session token.
+
 Later, unordered: overrides and `envs` variants; second-environment import with learning; `diff`
 and `xmldiffreport`; mapping editor and editing in the UI; git bar; PyPI release and bilingual
 docs.

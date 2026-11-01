@@ -10,6 +10,7 @@ import argparse
 import contextlib
 import json
 import os
+import secrets
 import sys
 from collections.abc import Sequence
 from pathlib import Path
@@ -461,10 +462,16 @@ def cmd_serve(args: argparse.Namespace) -> int:
             "the web server needs the [web] extra: pip install 'controlm-chain-admin[web]'"
         ) from exc
     settings = Settings(
-        repo=repo.root, host=args.host, port=args.port, open_browser=not args.no_browser
+        repo=repo.root,
+        host=args.host,
+        port=args.port,
+        open_browser=not args.no_browser,
+        token=secrets.token_urlsafe(18),
     )
+    assert settings.token is not None
     folders = len(folder_names(repo))
     print(f"Serving {repo.config.application} ({_plural(folders, 'folder')}) at {settings.url}")
+    print(f"Editing enabled at {settings.editor_url(settings.token)}")
     if args.check:
         return EXIT_OK
     run(settings)  # pragma: no cover - blocks until interrupted
