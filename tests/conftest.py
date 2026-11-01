@@ -34,3 +34,12 @@ def data_repo() -> Path:
     if not path.is_dir():
         pytest.fail(f"{DATA_REPO_ENV}={value} is not a directory")
     return path
+
+
+@pytest.fixture
+def uat_export(data_repo: Path) -> Path:
+    """The UAT export file inside the private data repository (``exports/uat/*.xml``)."""
+    candidates = sorted((data_repo / "exports" / "uat").glob("*.xml"))
+    if not candidates:
+        pytest.fail(f"no XML export under {data_repo / 'exports' / 'uat'}")
+    return candidates[0]
