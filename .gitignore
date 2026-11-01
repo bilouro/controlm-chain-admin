@@ -12,3 +12,24 @@ __pycache__/
 # Editors
 .idea/
 .vscode/
+
+# Build / test artefacts
+dist/
+build/
+*.egg-info/
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+reports/
+
+# Frontend
+web/node_modules/
+web/dist/
+web/coverage/
+web/playwright-report/
+web/test-results/
+
+# Local-only: patterns of real data used by the verify gate (never commit)
+.claude/no-real-data.patterns
