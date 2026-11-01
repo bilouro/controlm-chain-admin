@@ -12,7 +12,13 @@ import shutil
 from dataclasses import dataclass, replace
 from typing import Any
 
-from controlm_chain_admin.core.errors import DuplicateName, ModelError, UnsafeName, XmlFormatError
+from controlm_chain_admin.core.errors import (
+    DuplicateName,
+    EnvironmentRequired,
+    ModelError,
+    UnsafeName,
+    XmlFormatError,
+)
 from controlm_chain_admin.core.jsonmodel import (
     element_to_json,
     json_to_element,
@@ -21,6 +27,7 @@ from controlm_chain_admin.core.jsonmodel import (
     observe_orders,
     split_volatile,
 )
+from controlm_chain_admin.core.letter import LetterReport, add_letter, strip_letter
 from controlm_chain_admin.core.model import XmlDeclaration, XmlDocument, XmlElement
 from controlm_chain_admin.core.repo import ChainRepo, load_repo, read_json, write_json
 from controlm_chain_admin.core.xmlio import parse_xml, serialize_xml
@@ -51,6 +58,9 @@ class ImportReport:
     skipped: tuple[SkippedFolder, ...]
     duplicate_job_names: tuple[str, ...]  # "FOLDER/JOBNAME" repeated inside its folder
     files_written: int
+    environment: str | None = None
+    literal_marks: tuple[str, ...] = ()
+    suspicious_values: tuple[str, ...] = ()
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -60,6 +70,9 @@ class ImportReport:
             "skipped": [{"folder": s.folder, "application": s.application} for s in self.skipped],
             "duplicate_job_names": list(self.duplicate_job_names),
             "files_written": self.files_written,
+            "environment": self.environment,
+            "literal_marks": list(self.literal_marks),
+            "suspicious_values": list(self.suspicious_values),
         }
 
 
@@ -90,10 +103,33 @@ def job_ids(job_names: list[str]) -> list[str]:
 # ---------------------------------------------------------------- import
 
 
-def import_xml(repo: ChainRepo, data: bytes) -> ImportReport:
-    """Import a Control-M export: folders of the repository's application become JSON files."""
+def _letter(repo: ChainRepo, env: str | None, action: str) -> str | None:
+    """Letter of ``env`` when the letter rule is enabled; validates the name either way."""
+    if env is not None:
+        letter = repo.load_env(env).letter
+        return letter if repo.config.letter_rule.enabled else None
+    if repo.config.letter_rule.enabled:
+        known = ", ".join(repo.config.environments)
+        raise EnvironmentRequired(
+            f"the letter rule is enabled: {action} needs --env (one of {known})"
+        )
+    return None
+
+
+def import_xml(repo: ChainRepo, data: bytes, env: str | None = None) -> ImportReport:
+    """Import a Control-M export: folders of the repository's application become JSON files.
+
+    With the letter rule enabled, ``env`` names the environment the export came from and its
+    letter is stripped from names; file and directory names are environment-neutral.
+    """
     repo = load_repo(repo.root)
+    letter = _letter(repo, env, "import")
     document = parse_xml(data)
+    kept, skipped = _split_by_application(document, repo.config.application)
+    letter_report = LetterReport((), ())
+    if letter is not None:
+        known = tuple(repo.env_letters().values())
+        kept, letter_report = strip_letter(kept, letter, repo.config.letter_rule, known)
     attr_observed, child_observed = observe_orders(document)
     config = replace(
         repo.config,
@@ -103,19 +139,11 @@ def import_xml(repo: ChainRepo, data: bytes) -> ImportReport:
     repo = repo.save_config(config)
 
     imported: list[str] = []
-    skipped: list[SkippedFolder] = []
     duplicates: list[str] = []
     jobs = 0
     files = 1  # chain.json
-    for folder in document.root.elements():
-        if folder.tag not in FOLDER_TAGS:
-            raise XmlFormatError(f"unexpected top-level element <{folder.tag}>")
-        name = folder.get("FOLDER_NAME")
-        application = folder.get("APPLICATION")
-        if application != config.application:
-            skipped.append(SkippedFolder(name or "?", application))
-            continue
-        name = _check_safe(name, "folder")
+    for folder in kept.root.elements():
+        name = _check_safe(folder.get("FOLDER_NAME"), "folder")
         if name in imported:
             raise DuplicateName(f"folder {name} appears twice in the export")
         written, repeated = _write_folder(repo, folder, name)
@@ -129,10 +157,32 @@ def import_xml(repo: ChainRepo, data: bytes) -> ImportReport:
         application=config.application,
         folders=tuple(imported),
         jobs=jobs,
-        skipped=tuple(skipped),
+        skipped=skipped,
         duplicate_job_names=tuple(duplicates),
         files_written=files + 1,
+        environment=env,
+        literal_marks=letter_report.literal_marks,
+        suspicious_values=letter_report.suspicious,
     )
+
+
+def _split_by_application(
+    document: XmlDocument, application: str
+) -> tuple[XmlDocument, tuple[SkippedFolder, ...]]:
+    """Keep the folders of ``application``; list the others (by their names in the export)."""
+    kept: list[XmlElement] = []
+    skipped: list[SkippedFolder] = []
+    for folder in document.root.elements():
+        if folder.tag not in FOLDER_TAGS:
+            raise XmlFormatError(f"unexpected top-level element <{folder.tag}>")
+        if folder.get("APPLICATION") == application:
+            kept.append(folder)
+        else:
+            skipped.append(
+                SkippedFolder(folder.get("FOLDER_NAME") or "?", folder.get("APPLICATION"))
+            )
+    root = replace(document.root, children=tuple(kept))
+    return replace(document, root=root), tuple(skipped)
 
 
 def _write_folder(repo: ChainRepo, folder: XmlElement, name: str) -> tuple[int, list[str]]:
@@ -196,9 +246,10 @@ def _export_meta(repo: ChainRepo, document: XmlDocument, imported: list[str]) ->
 # ---------------------------------------------------------------- export
 
 
-def export_xml(repo: ChainRepo) -> bytes:
-    """Regenerate the Control-M export; byte-identical for untouched content."""
+def export_xml(repo: ChainRepo, env: str | None = None) -> bytes:
+    """Regenerate the Control-M export for ``env``; byte-identical for untouched content."""
     repo = load_repo(repo.root)
+    letter = _letter(repo, env, "export")
     if not repo.export_meta_file.exists():
         raise ModelError(f"{repo.root}: nothing to export yet (no import was done)")
     meta = read_json(repo.export_meta_file)
@@ -206,6 +257,8 @@ def export_xml(repo: ChainRepo) -> bytes:
     root = XmlElement(str(meta["root_tag"]), tuple(dict(meta["root_attrs"]).items()), folders)
     declaration = XmlDeclaration(**meta["declaration"])
     document = XmlDocument(root, declaration, tuple(meta.get("prolog_comments", [])))
+    if letter is not None:
+        document = add_letter(document, letter, repo.config.letter_rule)
     return serialize_xml(document)
 
 

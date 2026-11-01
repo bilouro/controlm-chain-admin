@@ -46,7 +46,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--application", required=True, help="Control-M APPLICATION managed by this repo"
     )
     init.add_argument(
-        "--envs", required=True, help="comma-separated environments, e.g. test,uat,bench,prod"
+        "--envs",
+        required=True,
+        help="comma-separated environments with optional letter, e.g. test=T,uat=U,bench=B,prod=P",
+    )
+    init.add_argument(
+        "--prefixes",
+        default="",
+        help="comma-separated bare prefixes of the letter rule, e.g. P77,RQ_,RC_ (default: none)",
     )
     init.set_defaults(func=cmd_init)
 
@@ -55,6 +62,9 @@ def build_parser() -> argparse.ArgumentParser:
     imp.add_argument(
         "--repo", type=Path, default=Path("."), help="repository directory (default: .)"
     )
+    imp.add_argument(
+        "--env", help="environment the export comes from (needed with the letter rule)"
+    )
     imp.add_argument("--format", choices=("text", "json"), default="text", help="report format")
     imp.set_defaults(func=cmd_import)
 
@@ -62,6 +72,7 @@ def build_parser() -> argparse.ArgumentParser:
     exp.add_argument(
         "--repo", type=Path, default=Path("."), help="repository directory (default: .)"
     )
+    exp.add_argument("--env", help="target environment (needed with the letter rule)")
     exp.add_argument("-o", "--output", type=Path, required=True, help="XML file to write")
     exp.set_defaults(func=cmd_export)
     return parser
@@ -71,10 +82,17 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def cmd_init(args: argparse.Namespace) -> int:
-    environments = [e.strip() for e in args.envs.split(",") if e.strip()]
+    environments: list[str] = []
+    letters: dict[str, str] = {}
+    for item in (e.strip() for e in args.envs.split(",") if e.strip()):
+        name, _, letter = item.partition("=")
+        environments.append(name)
+        if letter:
+            letters[name] = letter
     if not environments:
         raise ChainError("--envs needs at least one environment name")
-    repo = init_repo(args.repo, args.application, environments)
+    prefixes = [p.strip() for p in args.prefixes.split(",") if p.strip()]
+    repo = init_repo(args.repo, args.application, environments, letters=letters, prefixes=prefixes)
     print(
         f"Initialized chain repository at {repo.root} for application {repo.config.application} "
         f"with environments {', '.join(repo.config.environments)}"
@@ -84,7 +102,7 @@ def cmd_init(args: argparse.Namespace) -> int:
 
 def cmd_import(args: argparse.Namespace) -> int:
     repo = load_repo(args.repo)
-    report = ops.import_xml(repo, args.xml.read_bytes())
+    report = ops.import_xml(repo, args.xml.read_bytes(), env=args.env)
     if args.format == "json":
         print(json.dumps(report.to_json(), indent=2, ensure_ascii=False))
         return EXIT_OK
@@ -95,12 +113,22 @@ def cmd_import(args: argparse.Namespace) -> int:
     if report.skipped:
         names = ", ".join(f"{s.folder} ({s.application})" for s in report.skipped)
         print(f"Skipped {_plural(len(report.skipped), 'folder')} of other applications: {names}")
+    if report.duplicate_job_names:
+        print(f"Repeated JOBNAME inside a folder: {', '.join(report.duplicate_job_names)}")
+    if report.literal_marks:
+        print(f"Literal marks (bare prefix, no letter): {len(report.literal_marks)}")
+        for mark in report.literal_marks:
+            print(f"  {mark}")
+    if report.suspicious_values:
+        print(f"Values carrying another environment's letter: {len(report.suspicious_values)}")
+        for value in report.suspicious_values:
+            print(f"  {value}")
     return EXIT_OK
 
 
 def cmd_export(args: argparse.Namespace) -> int:
     repo = load_repo(args.repo)
-    data = ops.export_xml(repo)
+    data = ops.export_xml(repo, env=args.env)
     args.output.write_bytes(data)
     print(f"Wrote {args.output} ({len(data)} bytes)")
     return EXIT_OK

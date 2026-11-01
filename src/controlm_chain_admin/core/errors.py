@@ -33,3 +33,11 @@ class OrderConflict(ChainError):
 
 class ModelError(ChainError):
     """The JSON in the repository does not match the expected shape."""
+
+
+class UnknownEnvironment(ChainError):
+    """The environment is not declared in ``chain.json`` or has no ``env.json``."""
+
+
+class EnvironmentRequired(ChainError):
+    """The letter rule is enabled, so import and export need to know the environment."""

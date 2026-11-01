@@ -13,12 +13,18 @@ Layout::
 from __future__ import annotations
 
 import json
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
-from controlm_chain_admin.core.errors import ModelError, NotAChainRepo, RepoExists
+from controlm_chain_admin.core.errors import (
+    ModelError,
+    NotAChainRepo,
+    RepoExists,
+    UnknownEnvironment,
+)
+from controlm_chain_admin.core.letter import DEFAULT_LETTER_ATTRIBUTES, LetterRule
 
 CHAIN_FILE = "chain.json"
 
@@ -58,11 +64,16 @@ class ChainConfig:
     volatile_attributes: tuple[str, ...] = DEFAULT_VOLATILE_ATTRIBUTES
     attribute_order: dict[str, tuple[str, ...]] = field(default_factory=dict)
     child_order: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    letter_rule: LetterRule = field(default_factory=LetterRule)
 
     def to_json(self) -> dict[str, Any]:
         return {
             "application": self.application,
             "environments": list(self.environments),
+            "letter_rule": {
+                "prefixes": list(self.letter_rule.prefixes),
+                "attributes": list(self.letter_rule.attributes),
+            },
             "volatile_attributes": list(self.volatile_attributes),
             "attribute_order": {k: list(v) for k, v in self.attribute_order.items()},
             "child_order": {k: list(v) for k, v in self.child_order.items()},
@@ -71,6 +82,7 @@ class ChainConfig:
     @classmethod
     def from_json(cls, data: dict[str, Any]) -> ChainConfig:
         try:
+            rule = data.get("letter_rule", {})
             return cls(
                 application=str(data["application"]),
                 environments=tuple(str(e) for e in data["environments"]),
@@ -79,9 +91,45 @@ class ChainConfig:
                 ),
                 attribute_order=_tuple_map(data.get("attribute_order", {}), "attribute_order"),
                 child_order=_tuple_map(data.get("child_order", {}), "child_order"),
+                letter_rule=LetterRule(
+                    prefixes=tuple(str(p) for p in rule.get("prefixes", ())),
+                    attributes=tuple(
+                        str(a) for a in rule.get("attributes", DEFAULT_LETTER_ATTRIBUTES)
+                    ),
+                ),
             )
         except KeyError as exc:
             raise ModelError(f"chain.json: missing key {exc}") from exc
+
+
+@dataclass(frozen=True)
+class EnvConfig:
+    """Contents of ``envs/<env>/env.json``: how one environment differs from the base."""
+
+    name: str
+    letter: str
+    display: str
+    constants: dict[str, str] = field(default_factory=dict)
+
+    def to_json(self) -> dict[str, Any]:
+        return {
+            "name": self.name,
+            "letter": self.letter,
+            "display": self.display,
+            "constants": dict(self.constants),
+        }
+
+    @classmethod
+    def from_json(cls, data: dict[str, Any]) -> EnvConfig:
+        try:
+            return cls(
+                name=str(data["name"]),
+                letter=str(data["letter"]),
+                display=str(data.get("display", str(data["name"]).upper())),
+                constants={str(k): str(v) for k, v in data.get("constants", {}).items()},
+            )
+        except KeyError as exc:
+            raise ModelError(f"env.json: missing key {exc}") from exc
 
 
 @dataclass(frozen=True)
@@ -125,6 +173,17 @@ class ChainRepo:
         write_json(self.chain_file, config.to_json())
         return replace(self, config=config)
 
+    def load_env(self, name: str) -> EnvConfig:
+        """Read ``envs/<name>/env.json``; raises :class:`UnknownEnvironment` when absent."""
+        if name not in self.config.environments or not self.env_file(name).is_file():
+            known = ", ".join(self.config.environments) or "none"
+            raise UnknownEnvironment(f"unknown environment {name!r} (known: {known})")
+        return EnvConfig.from_json(read_json(self.env_file(name)))
+
+    def env_letters(self) -> dict[str, str]:
+        """Letter of every declared environment, by environment name."""
+        return {name: self.load_env(name).letter for name in self.config.environments}
+
 
 def write_json(path: Path, data: Any) -> None:
     """Write JSON deterministically: 2-space indent, UTF-8, LF, trailing newline, keys as given."""
@@ -144,18 +203,36 @@ def read_json(path: Path) -> Any:
         raise ModelError(f"invalid JSON in {path}: {exc}") from exc
 
 
-def init_repo(root: Path, application: str, environments: Sequence[str]) -> ChainRepo:
-    """Create ``chain.json`` and one ``envs/<env>/env.json`` per environment in ``root``."""
+def init_repo(
+    root: Path,
+    application: str,
+    environments: Sequence[str],
+    *,
+    letters: Mapping[str, str] | None = None,
+    prefixes: Sequence[str] = (),
+) -> ChainRepo:
+    """Create ``chain.json`` and one ``envs/<env>/env.json`` per environment in ``root``.
+
+    ``letters`` maps an environment to its letter; by default the upper-cased first character of
+    the environment name (test → T, uat → U, bench → B, prod → P). ``prefixes`` are the bare
+    prefixes of the letter rule; without them the rule is disabled.
+    """
     root.mkdir(parents=True, exist_ok=True)
     if (root / CHAIN_FILE).exists():
         raise RepoExists(f"{root} already is a chain repository ({CHAIN_FILE} exists)")
-    config = ChainConfig(application=application, environments=tuple(environments))
+    names = tuple(environments)
+    chosen = {env: (letters or {}).get(env, env[:1].upper()) for env in names}
+    if len(set(chosen.values())) != len(chosen):
+        raise ModelError(f"environment letters must be distinct: {chosen}")
+    config = ChainConfig(
+        application=application,
+        environments=names,
+        letter_rule=LetterRule(prefixes=tuple(prefixes)),
+    )
     repo = ChainRepo(root=root, config=config).save_config(config)
-    for env in config.environments:
-        write_json(
-            repo.env_file(env),
-            {"name": env, "letter": None, "display": env.upper(), "constants": {}},
-        )
+    for env in names:
+        env_config = EnvConfig(name=env, letter=chosen[env], display=env.upper())
+        write_json(repo.env_file(env), env_config.to_json())
     return repo
 
 
