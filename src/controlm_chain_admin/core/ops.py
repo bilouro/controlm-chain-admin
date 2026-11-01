@@ -61,6 +61,8 @@ JOBS_KEY = "jobs"
 TAG_KEY = "tag"
 CONDITION_TAGS = ("INCOND", "OUTCOND", "DOCOND")
 NAME_POLICIES = ("original", "standard")
+JOBNAME_POLICIES = ("deduped", "original")
+ORIGINALS_KEY = "original_jobnames"
 
 _SAFE_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._\-]*")
 
@@ -69,6 +71,7 @@ __all__ = [
     "ExportReport",
     "ImportReport",
     "SkippedFolder",
+    "dedupe_jobnames",
     "export_document",
     "export_xml",
     "import_xml",
@@ -100,6 +103,7 @@ class ImportReport:
     constants_replaced: int = 0
     unmapped: dict[str, tuple[str, ...]] = field(default_factory=dict)
     links: int = 0
+    jobnames_deduped: tuple[str, ...] = ()  # "FOLDER/ORIGINAL -> NEW"
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -115,6 +119,7 @@ class ImportReport:
             "constants_replaced": self.constants_replaced,
             "unmapped": {k: list(v) for k, v in self.unmapped.items()},
             "links": self.links,
+            "jobnames_deduped": list(self.jobnames_deduped),
         }
 
 
@@ -191,6 +196,54 @@ def _from_link_refs(element: XmlElement, names: Mapping[str, str], where: str) -
     return replace(element, attrs=attrs, children=children)
 
 
+def _dedupe_jobnames(
+    document: XmlDocument,
+) -> tuple[XmlDocument, tuple[tuple[str, str, str], ...]]:
+    """Give every repeated JOBNAME a numeric suffix (``X``, ``X2``, ``X3``) in document order.
+
+    The first occurrence keeps its name; a suffix already used by a real job is skipped. Only
+    ``JOBNAME`` changes (``MEMNAME`` and condition names are left alone). Returns the new
+    document and the renames as ``(folder, original, new)``.
+    """
+    taken = {
+        job.get("JOBNAME") or ""
+        for folder in document.root.elements()
+        for job in folder.find_all(JOB_TAG)
+    }
+    seen: set[str] = set()
+    renames: list[tuple[str, str, str]] = []
+    new_folders: list[XmlElement | XmlComment] = []
+    for folder in document.root.children:
+        if not isinstance(folder, XmlElement):
+            new_folders.append(folder)
+            continue
+        children: list[XmlElement | XmlComment] = []
+        for child in folder.children:
+            if isinstance(child, XmlElement) and child.tag == JOB_TAG:
+                name = child.get("JOBNAME") or ""
+                if name in seen:
+                    suffix = 2
+                    while f"{name}{suffix}" in taken:
+                        suffix += 1
+                    new = f"{name}{suffix}"
+                    taken.add(new)
+                    renames.append((folder.get("FOLDER_NAME") or "", name, new))
+                    attrs = tuple((k, new if k == "JOBNAME" else v) for k, v in child.attrs)
+                    child = replace(child, attrs=attrs)
+                    name = new
+                seen.add(name)
+            children.append(child)
+        new_folders.append(replace(folder, children=tuple(children)))
+    if not renames:
+        return document, ()
+    return replace(document, root=replace(document.root, children=tuple(new_folders))), tuple(
+        renames
+    )
+
+
+dedupe_jobnames = _dedupe_jobnames  # public name; import_xml's flag shadows it inside
+
+
 # ---------------------------------------------------------------- import
 
 
@@ -234,11 +287,18 @@ def only_application(document: XmlDocument, application: str) -> XmlDocument:
     return _split_by_application(document, application)[0]
 
 
-def import_xml(repo: ChainRepo, data: bytes, env: str | None = None) -> ImportReport:
+def import_xml(
+    repo: ChainRepo,
+    data: bytes,
+    env: str | None = None,
+    *,
+    dedupe_jobnames: bool | None = None,
+) -> ImportReport:
     """Import a Control-M export: folders of the repository's application become JSON files.
 
     With the letter rule enabled, ``env`` names the environment the export came from and its
     letter is stripped from names; file and directory names are environment-neutral.
+    ``dedupe_jobnames`` sets the repository policy (kept in chain.json for later imports).
     """
     repo = load_repo(repo.root)
     letter = _letter(repo, env, "import")
@@ -249,6 +309,8 @@ def import_xml(repo: ChainRepo, data: bytes, env: str | None = None) -> ImportRe
         attribute_order=merge_orders(repo.config.attribute_order, attr_observed),
         child_order=merge_orders(repo.config.child_order, child_observed),
     )
+    if dedupe_jobnames is not None:
+        config = replace(config, dedupe_jobnames=dedupe_jobnames)
     repo = repo.save_config(config)
     existing_names = read_names(repo)  # names the user may have edited survive a re-import
     ids_by_name: dict[str, str] = {}
@@ -263,6 +325,12 @@ def import_xml(repo: ChainRepo, data: bytes, env: str | None = None) -> ImportRe
     if letter is not None:
         known = tuple(repo.env_letters().values())
         kept, letter_report = strip_letter(kept, letter, config.letter_rule, known)
+    renames: tuple[tuple[str, str, str], ...] = ()
+    if config.dedupe_jobnames:
+        kept, renames = _dedupe_jobnames(kept)
+    originals: dict[str, dict[str, str]] = {}
+    for folder_name, original, new in renames:
+        originals.setdefault(folder_name, {})[new] = original
 
     imported: list[str] = []
     duplicates: list[str] = []
@@ -272,7 +340,8 @@ def import_xml(repo: ChainRepo, data: bytes, env: str | None = None) -> ImportRe
         name = _check_safe(folder.get("FOLDER_NAME"), "folder")
         if name in imported:
             raise DuplicateName(f"folder {name} appears twice in the export")
-        written, repeated = _write_folder(repo, _to_link_refs(folder, ids_by_name), name)
+        refs = _to_link_refs(folder, ids_by_name)
+        written, repeated = _write_folder(repo, refs, name, originals.get(name, {}))
         files += written
         duplicates.extend(f"{name}/{job}" for job in repeated)
         imported.append(name)
@@ -294,12 +363,23 @@ def import_xml(repo: ChainRepo, data: bytes, env: str | None = None) -> ImportRe
         constants_replaced=constants_report.replaced,
         unmapped=constants_report.unmapped,
         links=len(links),
+        jobnames_deduped=tuple(f"{f}/{o} -> {n}" for f, o, n in renames),
     )
 
 
-def _write_folder(repo: ChainRepo, folder: XmlElement, name: str) -> tuple[int, list[str]]:
-    """Write folder.json, the job files and the metadata sidecar. Returns (files, repeats)."""
+def _write_folder(
+    repo: ChainRepo, folder: XmlElement, name: str, renamed: Mapping[str, str]
+) -> tuple[int, list[str]]:
+    """Write folder.json, the job files and the metadata sidecar. Returns (files, repeats).
+
+    ``renamed`` maps deduplicated JOBNAMEs of this import to their originals; originals recorded
+    by a previous import are kept for jobs that still carry the deduplicated name.
+    """
     config = repo.config
+    meta_file = repo.folder_meta_file(name)
+    previous: dict[str, str] = (
+        read_json(meta_file).get(ORIGINALS_KEY, {}) if meta_file.exists() else {}
+    )
     job_elements = folder.find_all(JOB_TAG)
     job_names = [_check_safe(job.get("JOBNAME"), "job") for job in job_elements]
     ids = job_ids(job_names)
@@ -330,7 +410,15 @@ def _write_folder(repo: ChainRepo, folder: XmlElement, name: str) -> tuple[int, 
         jobs_meta[job_id] = job_meta
         job_json = element_to_json(replace(job, attrs=job_attrs), config.child_order)
         write_json(repo.job_file(name, job_id), job_json)
-    write_json(repo.folder_meta_file(name), {"attrs": folder_meta, JOBS_KEY: jobs_meta})
+    meta: dict[str, Any] = {"attrs": folder_meta, JOBS_KEY: jobs_meta}
+    originals = {
+        job_id: renamed.get(job_id) or previous[job_id]
+        for job_id in ids
+        if job_id in renamed or (job_id in previous and previous[job_id] != job_id)
+    }
+    if originals:
+        meta[ORIGINALS_KEY] = originals
+    write_json(meta_file, meta)
     return 2 + len(ids), repeated
 
 
@@ -372,7 +460,9 @@ def _export_names(repo: ChainRepo, names: str) -> tuple[dict[str, str], int]:
     return resolved, renamed
 
 
-def load_document(repo: ChainRepo, names: str = "original") -> tuple[XmlDocument, int]:
+def load_document(
+    repo: ChainRepo, names: str = "original", jobnames: str = "deduped"
+) -> tuple[XmlDocument, int]:
     """The repository as one neutral document (metadata merged, link references resolved).
 
     Returns the document and the number of links renamed by the name policy.
@@ -382,8 +472,12 @@ def load_document(repo: ChainRepo, names: str = "original") -> tuple[XmlDocument
         raise ModelError(f"{repo.root}: nothing to export yet (no import was done)")
     meta = read_json(repo.export_meta_file)
     resolved, renamed = _export_names(repo, names)
+    if jobnames not in JOBNAME_POLICIES:
+        raise ModelError(
+            f"unknown jobnames policy {jobnames!r}; use one of {', '.join(JOBNAME_POLICIES)}"
+        )
     folders = tuple(
-        _from_link_refs(_read_folder(repo, name), resolved, f"folder {name}")
+        _from_link_refs(_read_folder(repo, name, jobnames), resolved, f"folder {name}")
         for name in meta.get("folder_order", [])
     )
     root = XmlElement(str(meta["root_tag"]), tuple(dict(meta["root_attrs"]).items()), folders)
@@ -397,11 +491,12 @@ def export_document(
     *,
     allow_unresolved: bool = False,
     names: str = "original",
+    jobnames: str = "deduped",
 ) -> tuple[bytes, ExportReport]:
     """Export for ``env`` under a name policy; unresolved constants raise unless allowed."""
     repo = load_repo(repo.root)
     letter = _letter(repo, env, "export")
-    document, renamed = load_document(repo, names)
+    document, renamed = load_document(repo, names, jobnames)
     constants = ExportConstantsReport(0, ())
     if env is not None and repo.config.constants:
         document, constants = apply_export(
@@ -421,12 +516,15 @@ def export_xml(
     *,
     allow_unresolved: bool = False,
     names: str = "original",
+    jobnames: str = "deduped",
 ) -> bytes:
     """Regenerate the Control-M export for ``env``; byte-identical for untouched content."""
-    return export_document(repo, env, allow_unresolved=allow_unresolved, names=names)[0]
+    return export_document(
+        repo, env, allow_unresolved=allow_unresolved, names=names, jobnames=jobnames
+    )[0]
 
 
-def _read_folder(repo: ChainRepo, name: str) -> XmlElement:
+def _read_folder(repo: ChainRepo, name: str, jobnames: str = "deduped") -> XmlElement:
     config = repo.config
     folder_json: dict[str, Any] = dict(read_json(repo.folder_file(name)))
     meta_file = repo.folder_meta_file(name)
@@ -441,6 +539,9 @@ def _read_folder(repo: ChainRepo, name: str) -> XmlElement:
         job_json: dict[str, Any] = dict(read_json(repo.job_file(name, job_id)))
         job_meta = folder_meta.get(JOBS_KEY, {}).get(job_id, {})
         attrs = merge_volatile(_strings(job_json), job_meta, job_order)
+        original = folder_meta.get(ORIGINALS_KEY, {}).get(job_id)
+        if jobnames == "original" and original:
+            attrs = tuple((k, original if k == "JOBNAME" else v) for k, v in attrs)
         jobs.append({**dict(attrs), **_non_strings(job_json)})
 
     folder_order = config.attribute_order.get(tag, ())

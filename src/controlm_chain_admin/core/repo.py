@@ -69,6 +69,7 @@ class ChainConfig:
     child_order: dict[str, tuple[str, ...]] = field(default_factory=dict)
     letter_rule: LetterRule = field(default_factory=LetterRule)
     constants: dict[str, Selector] = field(default_factory=dict)
+    dedupe_jobnames: bool = False
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -82,6 +83,7 @@ class ChainConfig:
             "attribute_order": {k: list(v) for k, v in self.attribute_order.items()},
             "child_order": {k: list(v) for k, v in self.child_order.items()},
             "constants": {k: v.to_json() for k, v in self.constants.items()},
+            "dedupe_jobnames": self.dedupe_jobnames,
         }
 
     @classmethod
@@ -107,6 +109,7 @@ class ChainConfig:
                 constants={
                     str(k): Selector.from_json(v) for k, v in data.get("constants", {}).items()
                 },
+                dedupe_jobnames=bool(data.get("dedupe_jobnames", False)),
             )
         except KeyError as exc:
             raise ModelError(f"chain.json: missing key {exc}") from exc

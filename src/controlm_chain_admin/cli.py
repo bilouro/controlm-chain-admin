@@ -77,6 +77,11 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         help="mapping draft (from distinct --write) to apply before importing",
     )
+    imp.add_argument(
+        "--dedupe-jobnames",
+        action="store_true",
+        help="give repeated JOBNAMEs a numeric suffix (X, X2, X3); kept as the repo policy",
+    )
     imp.add_argument("--format", choices=("text", "json"), default="text", help="report format")
     imp.set_defaults(func=cmd_import)
 
@@ -85,6 +90,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--repo", type=Path, default=Path("."), help="repository directory (default: .)"
     )
     exp.add_argument("--env", help="target environment (needed with the letter rule)")
+    exp.add_argument(
+        "--jobnames",
+        choices=("deduped", "original"),
+        default="deduped",
+        help="JOBNAMEs as stored (default) or restored to the originals before deduplication",
+    )
     exp.add_argument(
         "--names",
         choices=("original", "standard"),
@@ -231,7 +242,12 @@ def cmd_import(args: argparse.Namespace) -> int:
     defined: tuple[str, ...] = ()
     if args.mappings is not None:
         repo, defined = constants_mod.apply_draft(repo, read_json(args.mappings))
-    report = ops.import_xml(repo, args.xml.read_bytes(), env=args.env)
+    report = ops.import_xml(
+        repo,
+        args.xml.read_bytes(),
+        env=args.env,
+        dedupe_jobnames=True if args.dedupe_jobnames else None,
+    )
     if args.format == "json":
         print(json.dumps(report.to_json(), indent=2, ensure_ascii=False))
         return EXIT_OK
@@ -242,6 +258,10 @@ def cmd_import(args: argparse.Namespace) -> int:
     if report.skipped:
         names = ", ".join(f"{s.folder} ({s.application})" for s in report.skipped)
         print(f"Skipped {_plural(len(report.skipped), 'folder')} of other applications: {names}")
+    if report.jobnames_deduped:
+        print(f"Deduplicated JOBNAMEs: {len(report.jobnames_deduped)}")
+        for rename in report.jobnames_deduped:
+            print(f"  {rename}")
     if report.duplicate_job_names:
         print(f"Repeated JOBNAME inside a folder: {', '.join(report.duplicate_job_names)}")
     if report.literal_marks:
@@ -264,7 +284,11 @@ def cmd_import(args: argparse.Namespace) -> int:
 def cmd_export(args: argparse.Namespace) -> int:
     repo = load_repo(args.repo)
     data, report = ops.export_document(
-        repo, env=args.env, allow_unresolved=args.allow_unresolved, names=args.names
+        repo,
+        env=args.env,
+        allow_unresolved=args.allow_unresolved,
+        names=args.names,
+        jobnames=args.jobnames,
     )
     args.output.write_bytes(data)
     for name in report.constants.unresolved:

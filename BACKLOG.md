@@ -165,8 +165,8 @@ or addresses anywhere in this public repository.
    gaps), `env constants [--missing]`, value and inline modes, selectors `TAG[K=V]/@ATTR`. On the
    real data the main NODEID group (1,160 jobs) maps from one pattern; 19 other NODEID values and
    the hosts, users and mail recipients still need their per-environment values.
-2. **Links as the source of truth — DONE (2026-11-01)**, with `--names standard` and collision
-   rules. Remaining in this slice: `--dedupe-jobnames`.
+2. **Links as the source of truth — DONE (2026-11-01)**, with `--names standard`, collision
+   rules and `--dedupe-jobnames` (real data: 119 jobs renamed, standard-name collisions 100 → 0).
 3. **Refactorings** with change-set preview (`rename-job`, `rename-subapp`, `move-job`,
    `insert-job`, `extract-variable`).
 

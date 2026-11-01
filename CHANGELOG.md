@@ -28,6 +28,9 @@ All notable changes to this project are documented here. The format follows
   Renaming a condition is one edit; ids stay stable when a renamed export is imported again.
 - `export --names standard`: `<PRODUCER>-<CONSUMER>_OK` from the endpoints, producer folder as
   prefix when two links would collide; external, fan-in and delete-only links keep their names.
+- `import --dedupe-jobnames`: repeated JOBNAMEs get a numeric suffix (`X`, `X2`, `X3`), the
+  originals are kept in `meta/` and the policy in `chain.json`; `export --jobnames original`
+  restores them byte for byte.
 - Package skeleton, CI (lint, types, tests, web, build) and release workflows, community files.
 - `DESIGN.md` (architecture and data model) and `BACKLOG.md` (proof-of-concept plan and status).
 

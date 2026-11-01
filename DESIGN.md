@@ -250,8 +250,14 @@ element exists only on one side. It runs as a dry-run report first.
 - Condition names: `--names original` (default) or `--names standard`. Standard pattern:
   `<PRODUCER>-<CONSUMER>_OK`; when the pair of JOBNAMEs is not unique across folders the folder
   is added as a discriminator; `external` links are never renamed; `literal:` names are kept.
-- `--jobnames original|deduped` chooses whether deduplicated jobs are exported with the original
-  or the numbered name.
+- `--jobnames deduped|original` chooses whether deduplicated jobs are exported with the numbered
+  name (default, the repository content) or with the original one.
+- Deduplication details (implemented): the first occurrence in export order keeps its name,
+  later ones get `NAME2`, `NAME3`… skipping suffixes already used by real jobs; only `JOBNAME`
+  changes (`MEMNAME` and condition names do not); the original lives in
+  `meta/folders/<F>.json` under `original_jobnames`; the policy is recorded in `chain.json`
+  (`dedupe_jobnames`) so later imports apply it. On the real export it renames 119 jobs and
+  removes all 100 standard-name collisions.
 
 ## 8. Validate, diff, show
 
