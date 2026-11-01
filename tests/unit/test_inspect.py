@@ -65,7 +65,7 @@ def test_show_returns_job_json_with_its_metadata(tmp_path: Path) -> None:
 
     assert job["JOBNAME"] == "P77_INGEST_LOAD"
     assert job["meta"] == {"JOBISN": "3"}
-    assert job["INCOND"][0]["NAME"] == "P77_INGEST_INIT-P77_INGEST_LOAD_OK"
+    assert job["INCOND"][0]["link"] == "P77_INGEST_INIT-P77_INGEST_LOAD_OK"
     assert folder["FOLDER_NAME"] == "P77_INGEST_DAILY" and folder["jobs"] == [
         "P77_INGEST_INIT",
         "P77_INGEST_LOAD",

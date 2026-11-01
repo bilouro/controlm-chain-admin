@@ -45,7 +45,9 @@
   ],
   "links": [
     {
+      "id": "P77_INGEST_INIT-P77_INGEST_LOAD_OK",
       "name": "P77_INGEST_INIT-P77_INGEST_LOAD_OK",
+      "standard": null,
       "from": [
         "P77_INGEST_DAILY/P77_INGEST_INIT"
       ],
@@ -79,14 +81,14 @@
     "PARENT_FOLDER": "P77_INGEST_DAILY",
     "INCOND": [
       {
-        "NAME": "P77_INGEST_INIT-P77_INGEST_LOAD_OK",
+        "link": "P77_INGEST_INIT-P77_INGEST_LOAD_OK",
         "ODATE": "ODAT",
         "AND_OR": "A"
       }
     ],
     "OUTCOND": [
       {
-        "NAME": "P77_INGEST_INIT-P77_INGEST_LOAD_OK",
+        "link": "P77_INGEST_INIT-P77_INGEST_LOAD_OK",
         "ODATE": "ODAT",
         "SIGN": "-"
       }

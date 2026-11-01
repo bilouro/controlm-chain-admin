@@ -3,12 +3,18 @@
 Every operation takes a :class:`ChainRepo` and returns serialisable results or raises typed
 errors. Nothing here prints or exits. Operations re-read ``chain.json`` from disk, so a caller
 may keep using the :class:`ChainRepo` it loaded even after an import updated the rules.
+
+Import pipeline: parse → keep the repository's application → constants → letter rule →
+condition names become link references → JSON files → links.json (names) and index.json.
+Export is the mirror image, with the name policy (``original`` or ``standard``) applied when
+link references become ``NAME`` attributes again.
 """
 
 from __future__ import annotations
 
 import re
 import shutil
+from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from typing import Any
 
@@ -34,8 +40,18 @@ from controlm_chain_admin.core.jsonmodel import (
     split_volatile,
 )
 from controlm_chain_admin.core.letter import LetterReport, add_letter, strip_letter
-from controlm_chain_admin.core.links import rebuild_links
-from controlm_chain_admin.core.model import XmlDeclaration, XmlDocument, XmlElement
+from controlm_chain_admin.core.links import (
+    DUPLICATE_SEPARATOR,
+    LINK_KEY,
+    build_links,
+    collect_conditions,
+    load_links,
+    read_names,
+    standard_names,
+    write_index,
+    write_names,
+)
+from controlm_chain_admin.core.model import XmlComment, XmlDeclaration, XmlDocument, XmlElement
 from controlm_chain_admin.core.repo import ChainRepo, load_repo, read_json, write_json
 from controlm_chain_admin.core.xmlio import parse_xml, serialize_xml
 
@@ -43,10 +59,23 @@ FOLDER_TAGS = ("SMART_FOLDER", "FOLDER")
 JOB_TAG = "JOB"
 JOBS_KEY = "jobs"
 TAG_KEY = "tag"
-#: Separator between a JOBNAME and the occurrence number when a folder repeats a JOBNAME.
-DUPLICATE_SEPARATOR = "~"
+CONDITION_TAGS = ("INCOND", "OUTCOND", "DOCOND")
+NAME_POLICIES = ("original", "standard")
 
 _SAFE_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._\-]*")
+
+__all__ = [
+    "DUPLICATE_SEPARATOR",
+    "ExportReport",
+    "ImportReport",
+    "SkippedFolder",
+    "export_document",
+    "export_xml",
+    "import_xml",
+    "job_ids",
+    "load_document",
+    "only_application",
+]
 
 
 @dataclass(frozen=True)
@@ -70,6 +99,7 @@ class ImportReport:
     suspicious_values: tuple[str, ...] = ()
     constants_replaced: int = 0
     unmapped: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    links: int = 0
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -84,7 +114,17 @@ class ImportReport:
             "suspicious_values": list(self.suspicious_values),
             "constants_replaced": self.constants_replaced,
             "unmapped": {k: list(v) for k, v in self.unmapped.items()},
+            "links": self.links,
         }
+
+
+@dataclass(frozen=True)
+class ExportReport:
+    """What an export did besides writing bytes."""
+
+    constants: ExportConstantsReport
+    names: str
+    renamed: int  # links whose export name differs from their original name
 
 
 def _check_safe(name: str | None, what: str) -> str:
@@ -111,6 +151,46 @@ def job_ids(job_names: list[str]) -> list[str]:
     return ids
 
 
+# ---------------------------------------------------------------- link references
+
+
+def _to_link_refs(element: XmlElement, ids_by_name: Mapping[str, str]) -> XmlElement:
+    """Condition elements: the ``NAME`` attribute becomes a ``link`` reference (same position).
+
+    A name that is already the export name of a known link maps back to that link's id, so a
+    renamed link keeps its id when its export is imported again.
+    """
+    attrs = element.attrs
+    if element.tag in CONDITION_TAGS:
+        attrs = tuple(
+            (LINK_KEY, ids_by_name.get(v, v)) if k == "NAME" else (k, v) for k, v in attrs
+        )
+    children = tuple(
+        c if isinstance(c, XmlComment) else _to_link_refs(c, ids_by_name) for c in element.children
+    )
+    return replace(element, attrs=attrs, children=children)
+
+
+def _from_link_refs(element: XmlElement, names: Mapping[str, str], where: str) -> XmlElement:
+    """Inverse of :func:`_to_link_refs`: ``link`` references become ``NAME`` attributes."""
+    attrs = element.attrs
+    if element.tag in CONDITION_TAGS:
+        resolved: list[tuple[str, str]] = []
+        for key, value in attrs:
+            if key == LINK_KEY:
+                if value not in names:
+                    raise ModelError(f"{where}: <{element.tag}> references unknown link {value!r}")
+                resolved.append(("NAME", names[value]))
+            else:
+                resolved.append((key, value))
+        attrs = tuple(resolved)
+    children = tuple(
+        c if isinstance(c, XmlComment) else _from_link_refs(c, names, where)
+        for c in element.children
+    )
+    return replace(element, attrs=attrs, children=children)
+
+
 # ---------------------------------------------------------------- import
 
 
@@ -128,64 +208,6 @@ def _letter(repo: ChainRepo, env: str | None, action: str) -> str | None:
         )
         raise EnvironmentRequired(f"{reason}: {action} needs --env (one of {known})")
     return None
-
-
-def import_xml(repo: ChainRepo, data: bytes, env: str | None = None) -> ImportReport:
-    """Import a Control-M export: folders of the repository's application become JSON files.
-
-    With the letter rule enabled, ``env`` names the environment the export came from and its
-    letter is stripped from names; file and directory names are environment-neutral.
-    """
-    repo = load_repo(repo.root)
-    letter = _letter(repo, env, "import")
-    document = parse_xml(data)
-    kept, skipped = _split_by_application(document, repo.config.application)
-    constants_report = ImportConstantsReport(0, {})
-    if env is not None and repo.config.constants:
-        kept, constants_report = apply_import(
-            kept, repo.config.constants, repo.load_env(env).constants
-        )
-    letter_report = LetterReport((), ())
-    if letter is not None:
-        known = tuple(repo.env_letters().values())
-        kept, letter_report = strip_letter(kept, letter, repo.config.letter_rule, known)
-    attr_observed, child_observed = observe_orders(document)
-    config = replace(
-        repo.config,
-        attribute_order=merge_orders(repo.config.attribute_order, attr_observed),
-        child_order=merge_orders(repo.config.child_order, child_observed),
-    )
-    repo = repo.save_config(config)
-
-    imported: list[str] = []
-    duplicates: list[str] = []
-    jobs = 0
-    files = 1  # chain.json
-    for folder in kept.root.elements():
-        name = _check_safe(folder.get("FOLDER_NAME"), "folder")
-        if name in imported:
-            raise DuplicateName(f"folder {name} appears twice in the export")
-        written, repeated = _write_folder(repo, folder, name)
-        files += written
-        duplicates.extend(f"{name}/{job}" for job in repeated)
-        imported.append(name)
-        jobs += len(folder.find_all(JOB_TAG))
-
-    write_json(repo.export_meta_file, _export_meta(repo, document, imported))
-    rebuild_links(repo)  # derived links.json per folder
-    return ImportReport(
-        application=config.application,
-        folders=tuple(imported),
-        jobs=jobs,
-        skipped=skipped,
-        duplicate_job_names=tuple(duplicates),
-        files_written=files + 1,
-        environment=env,
-        literal_marks=letter_report.literal_marks,
-        suspicious_values=letter_report.suspicious,
-        constants_replaced=constants_report.replaced,
-        unmapped=constants_report.unmapped,
-    )
 
 
 def _split_by_application(
@@ -210,6 +232,69 @@ def _split_by_application(
 def only_application(document: XmlDocument, application: str) -> XmlDocument:
     """The document restricted to the folders of ``application`` (public wrapper)."""
     return _split_by_application(document, application)[0]
+
+
+def import_xml(repo: ChainRepo, data: bytes, env: str | None = None) -> ImportReport:
+    """Import a Control-M export: folders of the repository's application become JSON files.
+
+    With the letter rule enabled, ``env`` names the environment the export came from and its
+    letter is stripped from names; file and directory names are environment-neutral.
+    """
+    repo = load_repo(repo.root)
+    letter = _letter(repo, env, "import")
+    document = parse_xml(data)
+    attr_observed, child_observed = observe_orders(document)
+    config = replace(
+        repo.config,
+        attribute_order=merge_orders(repo.config.attribute_order, attr_observed),
+        child_order=merge_orders(repo.config.child_order, child_observed),
+    )
+    repo = repo.save_config(config)
+    existing_names = read_names(repo)  # names the user may have edited survive a re-import
+    ids_by_name: dict[str, str] = {}
+    for link_id, name in existing_names.items():
+        ids_by_name.setdefault(name, link_id)
+
+    kept, skipped = _split_by_application(document, config.application)
+    constants_report = ImportConstantsReport(0, {})
+    if env is not None and config.constants:
+        kept, constants_report = apply_import(kept, config.constants, repo.load_env(env).constants)
+    letter_report = LetterReport((), ())
+    if letter is not None:
+        known = tuple(repo.env_letters().values())
+        kept, letter_report = strip_letter(kept, letter, config.letter_rule, known)
+
+    imported: list[str] = []
+    duplicates: list[str] = []
+    jobs = 0
+    files = 1  # chain.json
+    for folder in kept.root.elements():
+        name = _check_safe(folder.get("FOLDER_NAME"), "folder")
+        if name in imported:
+            raise DuplicateName(f"folder {name} appears twice in the export")
+        written, repeated = _write_folder(repo, _to_link_refs(folder, ids_by_name), name)
+        files += written
+        duplicates.extend(f"{name}/{job}" for job in repeated)
+        imported.append(name)
+        jobs += len(folder.find_all(JOB_TAG))
+
+    write_json(repo.export_meta_file, _export_meta(repo, document, imported))
+    links = build_links(collect_conditions(repo), existing_names)
+    files += write_names(repo, links) + write_index(repo, links) + 1
+    return ImportReport(
+        application=config.application,
+        folders=tuple(imported),
+        jobs=jobs,
+        skipped=skipped,
+        duplicate_job_names=tuple(duplicates),
+        files_written=files,
+        environment=env,
+        literal_marks=letter_report.literal_marks,
+        suspicious_values=letter_report.suspicious,
+        constants_replaced=constants_report.replaced,
+        unmapped=constants_report.unmapped,
+        links=len(links),
+    )
 
 
 def _write_folder(repo: ChainRepo, folder: XmlElement, name: str) -> tuple[int, list[str]]:
@@ -273,28 +358,53 @@ def _export_meta(repo: ChainRepo, document: XmlDocument, imported: list[str]) ->
 # ---------------------------------------------------------------- export
 
 
-def load_document(repo: ChainRepo) -> XmlDocument:
-    """The repository as one neutral document: names without letter, metadata merged back."""
+def _export_names(repo: ChainRepo, names: str) -> tuple[dict[str, str], int]:
+    """``id -> NAME`` for the export under a name policy, and how many differ from the original."""
+    if names not in NAME_POLICIES:
+        raise ModelError(f"unknown name policy {names!r}; use one of {', '.join(NAME_POLICIES)}")
+    original = read_names(repo)
+    if names == "original":
+        return original, 0
+    links = load_links(repo)
+    standard = standard_names(links)
+    resolved = {**original, **standard}
+    renamed = sum(1 for link_id, name in standard.items() if original.get(link_id) != name)
+    return resolved, renamed
+
+
+def load_document(repo: ChainRepo, names: str = "original") -> tuple[XmlDocument, int]:
+    """The repository as one neutral document (metadata merged, link references resolved).
+
+    Returns the document and the number of links renamed by the name policy.
+    """
     repo = load_repo(repo.root)
     if not repo.export_meta_file.exists():
         raise ModelError(f"{repo.root}: nothing to export yet (no import was done)")
     meta = read_json(repo.export_meta_file)
-    folders = tuple(_read_folder(repo, name) for name in meta.get("folder_order", []))
+    resolved, renamed = _export_names(repo, names)
+    folders = tuple(
+        _from_link_refs(_read_folder(repo, name), resolved, f"folder {name}")
+        for name in meta.get("folder_order", [])
+    )
     root = XmlElement(str(meta["root_tag"]), tuple(dict(meta["root_attrs"]).items()), folders)
     declaration = XmlDeclaration(**meta["declaration"])
-    return XmlDocument(root, declaration, tuple(meta.get("prolog_comments", [])))
+    return XmlDocument(root, declaration, tuple(meta.get("prolog_comments", []))), renamed
 
 
 def export_document(
-    repo: ChainRepo, env: str | None = None, *, allow_unresolved: bool = False
-) -> tuple[bytes, ExportConstantsReport]:
-    """Export for ``env`` and report the constants resolved; unresolved raise unless allowed."""
+    repo: ChainRepo,
+    env: str | None = None,
+    *,
+    allow_unresolved: bool = False,
+    names: str = "original",
+) -> tuple[bytes, ExportReport]:
+    """Export for ``env`` under a name policy; unresolved constants raise unless allowed."""
     repo = load_repo(repo.root)
     letter = _letter(repo, env, "export")
-    document = load_document(repo)
-    report = ExportConstantsReport(0, ())
+    document, renamed = load_document(repo, names)
+    constants = ExportConstantsReport(0, ())
     if env is not None and repo.config.constants:
-        document, report = apply_export(
+        document, constants = apply_export(
             document,
             repo.config.constants,
             repo.load_env(env).constants,
@@ -302,14 +412,18 @@ def export_document(
         )
     if letter is not None:
         document = add_letter(document, letter, repo.config.letter_rule)
-    return serialize_xml(document), report
+    return serialize_xml(document), ExportReport(constants, names, renamed)
 
 
 def export_xml(
-    repo: ChainRepo, env: str | None = None, *, allow_unresolved: bool = False
+    repo: ChainRepo,
+    env: str | None = None,
+    *,
+    allow_unresolved: bool = False,
+    names: str = "original",
 ) -> bytes:
     """Regenerate the Control-M export for ``env``; byte-identical for untouched content."""
-    return export_document(repo, env, allow_unresolved=allow_unresolved)[0]
+    return export_document(repo, env, allow_unresolved=allow_unresolved, names=names)[0]
 
 
 def _read_folder(repo: ChainRepo, name: str) -> XmlElement:

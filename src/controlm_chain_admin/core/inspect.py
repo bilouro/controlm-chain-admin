@@ -83,7 +83,7 @@ def distinct_values(
 
 def load_document(repo: ChainRepo) -> XmlDocument:
     """The repository as one neutral document: names without letter, metadata merged back."""
-    return ops.load_document(repo)
+    return ops.load_document(repo)[0]
 
 
 def show_node(repo: ChainRepo, node: str) -> dict[str, Any]:

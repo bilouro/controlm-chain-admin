@@ -86,6 +86,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     exp.add_argument("--env", help="target environment (needed with the letter rule)")
     exp.add_argument(
+        "--names",
+        choices=("original", "standard"),
+        default="original",
+        help="condition names: as imported (default) or derived from the endpoints",
+    )
+    exp.add_argument(
         "--allow-unresolved",
         action="store_true",
         help="leave @{name} placeholders without a value in the XML instead of failing",
@@ -257,14 +263,18 @@ def cmd_import(args: argparse.Namespace) -> int:
 
 def cmd_export(args: argparse.Namespace) -> int:
     repo = load_repo(args.repo)
-    data, report = ops.export_document(repo, env=args.env, allow_unresolved=args.allow_unresolved)
+    data, report = ops.export_document(
+        repo, env=args.env, allow_unresolved=args.allow_unresolved, names=args.names
+    )
     args.output.write_bytes(data)
-    for name in report.unresolved:
+    for name in report.constants.unresolved:
         print(
             f"warning: constant {name} has no value in {args.env}; placeholder left in the XML",
             file=sys.stderr,
         )
     print(f"Wrote {args.output} ({len(data)} bytes)")
+    if report.renamed:
+        print(f"Standard names applied: {report.renamed} link(s) renamed")
     return EXIT_OK
 
 
@@ -406,7 +416,9 @@ def cmd_links(args: argparse.Namespace) -> int:
     for link in selected:
         producers = ", ".join(str(n) for n in link.all_producers) or "-"
         consumers = ", ".join(str(n) for n in link.consumers) or "-"
-        print(f"{link.kind:11} {link.name}  {producers} -> {consumers}")
+        standard = link.standard_name()
+        suffix = f"  standard: {standard}" if standard and standard != link.name else ""
+        print(f"{link.kind:11} {link.name}  {producers} -> {consumers}{suffix}")
     return EXIT_OK
 
 

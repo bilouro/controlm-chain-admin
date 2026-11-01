@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, Query
 from controlm_chain_admin.core.errors import ModelError
 from controlm_chain_admin.core.graph import folder_graph
 from controlm_chain_admin.core.inspect import show_node
-from controlm_chain_admin.core.links import LINKS_FILE, folder_names, rebuild_links
+from controlm_chain_admin.core.links import INDEX_FILE, folder_names, rebuild_links
 from controlm_chain_admin.core.repo import ChainRepo, read_json
 from controlm_chain_admin.web.deps import get_repo
 from controlm_chain_admin.web.schemas import (
@@ -29,7 +29,7 @@ NOT_FOUND: dict[int | str, dict[str, Any]] = {
 
 
 def _links_index(repo: ChainRepo, folder: str) -> list[dict[str, Any]]:
-    path = repo.folder_dir(folder) / LINKS_FILE
+    path = repo.folder_dir(folder) / INDEX_FILE
     if not path.exists():
         rebuild_links(repo)
     entries: list[dict[str, Any]] = read_json(path).get("links", []) if path.exists() else []

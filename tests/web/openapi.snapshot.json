@@ -404,6 +404,10 @@
             "title": "From",
             "type": "array"
           },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
           "kind": {
             "title": "Kind",
             "type": "string"
@@ -419,6 +423,17 @@
             "title": "Odates",
             "type": "array"
           },
+          "standard": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Standard"
+          },
           "to": {
             "items": {
               "type": "string"
@@ -428,6 +443,7 @@
           }
         },
         "required": [
+          "id",
           "name",
           "from",
           "to",

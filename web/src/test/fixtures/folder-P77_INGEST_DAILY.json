@@ -18,14 +18,14 @@
     ],
     "INCOND": [
       {
-        "NAME": "P77_PRICING-P77_INGEST_DAILY_OK",
+        "link": "P77_PRICING-P77_INGEST_DAILY_OK",
         "ODATE": "ODAT",
         "AND_OR": "A"
       }
     ],
     "OUTCOND": [
       {
-        "NAME": "P77_PRICING-P77_INGEST_DAILY_OK",
+        "link": "P77_PRICING-P77_INGEST_DAILY_OK",
         "ODATE": "ODAT",
         "SIGN": "-"
       }
@@ -52,7 +52,9 @@
   ],
   "links": [
     {
+      "id": "P77_INGEST_INIT-P77_INGEST_LOAD_OK",
       "name": "P77_INGEST_INIT-P77_INGEST_LOAD_OK",
+      "standard": "P77_INGEST_INIT-P77_INGEST_LOAD_OK",
       "from": [
         "P77_INGEST_DAILY/P77_INGEST_INIT"
       ],
@@ -73,7 +75,9 @@
       "external": false
     },
     {
+      "id": "P77_PRICING-P77_INGEST_DAILY_OK",
       "name": "P77_PRICING-P77_INGEST_DAILY_OK",
+      "standard": null,
       "from": [],
       "to": [
         "P77_INGEST_DAILY/"

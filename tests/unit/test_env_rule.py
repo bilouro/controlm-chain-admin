@@ -54,7 +54,7 @@ def test_import_with_env_writes_environment_neutral_paths_and_names(tmp_path: Pa
     )
     assert folder["FOLDER_NAME"] == "P77_INGEST_DAILY"
     assert folder["jobs"] == ["P77_INGEST_INIT", "P77_INGEST_LOAD"]
-    assert job["INCOND"][0]["NAME"] == "P77_INGEST_INIT-P77_INGEST_LOAD_OK"
+    assert job["INCOND"][0]["link"] == "P77_INGEST_INIT-P77_INGEST_LOAD_OK"
     assert job["NODEID"] == "UP77_BATCH"  # not a name attribute: kept until constants exist
     assert report.literal_marks == () and report.suspicious_values == ()
 

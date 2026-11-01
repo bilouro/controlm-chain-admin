@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from controlm_chain_admin.core.errors import ModelError
-from controlm_chain_admin.core.links import Link, NodeRef, build_links, collect_conditions
+from controlm_chain_admin.core.links import Link, NodeRef, load_links
 from controlm_chain_admin.core.repo import ChainRepo, read_json
 
 
@@ -42,9 +42,15 @@ class Graph:
         }
 
 
-def load_links(repo: ChainRepo) -> dict[str, Link]:
-    """All links of the repository, computed from the nodes (nothing written)."""
-    return build_links(collect_conditions(repo))
+__all__ = [
+    "Edge",
+    "Graph",
+    "folder_graph",
+    "load_links",
+    "render_dot",
+    "render_mermaid",
+    "render_text",
+]
 
 
 def _touches(link: Link, folder: str) -> bool:

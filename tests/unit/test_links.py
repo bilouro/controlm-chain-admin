@@ -42,7 +42,7 @@ def test_collect_reads_static_conditions_and_docond_from_the_repository(tmp_path
     conditions = collect_conditions(repo)
 
     b = NodeRef("P77_CHAIN", "P77_B")
-    kinds = {(c.kind, c.name) for c in conditions if c.node == b}
+    kinds = {(c.kind, c.id) for c in conditions if c.node == b}
     assert kinds == {
         ("in", "P77_A-P77_B_OK"),
         ("out-", "P77_A-P77_B_OK"),
@@ -64,7 +64,7 @@ def test_build_groups_conditions_by_name_into_links() -> None:
         Condition(a, "A-B_OK", "do+", "ODAT", on_code="NOTOK"),
     ]
 
-    links = build_links(conditions)
+    links = build_links(conditions, {})
 
     assert list(links) == ["A-B_OK"]
     link = links["A-B_OK"]
@@ -78,18 +78,18 @@ def test_link_kinds() -> None:
     a, b, c = NodeRef("F", "A"), NodeRef("F", "B"), NodeRef("F", "C")
 
     def link(producers: tuple[NodeRef, ...], consumers: tuple[NodeRef, ...]) -> Link:
-        return Link("N", producers, consumers, (), (), (), ("ODAT",), ())
+        return Link("N", "N", producers, consumers, (), (), (), ("ODAT",), ())
 
     assert link((a,), (b,)).kind == "edge"
     assert link((a, c), (b,)).kind == "fan_in"
     assert link((), (b,)).kind == "dangling" and link((), (b,)).external
     assert link((a,), ()).kind == "unconsumed" and link((a,), ()).external
-    assert Link("N", (), (), (b,), (), (), ("ODAT",), ()).kind == "delete_only"
+    assert Link("N", "N", (), (), (b,), (), (), ("ODAT",), ()).kind == "delete_only"
 
 
 def test_link_with_only_a_docond_producer_is_still_connected() -> None:
     a, b = NodeRef("F", "A"), NodeRef("F", "B")
-    link = Link("N", (), (b,), (), ((a, "COMPSTAT EQ 0"),), (), ("ODAT",), ())
+    link = Link("N", "N", (), (b,), (), ((a, "COMPSTAT EQ 0"),), (), ("ODAT",), ())
 
     assert link.kind == "edge" and not link.external
 
@@ -97,7 +97,7 @@ def test_link_with_only_a_docond_producer_is_still_connected() -> None:
 def test_import_writes_the_links_index_on_the_consumer_side(tmp_path: Path) -> None:
     _import(tmp_path)
 
-    index = json.loads((tmp_path / "folders/P77_INGEST_DAILY/links.json").read_text("utf-8"))
+    index = json.loads((tmp_path / "folders/P77_INGEST_DAILY/index.json").read_text("utf-8"))
 
     assert index["derived"] is True
     names = [entry["name"] for entry in index["links"]]
@@ -113,11 +113,11 @@ def test_import_writes_the_links_index_on_the_consumer_side(tmp_path: Path) -> N
 
 def test_rebuild_is_deterministic_and_returns_every_link(tmp_path: Path) -> None:
     repo = _import(tmp_path, ANOMALY_EXPORT)
-    first = (tmp_path / "folders/P77_CHAIN/links.json").read_bytes()
+    first = (tmp_path / "folders/P77_CHAIN/index.json").read_bytes()
 
     links = rebuild_links(repo)
 
-    assert (tmp_path / "folders/P77_CHAIN/links.json").read_bytes() == first
+    assert (tmp_path / "folders/P77_CHAIN/index.json").read_bytes() == first
     assert len(links) == 10
     assert links["P77_B-P77_C_OK"].docond_add == ((NodeRef("P77_CHAIN", "P77_B"), "NOTOK"),)
     assert links["P77_D-P77_NOBODY_OK"].kind == "unconsumed"
@@ -133,7 +133,7 @@ def test_a_link_only_deleted_from_an_on_block_still_has_a_home_in_the_index(
     repo = _import(tmp_path, data)
 
     links = rebuild_links(repo)
-    index = json.loads((tmp_path / "folders/P77_CHAIN/links.json").read_text("utf-8"))
+    index = json.loads((tmp_path / "folders/P77_CHAIN/index.json").read_text("utf-8"))
 
     assert links["P77_ORPHAN_OK"].kind == "delete_only"
     assert "P77_ORPHAN_OK" in [entry["name"] for entry in index["links"]]

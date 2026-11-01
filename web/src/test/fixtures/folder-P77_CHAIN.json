@@ -10,19 +10,19 @@
     "TYPE": "2",
     "INCOND": [
       {
-        "NAME": "P77_OTHER-P77_CHAIN_OK",
+        "link": "P77_OTHER-P77_CHAIN_OK",
         "ODATE": "ODAT",
         "AND_OR": "A"
       }
     ],
     "OUTCOND": [
       {
-        "NAME": "P77_OTHER-P77_CHAIN_OK",
+        "link": "P77_OTHER-P77_CHAIN_OK",
         "ODATE": "ODAT",
         "SIGN": "-"
       },
       {
-        "NAME": "P77_CHAIN-P77_NEXT_OK",
+        "link": "P77_CHAIN-P77_NEXT_OK",
         "ODATE": "ODAT",
         "SIGN": "+"
       }
@@ -79,7 +79,9 @@
   ],
   "links": [
     {
+      "id": "P77_A-P77_B_OK",
       "name": "P77_A-P77_B_OK",
+      "standard": "P77_A-P77_B_OK",
       "from": [
         "P77_CHAIN/P77_A"
       ],
@@ -100,7 +102,9 @@
       "external": false
     },
     {
+      "id": "P77_A-P77_C_OK",
       "name": "P77_A-P77_C_OK",
+      "standard": null,
       "from": [
         "P77_CHAIN/P77_A"
       ],
@@ -115,7 +119,9 @@
       "external": true
     },
     {
+      "id": "P77_A-P77_E_OK",
       "name": "P77_A-P77_E_OK",
+      "standard": null,
       "from": [],
       "to": [
         "P77_CHAIN/P77_E"
@@ -134,7 +140,9 @@
       "external": true
     },
     {
+      "id": "P77_B-P77_C_OK",
       "name": "P77_B-P77_C_OK",
+      "standard": "P77_B-P77_C_OK",
       "from": [
         "P77_CHAIN/P77_B"
       ],
@@ -159,7 +167,9 @@
       "external": false
     },
     {
+      "id": "P77_CHAIN-P77_NEXT_OK",
       "name": "P77_CHAIN-P77_NEXT_OK",
+      "standard": null,
       "from": [
         "P77_CHAIN/"
       ],
@@ -174,7 +184,9 @@
       "external": true
     },
     {
+      "id": "P77_D-P77_NOBODY_OK",
       "name": "P77_D-P77_NOBODY_OK",
+      "standard": null,
       "from": [
         "P77_CHAIN/P77_D"
       ],
@@ -189,7 +201,9 @@
       "external": true
     },
     {
+      "id": "P77_GHOST-P77_E_OK",
       "name": "P77_GHOST-P77_E_OK",
+      "standard": null,
       "from": [],
       "to": [
         "P77_CHAIN/P77_E"
@@ -208,7 +222,9 @@
       "external": true
     },
     {
+      "id": "P77_OLDNAME-P77_D_OK",
       "name": "P77_OLDNAME-P77_D_OK",
+      "standard": "P77_C-P77_D_OK",
       "from": [
         "P77_CHAIN/P77_C"
       ],
@@ -229,7 +245,9 @@
       "external": false
     },
     {
+      "id": "P77_OTHER-P77_CHAIN_OK",
       "name": "P77_OTHER-P77_CHAIN_OK",
+      "standard": null,
       "from": [],
       "to": [
         "P77_CHAIN/"
@@ -248,7 +266,9 @@
       "external": true
     },
     {
+      "id": "WEIRD_NAME",
       "name": "WEIRD_NAME",
+      "standard": null,
       "from": [],
       "to": [
         "P77_CHAIN/P77_F"

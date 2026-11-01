@@ -1,21 +1,30 @@
-"""Links between nodes, derived from the INCOND / OUTCOND / DOCOND conditions stored on nodes.
+"""Links between nodes — the source of truth for condition names.
 
-In the proof of concept the conditions on the nodes remain the source of truth (they are what
-the export regenerates byte for byte); ``links.json`` per folder is a derived index rebuilt on
-every import and by ``ctmchain links --rebuild``. The index is what ``validate``, ``graph`` and
-the web UI read.
+Every INCOND / OUTCOND / DOCOND element on a node references a **link id** (``"link": "<id>"``
+instead of ``NAME``). The id is the condition name as first imported (environment-neutral).
+The export name of a link lives in ``folders/<F>/links.json`` of the link's *home* folder::
+
+    {"links": {"<id>": {"name": "<export name>"}}}
+
+Renaming a condition means editing one entry; moving or renaming jobs never touches names, and
+``export --names standard`` derives names from the endpoints instead. ``folders/<F>/index.json``
+is a derived view (producers, consumers, cleanup, DOCOND, kind, external) rebuilt on import and
+read by ``validate``, ``graph`` and the web UI.
 """
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
 from controlm_chain_admin.core.repo import ChainRepo, read_json, write_json
 
-LINKS_FILE = "links.json"
-INDEX_NOTE = "Derived from the conditions on the nodes; regenerated on import. Do not edit."
+LINKS_FILE = "links.json"  # authoritative names
+INDEX_FILE = "index.json"  # derived view
+LINK_KEY = "link"
+INDEX_NOTE = "Derived from the nodes and links.json; regenerated on import. Do not edit."
+DUPLICATE_SEPARATOR = "~"
 
 
 @dataclass(frozen=True, order=True)
@@ -33,13 +42,19 @@ class NodeRef:
         folder, _, job = text.partition("/")
         return cls(folder, job or None)
 
+    @property
+    def name(self) -> str:
+        """Name a standard condition embeds: the JOBNAME (without ``~n``) or the folder name."""
+        base = self.job if self.job is not None else self.folder
+        return base.split(DUPLICATE_SEPARATOR)[0]
+
 
 @dataclass(frozen=True)
 class Condition:
-    """One condition element as found on a node."""
+    """One condition element as found on a node, referencing a link id."""
 
     node: NodeRef
-    name: str
+    id: str
     kind: str  # "in" | "out+" | "out-" | "do+" | "do-"
     odate: str
     and_or: str | None = None
@@ -48,8 +63,9 @@ class Condition:
 
 @dataclass(frozen=True)
 class Link:
-    """Everything known about one condition name across the repository."""
+    """Everything known about one link across the repository."""
 
+    id: str
     name: str
     producers: tuple[NodeRef, ...]  # OUTCOND SIGN="+"
     consumers: tuple[NodeRef, ...]  # INCOND
@@ -84,9 +100,31 @@ class Link:
         """True when one side of the link is not in the repository."""
         return self.kind in ("dangling", "unconsumed", "delete_only")
 
-    def to_json(self) -> dict[str, Any]:
+    @property
+    def home(self) -> str | None:
+        """Folder whose links.json owns the name: first consumer, else producer, else deleter."""
+        for side in (
+            self.consumers,
+            self.all_producers,
+            self.deleters,
+            tuple(n for n, _ in self.docond_delete),
+        ):
+            if side:
+                return side[0].folder
+        return None
+
+    def standard_name(self) -> str | None:
+        """``<PRODUCER>-<CONSUMER>_OK`` when the link has exactly one producer and one consumer."""
+        producers = self.all_producers
+        if len(producers) != 1 or len(self.consumers) != 1:
+            return None
+        return f"{producers[0].name}-{self.consumers[0].name}_OK"
+
+    def to_json(self, standard: str | None = None) -> dict[str, Any]:
         return {
+            "id": self.id,
             "name": self.name,
+            "standard": standard,
             "from": [str(n) for n in self.producers],
             "to": [str(n) for n in self.consumers],
             "cleanup": [str(n) for n in self.deleters],
@@ -104,18 +142,18 @@ class Link:
 # ---------------------------------------------------------------- collection
 
 
-def _conditions_of(node: NodeRef, data: dict[str, Any]) -> Iterable[Condition]:
+def _conditions_of(node: NodeRef, data: Mapping[str, Any]) -> Iterable[Condition]:
     for entry in data.get("INCOND", []):
-        yield Condition(node, entry["NAME"], "in", entry.get("ODATE", ""), entry.get("AND_OR"))
+        yield Condition(node, entry[LINK_KEY], "in", entry.get("ODATE", ""), entry.get("AND_OR"))
     for entry in data.get("OUTCOND", []):
         sign = "out+" if entry.get("SIGN", "+") == "+" else "out-"
-        yield Condition(node, entry["NAME"], sign, entry.get("ODATE", ""))
+        yield Condition(node, entry[LINK_KEY], sign, entry.get("ODATE", ""))
     for on in data.get("ON", []):
         code = on.get("CODE")
         for child in on.get("children", []):
             if child.get("tag") == "DOCOND":
                 sign = "do+" if child.get("SIGN", "+") == "+" else "do-"
-                yield Condition(node, child["NAME"], sign, child.get("ODATE", ""), on_code=code)
+                yield Condition(node, child[LINK_KEY], sign, child.get("ODATE", ""), on_code=code)
 
 
 def folder_names(repo: ChainRepo) -> list[str]:
@@ -126,7 +164,7 @@ def folder_names(repo: ChainRepo) -> list[str]:
 
 
 def collect_conditions(repo: ChainRepo) -> tuple[Condition, ...]:
-    """Read every condition from the folder and job JSON files of the repository."""
+    """Read every condition reference from the folder and job JSON files of the repository."""
     conditions: list[Condition] = []
     for folder in folder_names(repo):
         data = read_json(repo.folder_file(folder))
@@ -137,20 +175,36 @@ def collect_conditions(repo: ChainRepo) -> tuple[Condition, ...]:
     return tuple(conditions)
 
 
+def read_names(repo: ChainRepo) -> dict[str, str]:
+    """``id -> export name`` merged from every folder's links.json."""
+    names: dict[str, str] = {}
+    for folder in folder_names(repo):
+        path = repo.folder_dir(folder) / LINKS_FILE
+        if not path.is_file():
+            continue
+        entries = read_json(path).get("links", {})
+        if not isinstance(entries, dict):  # legacy derived index (a list): no names to keep
+            continue
+        for link_id, entry in entries.items():
+            names[str(link_id)] = str(entry.get("name", link_id))
+    return names
+
+
 def _unique(items: Iterable[Any]) -> tuple[Any, ...]:
     return tuple(dict.fromkeys(items))
 
 
-def build_links(conditions: Iterable[Condition]) -> dict[str, Link]:
-    """Group conditions by name into links, sorted by name."""
-    by_name: dict[str, list[Condition]] = {}
+def build_links(conditions: Iterable[Condition], names: Mapping[str, str]) -> dict[str, Link]:
+    """Group condition references by link id, sorted by id; the name comes from ``names``."""
+    by_id: dict[str, list[Condition]] = {}
     for condition in conditions:
-        by_name.setdefault(condition.name, []).append(condition)
+        by_id.setdefault(condition.id, []).append(condition)
     links: dict[str, Link] = {}
-    for name in sorted(by_name):
-        group = by_name[name]
-        links[name] = Link(
-            name=name,
+    for link_id in sorted(by_id):
+        group = by_id[link_id]
+        links[link_id] = Link(
+            id=link_id,
+            name=names.get(link_id, link_id),
             producers=_unique(c.node for c in group if c.kind == "out+"),
             consumers=_unique(c.node for c in group if c.kind == "in"),
             deleters=_unique(c.node for c in group if c.kind == "out-"),
@@ -162,36 +216,76 @@ def build_links(conditions: Iterable[Condition]) -> dict[str, Link]:
     return links
 
 
-# ---------------------------------------------------------------- index on disk
+def load_links(repo: ChainRepo) -> dict[str, Link]:
+    """All links of the repository with their export names (nothing written)."""
+    return build_links(collect_conditions(repo), read_names(repo))
 
 
-def _home_folders(link: Link) -> set[str]:
-    """Folders whose links.json lists the link: consumers, else producers, else any deleter."""
-    docond_deleters = tuple(node for node, _ in link.docond_delete)
-    for side in (link.consumers, link.all_producers, link.deleters, docond_deleters):
-        if side:
-            return {node.folder for node in side}
-    return set()
+# ---------------------------------------------------------------- standard names
 
 
-def write_links_index(repo: ChainRepo, links: dict[str, Link]) -> int:
-    """Write ``folders/<F>/links.json`` for every folder on disk. Returns the number of files."""
+def standard_names(links: Mapping[str, Link]) -> dict[str, str]:
+    """Export names derived from the endpoints, with folder-prefixed disambiguation on collision.
+
+    Links without a single producer and consumer (externals, fan-in, delete-only) keep their
+    current name and are left out of the result.
+    """
+    candidates: dict[str, list[str]] = {}
+    for link in links.values():
+        standard = link.standard_name()
+        if standard is not None:
+            candidates.setdefault(standard, []).append(link.id)
+    result: dict[str, str] = {}
+    for standard, ids in candidates.items():
+        if len(ids) == 1:
+            result[ids[0]] = standard
+            continue
+        prefixed: dict[str, list[str]] = {}
+        for link_id in ids:
+            producer = links[link_id].all_producers[0]
+            prefixed.setdefault(f"{producer.folder}_{standard}", []).append(link_id)
+        for name, same in prefixed.items():
+            if len(same) == 1:
+                result[same[0]] = name
+            # still colliding: those links keep their current names
+    return result
+
+
+# ---------------------------------------------------------------- files
+
+
+def write_names(repo: ChainRepo, links: Mapping[str, Link]) -> int:
+    """Write links.json (``id -> name``) in each link's home folder. Returns the files written."""
+    per_folder: dict[str, dict[str, dict[str, str]]] = {name: {} for name in folder_names(repo)}
+    for link in links.values():
+        home = link.home
+        if home is not None:
+            per_folder.setdefault(home, {})[link.id] = {"name": link.name}
+    for folder, entries in per_folder.items():
+        write_json(repo.folder_dir(folder) / LINKS_FILE, {"links": entries})
+    return len(per_folder)
+
+
+def write_index(repo: ChainRepo, links: Mapping[str, Link]) -> int:
+    """Write the derived index.json per folder. Returns the number of files."""
+    standards = standard_names(links)
     per_folder: dict[str, list[Link]] = {name: [] for name in folder_names(repo)}
     for link in links.values():
-        for folder in _home_folders(link):
-            per_folder.setdefault(folder, []).append(link)
+        home = link.home
+        if home is not None:
+            per_folder.setdefault(home, []).append(link)
     for folder, entries in per_folder.items():
         payload = {
             "derived": True,
             "note": INDEX_NOTE,
-            "links": [link.to_json() for link in sorted(entries, key=lambda link: link.name)],
+            "links": [link.to_json(standards.get(link.id)) for link in entries],
         }
-        write_json(repo.folder_dir(folder) / LINKS_FILE, payload)
+        write_json(repo.folder_dir(folder) / INDEX_FILE, payload)
     return len(per_folder)
 
 
 def rebuild_links(repo: ChainRepo) -> dict[str, Link]:
-    """Collect, build and write the index; returns the links."""
-    links = build_links(collect_conditions(repo))
-    write_links_index(repo, links)
+    """Collect the references, resolve names and rewrite the derived index; returns the links."""
+    links = load_links(repo)
+    write_index(repo, links)
     return links

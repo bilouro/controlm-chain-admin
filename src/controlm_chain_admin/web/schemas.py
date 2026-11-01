@@ -41,7 +41,9 @@ class JobSummary(BaseModel):
 
 
 class LinkOut(BaseModel):
+    id: str
     name: str
+    standard: str | None = None
     from_: list[str] = Field(alias="from")
     to: list[str]
     cleanup: list[str]

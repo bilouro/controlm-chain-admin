@@ -115,13 +115,20 @@ Attributes not listed here are kept as plain strings under their XML names; noth
 
 ### 4.3 Links file
 
-**PoC status (2026-11-01).** The conditions on the nodes are still the source of truth (they are
-what the export regenerates byte for byte) and `links.json` is a **derived index**, rebuilt on
-every import and read by `validate`, `graph`, `links` and the web UI. Its shape today is
-`{"derived": true, "links": [{"name", "from", "to", "cleanup", "docond", "odates", "and_or",
-"kind", "external"}]}` where `kind` is `edge | fan_in | dangling | unconsumed | delete_only`.
-Making links the source of truth (and conditions the derived part) is the next slice; the
-target shape below stays the goal.
+**Status (2026-11-01, slice 2).** Links are the source of truth for condition names. Every
+INCOND / OUTCOND / DOCOND on a node carries `"link": "<id>"` instead of `NAME`, where the id is
+the condition name as first imported (environment-neutral). The export name lives in
+`folders/<F>/links.json` of the link's home folder (first consumer, else producer, else
+deleter): `{"links": {"<id>": {"name": "<export name>"}}}`. Renaming a condition is one edit;
+renaming or moving jobs never touches names. `folders/<F>/index.json` is the **derived** view
+(`{"derived": true, "links": [{"id", "name", "standard", "from", "to", "cleanup", "docond",
+"odates", "and_or", "kind", "external"}]}`, `kind` in `edge | fan_in | dangling | unconsumed |
+delete_only`) rebuilt on import and read by `validate`, `graph`, `links` and the web UI.
+`export --names standard` derives `<PRODUCER>-<CONSUMER>_OK` for links with exactly one producer
+and one consumer; two distinct links that would collide get the producer's folder as prefix
+(`<FOLDER>_<P>-<C>_OK`); a condition shared by several folders is one link (fan-in/fan-out) and a
+name policy never splits it — that is a refactoring. The richer per-endpoint shape below remains
+the long-term goal.
 
 ```json
 {

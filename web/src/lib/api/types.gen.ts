@@ -260,12 +260,16 @@ export interface components {
       external: boolean;
       /** From */
       from: string[];
+      /** Id */
+      id: string;
       /** Kind */
       kind: string;
       /** Name */
       name: string;
       /** Odates */
       odates: string[];
+      /** Standard */
+      standard?: string | null;
       /** To */
       to: string[];
     };

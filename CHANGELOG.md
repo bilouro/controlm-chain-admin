@@ -23,6 +23,11 @@ All notable changes to this project are documented here. The format follows
   (`distinct --write` mapping drafts, `map`, `import --mappings`, `env constants --missing`,
   `export --allow-unresolved`); value and inline modes; selectors `ATTR`, `TAG/@ATTR`,
   `TAG[K=V]/@ATTR`.
+- Links are the source of truth for condition names: nodes reference `"link": "<id>"`,
+  `folders/<F>/links.json` holds the export name of each link, `index.json` is the derived view.
+  Renaming a condition is one edit; ids stay stable when a renamed export is imported again.
+- `export --names standard`: `<PRODUCER>-<CONSUMER>_OK` from the endpoints, producer folder as
+  prefix when two links would collide; external, fan-in and delete-only links keep their names.
 - Package skeleton, CI (lint, types, tests, web, build) and release workflows, community files.
 - `DESIGN.md` (architecture and data model) and `BACKLOG.md` (proof-of-concept plan and status).
 

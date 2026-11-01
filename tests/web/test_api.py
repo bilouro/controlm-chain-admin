@@ -71,7 +71,7 @@ def test_job_detail_groups_attributes_and_keeps_the_raw_json(client: TestClient)
     assert groups["execution"]["CMDLINE"] == "/opt/p77/bin/load.ksh -d %%ODATE"
     assert groups["execution"]["NODEID"] == "UP77_BATCH"
     assert body["meta"] == {"JOBISN": "3"}
-    assert body["raw"]["INCOND"][0]["NAME"] == "P77_INGEST_INIT-P77_INGEST_LOAD_OK"
+    assert body["raw"]["INCOND"][0]["link"] == "P77_INGEST_INIT-P77_INGEST_LOAD_OK"
     assert [link["name"] for link in body["links"]] == ["P77_INGEST_INIT-P77_INGEST_LOAD_OK"]
     assert body["on"][0]["CODE"] == "NOTOK"
 

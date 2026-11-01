@@ -45,6 +45,6 @@ def test_links_and_validate_on_the_real_chain(uat_export: Path, tmp_path: Path) 
     # every link lives in the index of at least one folder
     index_entries = 0
     for folder_dir in (tmp_path / "folders").iterdir():
-        index = json.loads((folder_dir / "links.json").read_text("utf-8"))
+        index = json.loads((folder_dir / "index.json").read_text("utf-8"))
         index_entries += len(index["links"])
     assert index_entries >= len(links)
