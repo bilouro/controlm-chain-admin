@@ -89,7 +89,7 @@ def test_renaming_a_link_in_links_json_changes_every_occurrence_on_export(tmp_pa
     path = tmp_path / F / "links.json"
     data = _read(path)
     data["links"]["P77_INGEST_INIT-P77_INGEST_LOAD_OK"]["name"] = "P77_INIT-P77_LOAD_DONE"
-    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8", newline="\n")
 
     out = export_xml(repo, env="uat")
 
@@ -102,7 +102,7 @@ def test_export_fails_on_a_reference_to_an_unknown_link(tmp_path: Path) -> None:
     path = tmp_path / F / "jobs/P77_INGEST_LOAD.json"
     data = _read(path)
     data["INCOND"][0]["link"] = "NOPE"
-    path.write_text(json.dumps(data) + "\n", encoding="utf-8")
+    path.write_text(json.dumps(data) + "\n", encoding="utf-8", newline="\n")
 
     with pytest.raises(ModelError, match="NOPE"):
         export_xml(repo, env="uat")
@@ -195,7 +195,7 @@ def test_ids_stay_stable_when_a_renamed_export_is_imported_again(tmp_path: Path)
     path = tmp_path / F / "links.json"
     data = _read(path)
     data["links"]["P77_INGEST_INIT-P77_INGEST_LOAD_OK"]["name"] = "P77_INIT-P77_LOAD_DONE"
-    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8", newline="\n")
     rebuild_links(repo)
     before = snapshot(tmp_path)
 
