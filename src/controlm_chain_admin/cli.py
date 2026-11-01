@@ -7,6 +7,7 @@ errors to exit codes: 0 success, 1 findings reported, 2 usage error, 3 error.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import sys
 from collections.abc import Sequence
@@ -17,7 +18,7 @@ from controlm_chain_admin.core import constants as constants_mod
 from controlm_chain_admin.core import graph as graph_mod
 from controlm_chain_admin.core import inspect as inspect_mod
 from controlm_chain_admin.core import ops
-from controlm_chain_admin.core.errors import ChainError
+from controlm_chain_admin.core.errors import ChainError, NotAChainRepo
 from controlm_chain_admin.core.links import NodeRef, folder_names
 from controlm_chain_admin.core.repo import init_repo, load_repo, read_json, write_json
 from controlm_chain_admin.core.validate import render_markdown, render_text, validate
@@ -282,6 +283,9 @@ def cmd_validate(args: argparse.Namespace) -> int:
 def cmd_distinct(args: argparse.Namespace) -> int:
     if args.xml is not None:
         document = parse_xml(args.xml.read_bytes())
+        # inside a chain repository only the repository's application is relevant
+        with contextlib.suppress(NotAChainRepo):
+            document = ops.only_application(document, load_repo(args.repo).config.application)
     else:
         document = inspect_mod.load_document(load_repo(args.repo))
     result = inspect_mod.distinct_values(document, args.specs)

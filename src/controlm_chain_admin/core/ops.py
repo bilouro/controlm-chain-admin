@@ -207,6 +207,11 @@ def _split_by_application(
     return replace(document, root=root), tuple(skipped)
 
 
+def only_application(document: XmlDocument, application: str) -> XmlDocument:
+    """The document restricted to the folders of ``application`` (public wrapper)."""
+    return _split_by_application(document, application)[0]
+
+
 def _write_folder(repo: ChainRepo, folder: XmlElement, name: str) -> tuple[int, list[str]]:
     """Write folder.json, the job files and the metadata sidecar. Returns (files, repeats)."""
     config = repo.config
