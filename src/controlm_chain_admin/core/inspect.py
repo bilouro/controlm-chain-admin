@@ -25,11 +25,11 @@ class DistinctValue:
         return {"value": self.value, "count": self.count, "samples": list(self.samples)}
 
 
-def _parse_spec(spec: str) -> tuple[str | None, str]:
-    if "/@" in spec:
-        tag, _, attr = spec.partition("/@")
-        return tag, attr
-    return None, spec
+def _parse_spec(spec: str) -> tuple[str | None, str, dict[str, str]]:
+    from controlm_chain_admin.core.constants import parse_spec  # local: avoids an import cycle
+
+    selector = parse_spec(spec)
+    return selector.tag, selector.attribute, selector.where
 
 
 def _identity(stack: Sequence[XmlElement]) -> str:
@@ -55,16 +55,18 @@ def distinct_values(
     def walk(element: XmlElement) -> None:
         stack.append(element)
         identity = _identity(stack)
-        for spec, tag, attr in parsed:
+        for spec, tag, attr, where in parsed:
             if tag is not None and element.tag != tag:
+                continue
+            if any(element.get(k) != v for k, v in where.items()):
                 continue
             value = element.get(attr)
             if value is None:
                 continue
             counts[spec][value] = counts[spec].get(value, 0) + 1
-            where = seen[spec].setdefault(value, [])
-            if len(where) < samples and identity not in where:
-                where.append(identity)
+            places = seen[spec].setdefault(value, [])
+            if len(places) < samples and identity not in places:
+                places.append(identity)
         for child in element.elements():
             walk(child)
         stack.pop()

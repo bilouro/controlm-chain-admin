@@ -19,6 +19,10 @@ All notable changes to this project are documented here. The format follows
   codes; `distinct`, `show`, `graph` (text, Mermaid, DOT, JSON) and `links` commands.
 - `[web]` extra: read-only FastAPI (`ctmchain serve`) and a Vite + React web UI with folder
   list, chain graph, job detail and validation pages; OpenAPI snapshot as the frontend contract.
+- Constants: `@{name}` placeholders in the base resolved per environment at export
+  (`distinct --write` mapping drafts, `map`, `import --mappings`, `env constants --missing`,
+  `export --allow-unresolved`); value and inline modes; selectors `ATTR`, `TAG/@ATTR`,
+  `TAG[K=V]/@ATTR`.
 - Package skeleton, CI (lint, types, tests, web, build) and release workflows, community files.
 - `DESIGN.md` (architecture and data model) and `BACKLOG.md` (proof-of-concept plan and status).
 

@@ -158,9 +158,18 @@ Fixture tests pass in CI; `realdata` tests pass locally when applicable; ruff an
 CLI `--help` text written; README updated when a command appears; no real data, real names, hosts
 or addresses anywhere in this public repository.
 
-## After the PoC (not ordered yet)
+## After the PoC — order agreed with the author (2026-11-01)
 
-Constants and mappings (`distinct --write`, `map`, `import --mappings`); overrides and `envs`
-variants; second-environment import with learning; `--names standard` and collision rules;
-`--dedupe-jobnames`; refactorings with change-set preview; `diff` and `xmldiffreport`; mapping
-editor and editing in the UI; git bar; PyPI release and bilingual docs.
+1. **Constants and mappings — DONE (2026-11-01).** `distinct --write` drafts, `map`,
+   `import --mappings`, placeholders `@{name}` resolved at export (`--allow-unresolved` to leave
+   gaps), `env constants [--missing]`, value and inline modes, selectors `TAG[K=V]/@ATTR`. On the
+   real data the main NODEID group (1,160 jobs) maps from one pattern; 19 other NODEID values and
+   the hosts, users and mail recipients still need their per-environment values.
+2. **Links as the source of truth** (conditions become the derived part), then `--names standard`
+   with collision rules and `--dedupe-jobnames`.
+3. **Refactorings** with change-set preview (`rename-job`, `rename-subapp`, `move-job`,
+   `insert-job`, `extract-variable`).
+
+Later, unordered: overrides and `envs` variants; second-environment import with learning; `diff`
+and `xmldiffreport`; mapping editor and editing in the UI; git bar; PyPI release and bilingual
+docs.

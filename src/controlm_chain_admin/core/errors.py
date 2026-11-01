@@ -40,4 +40,12 @@ class UnknownEnvironment(ChainError):
 
 
 class EnvironmentRequired(ChainError):
-    """The letter rule is enabled, so import and export need to know the environment."""
+    """The letter rule or constants are in use, so import and export need the environment."""
+
+
+class UnresolvedConstant(ChainError):
+    """A ``@{name}`` placeholder has no value in the target environment."""
+
+
+class ConstantConflict(ChainError):
+    """A constant definition contradicts the registry (name, selector or duplicate value)."""

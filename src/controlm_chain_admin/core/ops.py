@@ -9,9 +9,15 @@ from __future__ import annotations
 
 import re
 import shutil
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from typing import Any
 
+from controlm_chain_admin.core.constants import (
+    ExportConstantsReport,
+    ImportConstantsReport,
+    apply_export,
+    apply_import,
+)
 from controlm_chain_admin.core.errors import (
     DuplicateName,
     EnvironmentRequired,
@@ -62,6 +68,8 @@ class ImportReport:
     environment: str | None = None
     literal_marks: tuple[str, ...] = ()
     suspicious_values: tuple[str, ...] = ()
+    constants_replaced: int = 0
+    unmapped: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -74,6 +82,8 @@ class ImportReport:
             "environment": self.environment,
             "literal_marks": list(self.literal_marks),
             "suspicious_values": list(self.suspicious_values),
+            "constants_replaced": self.constants_replaced,
+            "unmapped": {k: list(v) for k, v in self.unmapped.items()},
         }
 
 
@@ -109,11 +119,14 @@ def _letter(repo: ChainRepo, env: str | None, action: str) -> str | None:
     if env is not None:
         letter = repo.load_env(env).letter
         return letter if repo.config.letter_rule.enabled else None
-    if repo.config.letter_rule.enabled:
+    if repo.config.letter_rule.enabled or repo.config.constants:
         known = ", ".join(repo.config.environments)
-        raise EnvironmentRequired(
-            f"the letter rule is enabled: {action} needs --env (one of {known})"
+        reason = (
+            "the letter rule is enabled"
+            if repo.config.letter_rule.enabled
+            else "constants are defined"
         )
+        raise EnvironmentRequired(f"{reason}: {action} needs --env (one of {known})")
     return None
 
 
@@ -127,6 +140,11 @@ def import_xml(repo: ChainRepo, data: bytes, env: str | None = None) -> ImportRe
     letter = _letter(repo, env, "import")
     document = parse_xml(data)
     kept, skipped = _split_by_application(document, repo.config.application)
+    constants_report = ImportConstantsReport(0, {})
+    if env is not None and repo.config.constants:
+        kept, constants_report = apply_import(
+            kept, repo.config.constants, repo.load_env(env).constants
+        )
     letter_report = LetterReport((), ())
     if letter is not None:
         known = tuple(repo.env_letters().values())
@@ -165,6 +183,8 @@ def import_xml(repo: ChainRepo, data: bytes, env: str | None = None) -> ImportRe
         environment=env,
         literal_marks=letter_report.literal_marks,
         suspicious_values=letter_report.suspicious,
+        constants_replaced=constants_report.replaced,
+        unmapped=constants_report.unmapped,
     )
 
 
@@ -260,14 +280,31 @@ def load_document(repo: ChainRepo) -> XmlDocument:
     return XmlDocument(root, declaration, tuple(meta.get("prolog_comments", [])))
 
 
-def export_xml(repo: ChainRepo, env: str | None = None) -> bytes:
-    """Regenerate the Control-M export for ``env``; byte-identical for untouched content."""
+def export_document(
+    repo: ChainRepo, env: str | None = None, *, allow_unresolved: bool = False
+) -> tuple[bytes, ExportConstantsReport]:
+    """Export for ``env`` and report the constants resolved; unresolved raise unless allowed."""
     repo = load_repo(repo.root)
     letter = _letter(repo, env, "export")
     document = load_document(repo)
+    report = ExportConstantsReport(0, ())
+    if env is not None and repo.config.constants:
+        document, report = apply_export(
+            document,
+            repo.config.constants,
+            repo.load_env(env).constants,
+            allow_unresolved=allow_unresolved,
+        )
     if letter is not None:
         document = add_letter(document, letter, repo.config.letter_rule)
-    return serialize_xml(document)
+    return serialize_xml(document), report
+
+
+def export_xml(
+    repo: ChainRepo, env: str | None = None, *, allow_unresolved: bool = False
+) -> bytes:
+    """Regenerate the Control-M export for ``env``; byte-identical for untouched content."""
+    return export_document(repo, env, allow_unresolved=allow_unresolved)[0]
 
 
 def _read_folder(repo: ChainRepo, name: str) -> XmlElement:

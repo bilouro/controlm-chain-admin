@@ -16,7 +16,7 @@ import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from controlm_chain_admin.core.errors import (
     ModelError,
@@ -25,6 +25,9 @@ from controlm_chain_admin.core.errors import (
     UnknownEnvironment,
 )
 from controlm_chain_admin.core.letter import DEFAULT_LETTER_ATTRIBUTES, LetterRule
+
+if TYPE_CHECKING:
+    from controlm_chain_admin.core.constants import Selector
 
 CHAIN_FILE = "chain.json"
 
@@ -65,6 +68,7 @@ class ChainConfig:
     attribute_order: dict[str, tuple[str, ...]] = field(default_factory=dict)
     child_order: dict[str, tuple[str, ...]] = field(default_factory=dict)
     letter_rule: LetterRule = field(default_factory=LetterRule)
+    constants: dict[str, Selector] = field(default_factory=dict)
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -77,10 +81,13 @@ class ChainConfig:
             "volatile_attributes": list(self.volatile_attributes),
             "attribute_order": {k: list(v) for k, v in self.attribute_order.items()},
             "child_order": {k: list(v) for k, v in self.child_order.items()},
+            "constants": {k: v.to_json() for k, v in self.constants.items()},
         }
 
     @classmethod
     def from_json(cls, data: dict[str, Any]) -> ChainConfig:
+        from controlm_chain_admin.core.constants import Selector  # local: avoids an import cycle
+
         try:
             rule = data.get("letter_rule", {})
             return cls(
@@ -97,6 +104,9 @@ class ChainConfig:
                         str(a) for a in rule.get("attributes", DEFAULT_LETTER_ATTRIBUTES)
                     ),
                 ),
+                constants={
+                    str(k): Selector.from_json(v) for k, v in data.get("constants", {}).items()
+                },
             )
         except KeyError as exc:
             raise ModelError(f"chain.json: missing key {exc}") from exc
@@ -109,7 +119,7 @@ class EnvConfig:
     name: str
     letter: str
     display: str
-    constants: dict[str, str] = field(default_factory=dict)
+    constants: dict[str, str | None] = field(default_factory=dict)
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -126,7 +136,10 @@ class EnvConfig:
                 name=str(data["name"]),
                 letter=str(data["letter"]),
                 display=str(data.get("display", str(data["name"]).upper())),
-                constants={str(k): str(v) for k, v in data.get("constants", {}).items()},
+                constants={
+                    str(k): (str(v) if v is not None else None)
+                    for k, v in data.get("constants", {}).items()
+                },
             )
         except KeyError as exc:
             raise ModelError(f"env.json: missing key {exc}") from exc

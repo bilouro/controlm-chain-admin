@@ -13,12 +13,13 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from controlm_chain_admin import __version__
+from controlm_chain_admin.core import constants as constants_mod
 from controlm_chain_admin.core import graph as graph_mod
 from controlm_chain_admin.core import inspect as inspect_mod
 from controlm_chain_admin.core import ops
 from controlm_chain_admin.core.errors import ChainError
 from controlm_chain_admin.core.links import NodeRef, folder_names
-from controlm_chain_admin.core.repo import init_repo, load_repo
+from controlm_chain_admin.core.repo import init_repo, load_repo, read_json, write_json
 from controlm_chain_admin.core.validate import render_markdown, render_text, validate
 from controlm_chain_admin.core.xmlio import parse_xml
 
@@ -70,6 +71,11 @@ def build_parser() -> argparse.ArgumentParser:
     imp.add_argument(
         "--env", help="environment the export comes from (needed with the letter rule)"
     )
+    imp.add_argument(
+        "--mappings",
+        type=Path,
+        help="mapping draft (from distinct --write) to apply before importing",
+    )
     imp.add_argument("--format", choices=("text", "json"), default="text", help="report format")
     imp.set_defaults(func=cmd_import)
 
@@ -78,6 +84,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--repo", type=Path, default=Path("."), help="repository directory (default: .)"
     )
     exp.add_argument("--env", help="target environment (needed with the letter rule)")
+    exp.add_argument(
+        "--allow-unresolved",
+        action="store_true",
+        help="leave @{name} placeholders without a value in the XML instead of failing",
+    )
     exp.add_argument("-o", "--output", type=Path, required=True, help="XML file to write")
     exp.set_defaults(func=cmd_export)
 
@@ -104,6 +115,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--repo", type=Path, default=Path("."), help="repository directory (default: .)"
     )
     dis.add_argument("--format", choices=("text", "json"), default="text")
+    dis.add_argument("--env", help="environment the values come from (prefills the draft)")
+    dis.add_argument("--write", type=Path, help="write a mapping draft to this JSON file")
     dis.set_defaults(func=cmd_distinct)
 
     show = commands.add_parser("show", help="print one node (FOLDER/JOB or FOLDER/) as JSON")
@@ -131,6 +144,42 @@ def build_parser() -> argparse.ArgumentParser:
     )
     ln.add_argument("--format", choices=("text", "json"), default="text")
     ln.set_defaults(func=cmd_links)
+
+    mp = commands.add_parser(
+        "map", help="bind a value to a constant with one value per environment"
+    )
+    mp.add_argument("spec", metavar="ATTR|TAG/@ATTR", help="e.g. NODEID or DOMAIL/@DEST")
+    mp.add_argument("value", help="the value as seen in the export")
+    mp.add_argument("--as", dest="name", required=True, help="constant name, e.g. node.batch")
+    mp.add_argument("--pattern", help="template with {L}/{l} for the letter, e.g. {L}P77_BATCH")
+    mp.add_argument(
+        "--value",
+        dest="values",
+        action="append",
+        default=[],
+        metavar="ENV=VALUE",
+        help="explicit value for one environment (repeatable)",
+    )
+    mp.add_argument("--env", help="environment the given value belongs to")
+    mp.add_argument("--inline", action="store_true", help="the value is a token inside free text")
+    mp.add_argument(
+        "--repo", type=Path, default=Path("."), help="repository directory (default: .)"
+    )
+    mp.set_defaults(func=cmd_map)
+
+    envp = commands.add_parser("env", help="environment helpers")
+    env_sub = envp.add_subparsers(dest="env_command", metavar="<subcommand>")
+    envc = env_sub.add_parser(
+        "constants", help="constants table; --missing lists the gaps and exits 1"
+    )
+    envc.add_argument(
+        "--repo", type=Path, default=Path("."), help="repository directory (default: .)"
+    )
+    envc.add_argument("--env", help="only this environment")
+    envc.add_argument("--missing", action="store_true", help="only constants without a value")
+    envc.add_argument("--format", choices=("text", "json"), default="text")
+    envc.set_defaults(func=cmd_env_constants)
+    envp.set_defaults(func=cmd_env_help)
 
     srv = commands.add_parser(
         "serve", help="serve the local web UI and API (needs the [web] extra)"
@@ -172,6 +221,9 @@ def cmd_init(args: argparse.Namespace) -> int:
 
 def cmd_import(args: argparse.Namespace) -> int:
     repo = load_repo(args.repo)
+    defined: tuple[str, ...] = ()
+    if args.mappings is not None:
+        repo, defined = constants_mod.apply_draft(repo, read_json(args.mappings))
     report = ops.import_xml(repo, args.xml.read_bytes(), env=args.env)
     if args.format == "json":
         print(json.dumps(report.to_json(), indent=2, ensure_ascii=False))
@@ -193,13 +245,24 @@ def cmd_import(args: argparse.Namespace) -> int:
         print(f"Values carrying another environment's letter: {len(report.suspicious_values)}")
         for value in report.suspicious_values:
             print(f"  {value}")
+    if defined:
+        print(f"Constants defined from the mappings: {len(defined)} ({', '.join(defined)})")
+    if report.constants_replaced or report.unmapped:
+        print(f"Constants replaced: {report.constants_replaced}")
+    for spec, values in report.unmapped.items():
+        print(f"Unmapped {spec} ({len(values)}): {', '.join(values)}")
     return EXIT_OK
 
 
 def cmd_export(args: argparse.Namespace) -> int:
     repo = load_repo(args.repo)
-    data = ops.export_xml(repo, env=args.env)
+    data, report = ops.export_document(repo, env=args.env, allow_unresolved=args.allow_unresolved)
     args.output.write_bytes(data)
+    for name in report.unresolved:
+        print(
+            f"warning: constant {name} has no value in {args.env}; placeholder left in the XML",
+            file=sys.stderr,
+        )
     print(f"Wrote {args.output} ({len(data)} bytes)")
     return EXIT_OK
 
@@ -222,6 +285,14 @@ def cmd_distinct(args: argparse.Namespace) -> int:
     else:
         document = inspect_mod.load_document(load_repo(args.repo))
     result = inspect_mod.distinct_values(document, args.specs)
+    if args.write is not None:
+        draft = constants_mod.build_draft(load_repo(args.repo), document, args.specs, args.env)
+        write_json(args.write, draft)
+        print(
+            f"Wrote mapping draft {args.write} ({_plural(len(args.specs), 'attribute')}); "
+            "fill 'as' and 'values' or 'pattern', then import --mappings"
+        )
+        return EXIT_OK
     if args.format == "json":
         payload = {spec: [v.to_json() for v in values] for spec, values in result.items()}
         print(json.dumps(payload, indent=2, ensure_ascii=False))
@@ -231,6 +302,61 @@ def cmd_distinct(args: argparse.Namespace) -> int:
         for value in values:
             print(f"  {value.count:6}  {value.value}  <- {', '.join(value.samples)}")
     return EXIT_OK
+
+
+def cmd_map(args: argparse.Namespace) -> int:
+    repo = load_repo(args.repo)
+    selector = constants_mod.parse_spec(args.spec, inline=args.inline)
+    values: dict[str, str | None] = {}
+    if args.pattern:
+        values.update(constants_mod.values_from_pattern(args.pattern, repo.env_letters()))
+    for item in args.values:
+        env, sep, value = item.partition("=")
+        if not sep or not env:
+            raise ChainError(f"--value expects ENV=VALUE, got {item!r}")
+        values[env] = value
+    if args.env:
+        values[args.env] = args.value
+    if not values:
+        raise ChainError("map needs --pattern, --value ENV=VALUE or --env to know the values")
+    repo = constants_mod.define_constant(repo, args.name, selector, values)
+    table = constants_mod.constants_table(repo)[args.name]
+    cells = ", ".join(
+        f"{env}={value if value is not None else '?'}" for env, value in table.items()
+    )
+    print(f"{args.name} ({selector.spec}): {cells}")
+    return EXIT_OK
+
+
+def cmd_env_help(args: argparse.Namespace) -> int:
+    print(
+        "usage: ctmchain env constants [--repo DIR] [--env ENV] [--missing] [--format text|json]"
+    )
+    return EXIT_USAGE
+
+
+def cmd_env_constants(args: argparse.Namespace) -> int:
+    repo = load_repo(args.repo)
+    if args.env and args.env not in repo.config.environments:
+        raise ChainError(f"unknown environment {args.env!r}")
+    table = constants_mod.constants_table(repo)
+    envs = [args.env] if args.env else list(repo.config.environments)
+    rows = {
+        name: {env: values[env] for env in envs}
+        for name, values in table.items()
+        if not args.missing or any(values[env] is None for env in envs)
+    }
+    if args.format == "json":
+        print(json.dumps(rows, indent=2, ensure_ascii=False))
+    elif not rows:
+        print("every constant has a value" if args.missing else "no constants defined")
+    else:
+        for name, values in rows.items():
+            shown = {e: v for e, v in values.items() if not args.missing or v is None}
+            cells = ", ".join(f"{e}={v if v is not None else '?'}" for e, v in shown.items())
+            print(f"{name:32} {repo.config.constants[name].spec:28} {cells}")
+    missing = any(v is None for values in rows.values() for v in values.values())
+    return EXIT_FINDINGS if args.missing and missing else EXIT_OK
 
 
 def cmd_show(args: argparse.Namespace) -> int:
