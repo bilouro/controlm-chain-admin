@@ -248,17 +248,23 @@ def _export_meta(repo: ChainRepo, document: XmlDocument, imported: list[str]) ->
 # ---------------------------------------------------------------- export
 
 
-def export_xml(repo: ChainRepo, env: str | None = None) -> bytes:
-    """Regenerate the Control-M export for ``env``; byte-identical for untouched content."""
+def load_document(repo: ChainRepo) -> XmlDocument:
+    """The repository as one neutral document: names without letter, metadata merged back."""
     repo = load_repo(repo.root)
-    letter = _letter(repo, env, "export")
     if not repo.export_meta_file.exists():
         raise ModelError(f"{repo.root}: nothing to export yet (no import was done)")
     meta = read_json(repo.export_meta_file)
     folders = tuple(_read_folder(repo, name) for name in meta.get("folder_order", []))
     root = XmlElement(str(meta["root_tag"]), tuple(dict(meta["root_attrs"]).items()), folders)
     declaration = XmlDeclaration(**meta["declaration"])
-    document = XmlDocument(root, declaration, tuple(meta.get("prolog_comments", [])))
+    return XmlDocument(root, declaration, tuple(meta.get("prolog_comments", [])))
+
+
+def export_xml(repo: ChainRepo, env: str | None = None) -> bytes:
+    """Regenerate the Control-M export for ``env``; byte-identical for untouched content."""
+    repo = load_repo(repo.root)
+    letter = _letter(repo, env, "export")
+    document = load_document(repo)
     if letter is not None:
         document = add_letter(document, letter, repo.config.letter_rule)
     return serialize_xml(document)
