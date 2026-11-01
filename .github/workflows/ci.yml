@@ -21,7 +21,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install -e ".[dev]"
+      - run: pip install -e ".[dev,web]"
       - name: Ruff (lint)
         run: ruff check .
       - name: Ruff (format)
@@ -46,7 +46,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - run: pip install -e ".[dev]"
+      - run: pip install -e ".[dev,web]"
       - name: "Pytest (real-data tests are skipped because CTMCHAIN_DATA_REPO is unset)"
         run: pytest --cov=controlm_chain_admin --cov-report=term-missing
 
