@@ -1,0 +1,828 @@
+{
+  "components": {
+    "schemas": {
+      "EdgeOut": {
+        "properties": {
+          "conditional": {
+            "title": "Conditional",
+            "type": "boolean"
+          },
+          "from": {
+            "title": "From",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "to": {
+            "title": "To",
+            "type": "string"
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "name",
+          "conditional"
+        ],
+        "title": "EdgeOut",
+        "type": "object"
+      },
+      "FindingOut": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "node": {
+            "title": "Node",
+            "type": "string"
+          },
+          "severity": {
+            "title": "Severity",
+            "type": "string"
+          }
+        },
+        "required": [
+          "severity",
+          "code",
+          "node",
+          "name",
+          "message"
+        ],
+        "title": "FindingOut",
+        "type": "object"
+      },
+      "FolderDetail": {
+        "properties": {
+          "folder": {
+            "additionalProperties": true,
+            "description": "folder.json plus its volatile metadata under 'meta'",
+            "title": "Folder",
+            "type": "object"
+          },
+          "graph": {
+            "$ref": "#/components/schemas/GraphOut"
+          },
+          "jobs": {
+            "items": {
+              "$ref": "#/components/schemas/JobSummary"
+            },
+            "title": "Jobs",
+            "type": "array"
+          },
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/LinkOut"
+            },
+            "title": "Links",
+            "type": "array"
+          }
+        },
+        "required": [
+          "folder",
+          "jobs",
+          "links",
+          "graph"
+        ],
+        "title": "FolderDetail",
+        "type": "object"
+      },
+      "FolderList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FolderSummary"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "items"
+        ],
+        "title": "FolderList",
+        "type": "object"
+      },
+      "FolderSummary": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "jobs": {
+            "title": "Jobs",
+            "type": "integer"
+          },
+          "links": {
+            "title": "Links",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "sub_application": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sub Application"
+          }
+        },
+        "required": [
+          "name",
+          "jobs",
+          "links"
+        ],
+        "title": "FolderSummary",
+        "type": "object"
+      },
+      "GraphOut": {
+        "properties": {
+          "dangling": {
+            "items": {
+              "$ref": "#/components/schemas/LooseEnd"
+            },
+            "title": "Dangling",
+            "type": "array"
+          },
+          "edges": {
+            "items": {
+              "$ref": "#/components/schemas/EdgeOut"
+            },
+            "title": "Edges",
+            "type": "array"
+          },
+          "externals": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Externals",
+            "type": "array"
+          },
+          "folder": {
+            "title": "Folder",
+            "type": "string"
+          },
+          "nodes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Nodes",
+            "type": "array"
+          },
+          "unconsumed": {
+            "items": {
+              "$ref": "#/components/schemas/LooseEnd"
+            },
+            "title": "Unconsumed",
+            "type": "array"
+          }
+        },
+        "required": [
+          "folder",
+          "nodes",
+          "edges",
+          "externals",
+          "dangling",
+          "unconsumed"
+        ],
+        "title": "GraphOut",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "JobDetail": {
+        "properties": {
+          "folder": {
+            "title": "Folder",
+            "type": "string"
+          },
+          "groups": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "title": "Groups",
+            "type": "object"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/LinkOut"
+            },
+            "title": "Links",
+            "type": "array"
+          },
+          "meta": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Meta",
+            "type": "object"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "on": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "On",
+            "type": "array"
+          },
+          "raw": {
+            "additionalProperties": true,
+            "title": "Raw",
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "folder",
+          "name",
+          "groups",
+          "meta",
+          "on",
+          "links",
+          "raw"
+        ],
+        "title": "JobDetail",
+        "type": "object"
+      },
+      "JobSummary": {
+        "properties": {
+          "id": {
+            "description": "file stem: JOBNAME, or JOBNAME~n for a repeated name",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "task_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Type"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "JobSummary",
+        "type": "object"
+      },
+      "LetterRuleOut": {
+        "properties": {
+          "attributes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Attributes",
+            "type": "array"
+          },
+          "prefixes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Prefixes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "prefixes",
+          "attributes"
+        ],
+        "title": "LetterRuleOut",
+        "type": "object"
+      },
+      "LinkOut": {
+        "properties": {
+          "and_or": {
+            "items": {
+              "type": "string"
+            },
+            "title": "And Or",
+            "type": "array"
+          },
+          "cleanup": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Cleanup",
+            "type": "array"
+          },
+          "docond": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Docond",
+            "type": "array"
+          },
+          "external": {
+            "title": "External",
+            "type": "boolean"
+          },
+          "from": {
+            "items": {
+              "type": "string"
+            },
+            "title": "From",
+            "type": "array"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "odates": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Odates",
+            "type": "array"
+          },
+          "to": {
+            "items": {
+              "type": "string"
+            },
+            "title": "To",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "from",
+          "to",
+          "cleanup",
+          "docond",
+          "odates",
+          "and_or",
+          "kind",
+          "external"
+        ],
+        "title": "LinkOut",
+        "type": "object"
+      },
+      "LooseEnd": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "node": {
+            "title": "Node",
+            "type": "string"
+          }
+        },
+        "required": [
+          "node",
+          "name"
+        ],
+        "title": "LooseEnd",
+        "type": "object"
+      },
+      "RepoInfo": {
+        "properties": {
+          "application": {
+            "title": "Application",
+            "type": "string"
+          },
+          "environments": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Environments",
+            "type": "array"
+          },
+          "folders": {
+            "title": "Folders",
+            "type": "integer"
+          },
+          "jobs": {
+            "title": "Jobs",
+            "type": "integer"
+          },
+          "letter_rule": {
+            "$ref": "#/components/schemas/LetterRuleOut"
+          },
+          "root": {
+            "title": "Root",
+            "type": "string"
+          }
+        },
+        "required": [
+          "application",
+          "environments",
+          "folders",
+          "jobs",
+          "letter_rule",
+          "root"
+        ],
+        "title": "RepoInfo",
+        "type": "object"
+      },
+      "ValidateOut": {
+        "properties": {
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Counts",
+            "type": "object"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/FindingOut"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "links": {
+            "title": "Links",
+            "type": "integer"
+          },
+          "nodes": {
+            "title": "Nodes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "links",
+          "nodes",
+          "counts",
+          "findings"
+        ],
+        "title": "ValidateOut",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "Read-only API over a chain repository (see DESIGN.md).",
+    "title": "controlm-chain-admin",
+    "version": "<version>"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/folders": {
+      "get": {
+        "operationId": "list_folders_api_folders_get",
+        "parameters": [
+          {
+            "description": "case-insensitive substring of the folder name",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "default": "",
+              "description": "case-insensitive substring of the folder name",
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 500,
+              "maximum": 5000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FolderList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List folders",
+        "tags": [
+          "folders"
+        ]
+      }
+    },
+    "/api/folders/{name}": {
+      "get": {
+        "operationId": "folder_detail_api_folders__name__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FolderDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Folder with jobs, links and graph",
+        "tags": [
+          "folders"
+        ]
+      }
+    },
+    "/api/jobs/{folder}/{job}": {
+      "get": {
+        "operationId": "job_detail_api_jobs__folder___job__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "folder",
+            "required": true,
+            "schema": {
+              "title": "Folder",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "job",
+            "required": true,
+            "schema": {
+              "title": "Job",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Job detail",
+        "tags": [
+          "jobs"
+        ]
+      }
+    },
+    "/api/links/{name}": {
+      "get": {
+        "operationId": "link_by_name_api_links__name__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LinkOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "One link by condition name",
+        "tags": [
+          "validate"
+        ]
+      }
+    },
+    "/api/repo": {
+      "get": {
+        "operationId": "repo_info_api_repo_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepoInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Repository summary",
+        "tags": [
+          "repo"
+        ]
+      }
+    },
+    "/api/validate": {
+      "get": {
+        "operationId": "validate_repo_api_validate_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Validate the repository",
+        "tags": [
+          "validate"
+        ]
+      }
+    }
+  },
+  "tags": [
+    {
+      "description": "The chain repository as a whole.",
+      "name": "repo"
+    },
+    {
+      "description": "Folders, their jobs, links and chain graph.",
+      "name": "folders"
+    },
+    {
+      "description": "One job with grouped attributes, ON blocks and links.",
+      "name": "jobs"
+    },
+    {
+      "description": "Validation findings and links by condition name.",
+      "name": "validate"
+    }
+  ]
+}

@@ -17,7 +17,7 @@ from controlm_chain_admin.core import graph as graph_mod
 from controlm_chain_admin.core import inspect as inspect_mod
 from controlm_chain_admin.core import ops
 from controlm_chain_admin.core.errors import ChainError
-from controlm_chain_admin.core.links import NodeRef
+from controlm_chain_admin.core.links import NodeRef, folder_names
 from controlm_chain_admin.core.repo import init_repo, load_repo
 from controlm_chain_admin.core.validate import render_markdown, render_text, validate
 from controlm_chain_admin.core.xmlio import parse_xml
@@ -131,6 +131,20 @@ def build_parser() -> argparse.ArgumentParser:
     )
     ln.add_argument("--format", choices=("text", "json"), default="text")
     ln.set_defaults(func=cmd_links)
+
+    srv = commands.add_parser(
+        "serve", help="serve the local web UI and API (needs the [web] extra)"
+    )
+    srv.add_argument(
+        "--repo", type=Path, default=Path("."), help="repository directory (default: .)"
+    )
+    srv.add_argument("--host", default="127.0.0.1", help="bind address (default: 127.0.0.1)")
+    srv.add_argument("--port", type=int, default=8765, help="port (default: 8765)")
+    srv.add_argument("--no-browser", action="store_true", help="do not open the browser")
+    srv.add_argument(
+        "--check", action="store_true", help="build the app and print the URL, do not listen"
+    )
+    srv.set_defaults(func=cmd_serve)
     return parser
 
 
@@ -264,6 +278,26 @@ def cmd_links(args: argparse.Namespace) -> int:
         consumers = ", ".join(str(n) for n in link.consumers) or "-"
         print(f"{link.kind:11} {link.name}  {producers} -> {consumers}")
     return EXIT_OK
+
+
+def cmd_serve(args: argparse.Namespace) -> int:
+    repo = load_repo(args.repo)
+    try:
+        from controlm_chain_admin.web.serve import run
+        from controlm_chain_admin.web.settings import Settings
+    except ImportError as exc:  # pragma: no cover - depends on the installed extras
+        raise ChainError(
+            "the web server needs the [web] extra: pip install 'controlm-chain-admin[web]'"
+        ) from exc
+    settings = Settings(
+        repo=repo.root, host=args.host, port=args.port, open_browser=not args.no_browser
+    )
+    folders = len(folder_names(repo))
+    print(f"Serving {repo.config.application} ({_plural(folders, 'folder')}) at {settings.url}")
+    if args.check:
+        return EXIT_OK
+    run(settings)  # pragma: no cover - blocks until interrupted
+    return EXIT_OK  # pragma: no cover
 
 
 # ---------------------------------------------------------------- entry point
