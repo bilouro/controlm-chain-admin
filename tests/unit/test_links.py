@@ -121,3 +121,20 @@ def test_rebuild_is_deterministic_and_returns_every_link(tmp_path: Path) -> None
     assert len(links) == 10
     assert links["P77_B-P77_C_OK"].docond_add == ((NodeRef("P77_CHAIN", "P77_B"), "NOTOK"),)
     assert links["P77_D-P77_NOBODY_OK"].kind == "unconsumed"
+
+
+def test_a_link_only_deleted_from_an_on_block_still_has_a_home_in_the_index(
+    tmp_path: Path,
+) -> None:
+    data = ANOMALY_EXPORT.replace(
+        b'<DOCOND NAME="UP77_B-UP77_C_OK" ODATE="ODAT" SIGN="+" />',
+        b'<DOCOND NAME="UP77_ORPHAN_OK" ODATE="ODAT" SIGN="-" />',
+    )
+    repo = _import(tmp_path, data)
+
+    links = rebuild_links(repo)
+    index = json.loads((tmp_path / "folders/P77_CHAIN/links.json").read_text("utf-8"))
+
+    assert links["P77_ORPHAN_OK"].kind == "delete_only"
+    assert "P77_ORPHAN_OK" in [entry["name"] for entry in index["links"]]
+    assert len(index["links"]) == len(links)

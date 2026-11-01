@@ -166,8 +166,9 @@ def build_links(conditions: Iterable[Condition]) -> dict[str, Link]:
 
 
 def _home_folders(link: Link) -> set[str]:
-    """Folders whose links.json lists the link: consumers, else producers, else deleters."""
-    for side in (link.consumers, link.all_producers, link.deleters):
+    """Folders whose links.json lists the link: consumers, else producers, else any deleter."""
+    docond_deleters = tuple(node for node, _ in link.docond_delete)
+    for side in (link.consumers, link.all_producers, link.deleters, docond_deleters):
         if side:
             return {node.folder for node in side}
     return set()

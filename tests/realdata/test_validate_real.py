@@ -29,7 +29,10 @@ def test_links_and_validate_on_the_real_chain(uat_export: Path, tmp_path: Path) 
     report = validate(repo)
 
     assert len(links) > 1000
-    assert all(link.consumers or link.all_producers or link.deleters for link in links.values())
+    assert all(
+        link.consumers or link.all_producers or link.deleters or link.docond_delete
+        for link in links.values()
+    )
     assert report.links == len(links)
     kinds = {k: sum(1 for link in links.values() if link.kind == k) for k in KINDS}
     codes: dict[str, int] = {}
