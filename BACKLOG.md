@@ -7,6 +7,25 @@ previous one's acceptance passes.
 
 Sizes: **S** = one evening, **M** = two to four evenings, **L** = about a week of evenings.
 
+## Status — PoC complete (2026-11-01)
+
+All milestones M-1 to M4 are done except S0.2 (synthetic fixture generator, deferred by the
+author). Measured on the real UAT export inside the private data repository:
+
+| Measure | Value |
+|---|---|
+| Import | 329 folders, 1,492 jobs, 2,152 files, 0.5 s |
+| Export uat vs original filtered to the application | byte-identical (3,881,158 bytes), 0.25 s |
+| Export prod | same size, every prefixed name re-lettered 1:1 |
+| Links / validate | 1,583 links, 1,821 nodes; 0 errors, 186 warnings, 198 info; 0.14 s |
+| Web UI on real data | largest folder (47 jobs, 64 edges) in 0.15 s; validate page 0.11 s |
+| Public test suite | 134 Python tests (95 % coverage) + 18 frontend tests; 10 real-data tests locally |
+
+Retro notes: links are a derived index in the PoC (DESIGN §4.3); the letter rule found an
+inner-token ambiguity on real data (DESIGN §13.4); duplicate JOBNAMEs inside a folder exist and
+are handled with `~n` ids. Next slice: see *After the PoC* below, starting with constants and
+mappings, which the real data needs before any export to another environment is deployable.
+
 ## PoC goal
 
 Import the UAT export of one application into the private chain repository as JSON, export it

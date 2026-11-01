@@ -23,7 +23,7 @@ may later become a separate chain with its own rules.
 | Chain repository | A git repository holding the **base** (environment-neutral definitions) plus one small directory per **environment**. |
 | Base | The JSON definitions, written from a reference environment (the first one imported) with every environment-specific value replaced by a token, a constant or an override. |
 | Environment | A Control-M datacenter (test, uat, bench, prod…). Identified by a letter (`T`, `U`, `B`, `P`) that appears as a prefix in names, and by a display name (`UAT`…). |
-| Node | A folder or a job. Identity: `FOLDER/JOB`, both without the environment letter. |
+| Node | A folder or a job. Identity: `FOLDER/JOB`, both without the environment letter. Control-M allows the same JOBNAME twice in a folder (the real export has 3 cases): the second occurrence gets the file id `JOBNAME~2`, and so on; the `JOBNAME` attribute keeps the real name. |
 | Link | A dependency edge: producer node OUTCOND `+` → consumer node INCOND with the same condition name. |
 | Constant | A logical value `@{group.name}` resolved per environment (hosts, users, mail recipients, CFT partners). |
 | Override | A per-job, per-environment replacement of whole attribute values or job variable values. |
@@ -114,6 +114,14 @@ Attributes not listed here are kept as plain strings under their XML names; noth
 (defaults for new jobs).
 
 ### 4.3 Links file
+
+**PoC status (2026-11-01).** The conditions on the nodes are still the source of truth (they are
+what the export regenerates byte for byte) and `links.json` is a **derived index**, rebuilt on
+every import and read by `validate`, `graph`, `links` and the web UI. Its shape today is
+`{"derived": true, "links": [{"name", "from", "to", "cleanup", "docond", "odates", "and_or",
+"kind", "external"}]}` where `kind` is `edge | fan_in | dangling | unconsumed | delete_only`.
+Making links the source of truth (and conditions the derived part) is the next slice; the
+target shape below stays the goal.
 
 ```json
 {
@@ -322,8 +330,12 @@ Server-side concerns (not in the core):
 
 - Backend: FastAPI + uvicorn, calling the core directly (never the CLI by subprocess), shipped in
   the `[web]` extra. `ctmchain serve --repo <dir>` starts it and opens the browser.
-- Frontend: Vite + React + TypeScript + shadcn/ui, in `web/` of this repository. React Flow
-  (xyflow) with dagre/elk layout for chain graphs; a Monaco-style diff viewer; TanStack Query.
+- Frontend: Vite + React + TypeScript + Tailwind, in `web/` of this repository. React Flow
+  (xyflow) with dagre layout for chain graphs; TanStack Query; a Monaco-style diff viewer later.
+  PoC status: design tokens in `index.css` and a few hand-written primitives (`components/ui.tsx`)
+  instead of shadcn/ui, which comes in with the editing forms; API types generated from the
+  OpenAPI snapshot (`npm run gen:api`); MSW fixtures dumped from the real API on the synthetic
+  repository (`web/scripts/dump_fixtures.py`).
   Built assets are produced in the release workflow and included in the wheel; `web/dist/` is
   git-ignored; in development Vite proxies `/api` to FastAPI. Users never need Node.
 - Not chosen: Next.js (a second server, or a static export that offers nothing over Vite),
@@ -405,4 +417,11 @@ the fixtures.
    the prefix rule; the report lists them.
 2. Values in the UAT export that point to other environments (CFT partner of prod, `-env prod`
    flags, `prod_*` directories): bugs or deliberate? To be classified once in `chain.json`.
-3. Whether `reports/` is committed or git-ignored.
+3. Whether `reports/` is committed or git-ignored (git-ignored in the data repository for now).
+4. Inner-token ambiguity of the letter rule (found on real data, 113 values): a name such as
+   `URQ_<APP>_AGGREGATION` has a lettered prefix *and* the bare application code as an inner
+   token. The whole value is kept `literal:`, so its letter is not swapped on export to another
+   environment. Options: a finer rule that marks only the inner token, or a per-value decision
+   recorded in `chain.json`.
+5. Values carrying another environment's letter in the UAT export (4): bug or intentional?
+6. The CLI should swallow BrokenPipe when its output is piped into `head`.

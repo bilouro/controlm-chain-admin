@@ -10,8 +10,9 @@ XML export, keep the links between jobs explicit, hold one environment-neutral d
 test/uat/bench/prod, validate the chains, refactor safely, and export the XML back for the
 environment you choose.
 
-> Status: pre-alpha, under active development. The design is in [`DESIGN.md`](DESIGN.md) and the
-> plan in [`BACKLOG.md`](BACKLOG.md). Nothing is published to PyPI yet.
+> Status: proof of concept complete (import, byte-identical export, environment letter,
+> links, validate, read-only web UI). The design is in [`DESIGN.md`](DESIGN.md) and the plan
+> in [`BACKLOG.md`](BACKLOG.md). Nothing is published to PyPI yet; install from source.
 
 ## Why
 
@@ -40,19 +41,34 @@ pip install "controlm-chain-admin[web]"   # + local read-only web UI
 
 Requires Python 3.11 or newer.
 
-## Quickstart (planned CLI, see BACKLOG.md for what exists today)
+## Quickstart
 
 ```bash
-ctmchain --version
-ctmchain init --repo ./my-chains --application P77_RISK_ENGINE --envs test,uat,bench,prod
-ctmchain distinct NODEID RUN_AS --xml uat_export.xml       # see what varies per environment
-ctmchain import uat_export.xml --env uat --repo ./my-chains
-ctmchain validate --repo ./my-chains
-ctmchain export --env prod -o prod.xml --repo ./my-chains
-ctmchain serve --repo ./my-chains                           # local web UI
+# a git repository (new or existing) becomes a chain repository
+ctmchain init --repo ./my-chains --application P77_RISK_ENGINE \
+    --envs test=T,uat=U,bench=B,prod=P --prefixes P77,RQ_,RC_
+
+ctmchain distinct NODEID RUN_AS DOMAIL/@DEST --xml uat_export.xml   # what varies per environment
+ctmchain import uat_export.xml --env uat --repo ./my-chains         # XML -> JSON, with a report
+ctmchain validate --repo ./my-chains                                # chain findings, exit 1 if any
+ctmchain graph P77_INGEST_DAILY --repo ./my-chains --format mermaid # the chain of one folder
+ctmchain export --env uat -o uat.xml --repo ./my-chains             # byte-identical to the import
+ctmchain export --env prod -o prod.xml --repo ./my-chains           # same chain, prod letters
+ctmchain serve --repo ./my-chains                                   # local read-only web UI
 ```
 
-All examples use the fictional application `P77`; the repository never contains real exports.
+Other commands: `show FOLDER/JOB`, `links FOLDER/JOB`, `links --name <condition>`. Every
+command takes `--format json` where a report is produced. All examples use the fictional
+application `P77`; the repository never contains real exports.
+
+## Development
+
+```bash
+pip install -e ".[dev,web]"
+pytest                                   # synthetic fixtures
+cd web && npm ci && npm run build        # builds the web UI into the package
+.claude/skills/verify/verify.sh          # the whole quality gate
+```
 
 ## Concepts
 
