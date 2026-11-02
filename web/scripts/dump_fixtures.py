@@ -94,6 +94,7 @@ def main() -> int:
     dump_compare()
     dump_workspace()
     dump_intake()
+    dump_intake_groups()
     dump_environments()
     return 0
 
@@ -129,6 +130,23 @@ def dump_intake() -> None:
             )
             response.raise_for_status()
             _write("intake.json", response.json())
+
+
+def dump_intake_groups() -> None:
+    """The uat export received by a repository that knows only prod: repeated differences."""
+    from tests.support.envexports import both, fresh_repo
+
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = fresh_repo(Path(tmp))
+        settings = Settings(
+            repo=repo.root, open_browser=False, token="t", allowed_hosts=["testserver"]
+        )
+        with TestClient(create_app(settings)) as client:
+            response = client.post(
+                "/api/intake", json={"xml": both().decode()}, headers={"X-Ctmchain-Token": "t"}
+            )
+            response.raise_for_status()
+            _write("intake-groups.json", response.json())
 
 
 def _write(filename: str, body: object) -> None:

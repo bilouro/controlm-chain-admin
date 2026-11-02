@@ -502,8 +502,14 @@
             "description": "the export value (neutral)",
             "title": "Incoming"
           },
+          "inline": {
+            "default": false,
+            "description": "the new constant replaces a token inside a text",
+            "title": "Inline",
+            "type": "boolean"
+          },
           "kind": {
-            "description": "learn | set-value | constant | value | children | removed | unmatched",
+            "description": "learn | set-value | constant | group | value | children | removed | unmatched",
             "title": "Kind",
             "type": "string"
           },
@@ -536,6 +542,28 @@
             ],
             "description": "name of a new constant (option new)",
             "title": "Suggested"
+          },
+          "values": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the value of the new constant in each environment (option new)",
+            "title": "Values"
           }
         },
         "required": [

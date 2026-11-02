@@ -73,6 +73,12 @@ def build_parser() -> argparse.ArgumentParser:
         default="",
         help="comma-separated bare prefixes of the letter rule, e.g. P77,RQ_,RC_ (default: none)",
     )
+    init.add_argument(
+        "--leading-only",
+        default="",
+        help="prefixes whose names carry the letter on the first token only, e.g. RQ_,RC_ "
+        "(resources such as URQ_P77_X)",
+    )
     init.set_defaults(func=cmd_init)
 
     imp = commands.add_parser("import", help="import a Control-M XML export into the repository")
@@ -358,7 +364,11 @@ def cmd_init(args: argparse.Namespace) -> int:
     if not environments:
         raise ChainError("--envs needs at least one environment name")
     prefixes = [p.strip() for p in args.prefixes.split(",") if p.strip()]
-    repo = init_repo(args.repo, args.application, environments, letters=letters, prefixes=prefixes)
+    leading = [p.strip() for p in args.leading_only.split(",") if p.strip()]
+    repo = init_repo(
+        args.repo, args.application, environments, letters=letters, prefixes=prefixes,
+        leading_only=leading,
+    )  # fmt: skip
     print(
         f"Initialized chain repository at {repo.root} for application {repo.config.application} "
         f"with environments {', '.join(repo.config.environments)}"
@@ -504,6 +514,9 @@ def cmd_env_help(args: argparse.Namespace) -> int:
 
 
 _SHOWN_PER_KIND = 20
+_DECISION_ORDER = (
+    "learn", "set-value", "group", "constant", "unmatched", "value", "children", "removed",
+)  # fmt: skip
 
 
 def _decision_line(decision: intake_mod.Decision) -> str:
@@ -523,6 +536,15 @@ def _decision_line(decision: intake_mod.Decision) -> str:
         return (
             f"{head}  {decision.field} = {decision.incoming} ({uses}); new: {decision.suggested}"
         )
+    if decision.kind == "group":
+        uses = _plural(decision.count, "use")
+        values = ", ".join(f"{env} {value}" for env, value in (decision.values or {}).items())
+        if decision.inline:
+            what = f"{decision.field}: the name of the environment inside the text"
+            values = f"inline: {values}"
+        else:
+            what = f"{decision.field} {decision.current} -> {decision.incoming}"
+        return f"{head}  {what} ({uses}); new: {decision.suggested} ({values})"
     return head
 
 
@@ -540,7 +562,7 @@ def _print_intake(intake: intake_mod.Intake) -> None:
             "Decisions (default [options]; another one with --choose ID=OPTION, "
             "a new constant with ID=new:NAME):"
         )
-    for kind in ("learn", "set-value", "constant", "unmatched", "value", "children", "removed"):
+    for kind in _DECISION_ORDER:
         of_kind = [d for d in intake.decisions if d.kind == kind]
         for decision in of_kind[:_SHOWN_PER_KIND]:
             print(_decision_line(decision))

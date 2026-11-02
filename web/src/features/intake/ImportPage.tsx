@@ -62,12 +62,21 @@ function describe(decision: DecisionOut): string {
       return `${decision.node}: conditions, ON blocks or other children differ`;
     case "unmatched":
       return `${decision.field} = ${decision.incoming} (${plural(decision.count, "use")})`;
+    case "group":
+      return decision.inline
+        ? `${decision.field}: the name of the environment inside the text (${plural(decision.count, "use")})`
+        : `${decision.field}: ${decision.current} → ${decision.incoming} (${plural(decision.count, "use")})`;
     default:
       return `${decision.node} is not in the export`;
   }
 }
 
 const SECTIONS: { kind: string[]; title: string; help: string }[] = [
+  {
+    kind: ["group"],
+    title: "The same difference in several jobs",
+    help: "One decision for every job that differs in the same way, or for a machine, user, mail or variable of this environment: a new constant (a value per environment, shown below its name), an exception in each job, a change of the base, or ignore.",
+  },
   {
     kind: ["unmatched"],
     title: "Values no constant has",
@@ -140,6 +149,13 @@ function DecisionRow({
             className="ml-2 font-mono"
           />
         </label>
+      )}
+      {isNew && decision.values && (
+        <span className="basis-full font-mono text-xs text-muted">
+          {Object.entries(decision.values)
+            .map(([envName, value]) => `${envName} ${value ?? "(missing)"}`)
+            .join(" · ")}
+        </span>
       )}
     </li>
   );

@@ -108,6 +108,16 @@ All notable changes to this project are documented here. The format follows
 - The *Environments* page of the web UI: every constant with its value per environment, the
   missing ones marked, where it is used; give a value or rename a constant through the review
   (`GET /api/environments`, `constants_overview`).
+- A new repository learns its environments from their exports: receiving another
+  environment's export groups the same difference in many jobs (and any machine, user, mail
+  or variable) into one decision. Its new constant gets a value in every environment: from the
+  letter of the environment when the value carries it (`{L}P77_BATCH`), the base's value
+  elsewhere until their exports come. The name of the environment inside a text
+  (`[UAT] Load failed`) becomes an inline constant with the display names. Values inside ON
+  blocks (mails, subjects) are decisions of their own instead of one "children" decision.
+  Jobs the export does not change keep their values. `ctmchain receive` prints the groups;
+  the *Import* page has a section for them; decisions carry `values` and `inline`.
+- `ctmchain init --leading-only RQ_,RC_`: the whole letter rule from the start.
 - The source distribution carries the whole project (rules, skills, docs, tests, the `web/`
   sources and the built web UI), so it can be developed where only PyPI is reachable.
 - Package skeleton, CI (lint, types, tests, web, build) and release workflows, community files.
@@ -115,6 +125,9 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- Conditions of a node whose children are kept in their own order (an ON block before the
+  conditions, not the order of the rest of the export) were not links: `links.json` missed
+  them and the export failed with "references unknown link".
 - With deduplicated JOBNAMEs, importing some folders only gave their jobs new names (`X`
   instead of the `X2` the full export gave); a job now keeps the name a previous import gave
   it, and folders that are not in the export keep theirs.

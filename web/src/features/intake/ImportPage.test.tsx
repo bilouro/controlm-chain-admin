@@ -5,11 +5,12 @@ import { describe, expect, it } from "vitest";
 import { renderAt } from "@/test/render";
 import { calls, server } from "@/test/server";
 import intake from "@/test/fixtures/intake.json";
+import intakeGroups from "@/test/fixtures/intake-groups.json";
 import { ImportPage } from "./ImportPage";
 
 const XML = '<?xml version="1.0" encoding="utf-8"?>\n<DEFTABLE />\n';
 
-async function analyzed() {
+async function analyzed(heading = /prod export/) {
   const user = userEvent.setup();
   renderAt(<ImportPage />, { path: "/import" });
   const analyze = await screen.findByRole("button", { name: "Analyze" });
@@ -19,7 +20,7 @@ async function analyzed() {
     new File([XML], "delivery.xml", { type: "text/xml" }),
   );
   await user.click(analyze);
-  await screen.findByRole("heading", { name: /prod export/ });
+  await screen.findByRole("heading", { name: heading });
   return user;
 }
 
@@ -121,6 +122,36 @@ describe("ImportPage, values no constant has", () => {
     await waitFor(() =>
       expect(calls.preview[0]).toMatchObject({
         params: { choices: { "unmatched:RUN_AS=nobody": "new:user.lala_user_proc" } },
+      }),
+    );
+  });
+});
+
+describe("ImportPage, the same difference in several jobs", () => {
+  it("offers one constant per difference, with its value in every environment", async () => {
+    server.use(http.post("/api/intake", () => HttpResponse.json(intakeGroups)));
+    const user = await analyzed(/uat export/);
+
+    const groups = screen.getByRole("region", { name: "The same difference in several jobs" });
+    expect(groups).toHaveTextContent("NODEID: PP77_BATCH → UP77_BATCH (9 uses)");
+    expect(groups).toHaveTextContent("test TP77_BATCH · uat UP77_BATCH · bench BP77_BATCH");
+    expect(groups).toHaveTextContent(
+      "DOMAIL/@SUBJECT: the name of the environment inside the text (1 use)",
+    );
+    const node = within(groups).getByRole("radiogroup", {
+      name: "group:NODEID=PP77_BATCH>UP77_BATCH",
+    });
+    expect(within(node).getByRole("radio", { name: "New constant" })).toBeChecked();
+    const runAs = within(groups).getByRole("radiogroup", {
+      name: "group:RUN_AS=app77proc>aup77proc",
+    });
+
+    await user.click(within(runAs).getByRole("radio", { name: "Exceptions" }));
+    await user.click(screen.getByRole("button", { name: "Review change" }));
+
+    await waitFor(() =>
+      expect(calls.preview[0]).toMatchObject({
+        params: { env: "uat", choices: { "group:RUN_AS=app77proc>aup77proc": "exceptions" } },
       }),
     );
   });

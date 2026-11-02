@@ -30,6 +30,8 @@ _SPEC = re.compile(
     r"(?P<attr>[A-Za-z_][A-Za-z0-9_]*)$"
 )
 _GROUPS = {"NODEID": "node", "RUN_AS": "user", "DEST": "mail", "CC_DEST": "mail"}
+#: Attributes whose value usually differs from one environment to another (machines, users, mails).
+ENVIRONMENT_ATTRIBUTES = frozenset(_GROUPS)
 
 
 @dataclass(frozen=True)

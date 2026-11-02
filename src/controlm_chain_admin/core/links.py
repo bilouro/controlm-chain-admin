@@ -143,17 +143,25 @@ class Link:
 
 
 def _conditions_of(node: NodeRef, data: Mapping[str, Any]) -> Iterable[Condition]:
-    for entry in data.get("INCOND", []):
-        yield Condition(node, entry[LINK_KEY], "in", entry.get("ODATE", ""), entry.get("AND_OR"))
-    for entry in data.get("OUTCOND", []):
-        sign = "out+" if entry.get("SIGN", "+") == "+" else "out-"
-        yield Condition(node, entry[LINK_KEY], sign, entry.get("ODATE", ""))
-    for on in data.get("ON", []):
-        code = on.get("CODE")
-        for child in on.get("children", []):
-            if child.get("tag") == "DOCOND":
-                sign = "do+" if child.get("SIGN", "+") == "+" else "do-"
-                yield Condition(node, child[LINK_KEY], sign, child.get("ODATE", ""), on_code=code)
+    """Conditions of a node whose children are grouped by tag or kept in their own order."""
+    entries = [(tag, e) for tag in ("INCOND", "OUTCOND", "ON") for e in data.get(tag, [])]
+    entries += [(str(e.get("tag")), e) for e in data.get("children", []) if isinstance(e, dict)]
+    for tag, entry in entries:
+        if tag == "INCOND":
+            yield Condition(
+                node, entry[LINK_KEY], "in", entry.get("ODATE", ""), entry.get("AND_OR")
+            )
+        elif tag == "OUTCOND":
+            sign = "out+" if entry.get("SIGN", "+") == "+" else "out-"
+            yield Condition(node, entry[LINK_KEY], sign, entry.get("ODATE", ""))
+        elif tag == "ON":
+            code = entry.get("CODE")
+            for child in entry.get("children", []):
+                if child.get("tag") == "DOCOND":
+                    sign = "do+" if child.get("SIGN", "+") == "+" else "do-"
+                    yield Condition(
+                        node, child[LINK_KEY], sign, child.get("ODATE", ""), on_code=code
+                    )
 
 
 def folder_names(repo: ChainRepo) -> list[str]:

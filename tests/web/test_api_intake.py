@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 
 from controlm_chain_admin.web.app import create_app
 from controlm_chain_admin.web.settings import Settings
-from tests.support.envexports import both, constants_repo, job, to_prod
+from tests.support.envexports import both, constants_repo, fresh_repo, job, to_prod
 from tests.support.gitrepo import git, plain_git_identity
 
 C = "P77_CHAIN"
@@ -62,3 +62,17 @@ def test_the_receive_change_is_previewed_and_applied(client: TestClient, root: P
     assert preview["summary"].startswith("receive a prod export: 2 folders")
     assert applied.status_code == 200, applied.text
     assert (root / "envs/prod/overrides.json").is_file()
+
+
+def test_a_group_carries_the_values_its_constant_would_have(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plain_git_identity(monkeypatch, tmp_path)
+    repo = fresh_repo(tmp_path)
+    settings = Settings(repo=repo.root, open_browser=False, token="t", allowed_hosts=["testserver"])
+    with TestClient(create_app(settings)) as fresh:
+        body = fresh.post("/api/intake", json={"xml": both().decode()}, headers=TOKEN).json()
+
+    groups = {d["field"]: d for d in body["decisions"] if d["kind"] == "group"}
+    assert groups["NODEID"]["values"]["bench"] == "BP77_BATCH"
+    assert (groups["NODEID"]["inline"], groups["DOMAIL/@SUBJECT"]["inline"]) == (False, True)

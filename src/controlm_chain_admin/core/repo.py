@@ -303,12 +303,14 @@ def init_repo(
     *,
     letters: Mapping[str, str] | None = None,
     prefixes: Sequence[str] = (),
+    leading_only: Sequence[str] = (),
 ) -> ChainRepo:
     """Create ``chain.json`` and one ``envs/<env>/env.json`` per environment in ``root``.
 
     ``letters`` maps an environment to its letter; by default the upper-cased first character of
     the environment name (test → T, uat → U, bench → B, prod → P). ``prefixes`` are the bare
-    prefixes of the letter rule; without them the rule is disabled.
+    prefixes of the letter rule; without them the rule is disabled. Names starting with one of
+    ``leading_only`` carry the letter on their first token only (``URQ_P77_X``).
     """
     root.mkdir(parents=True, exist_ok=True)
     if (root / CHAIN_FILE).exists():
@@ -320,7 +322,7 @@ def init_repo(
     config = ChainConfig(
         application=application,
         environments=names,
-        letter_rule=LetterRule(prefixes=tuple(prefixes)),
+        letter_rule=LetterRule(prefixes=tuple(prefixes), leading_only=tuple(leading_only)),
     )
     repo = ChainRepo(root=root, config=config).save_config(config)
     for env in names:

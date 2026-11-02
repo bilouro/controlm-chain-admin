@@ -6,9 +6,9 @@ from pathlib import Path
 
 from controlm_chain_admin.core.constants import Selector, define_constant, parse_spec
 from controlm_chain_admin.core.ops import import_xml
-from controlm_chain_admin.core.repo import ChainRepo
+from controlm_chain_admin.core.repo import ChainRepo, init_repo, load_repo
 from tests.support.anomalies import ANOMALY_EXPORT
-from tests.support.gitrepo import chain_git_repo, commit_all
+from tests.support.gitrepo import APP, chain_git_repo, commit_all, git
 from tests.support.rawxml import split_folders
 from tests.support.samples import SAMPLE_EXPORT
 
@@ -51,3 +51,22 @@ def both() -> bytes:
     raw = split_folders(ANOMALY_EXPORT)
     chunk = ANOMALY_EXPORT[raw.folders[0].start : raw.folders[0].end]
     return SAMPLE_EXPORT.replace(b"</DEFTABLE>", chunk + b"</DEFTABLE>")
+
+
+def prod_export() -> bytes:
+    """Both folders as prod has them, also with prod's mail and subject."""
+    return (
+        to_prod(both())
+        .replace(b"[P77][UAT]", b"[P77][PROD]")
+        .replace(b'DEST="ops@example.com"', b'DEST="ops-prod@example.com"')
+    )
+
+
+def fresh_repo(tmp_path: Path, data: bytes | None = None) -> ChainRepo:
+    """A repository of four environments that knows only a prod export, as one starts it."""
+    root = tmp_path / "repo"
+    repo = init_repo(root, APP, ("test", "uat", "bench", "prod"), prefixes=("P77", "RQ_", "RC_"))
+    import_xml(repo, prod_export() if data is None else data, env="prod")
+    git(root, "init", "-q", "-b", "main")
+    commit_all(root, "the prod baseline")
+    return load_repo(root)

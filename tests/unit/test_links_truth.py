@@ -84,6 +84,21 @@ def test_export_with_original_names_is_byte_identical(tmp_path: Path) -> None:
     assert export_xml(repo, env="uat") == filter_applications(SAMPLE_EXPORT, {APP})
 
 
+def test_conditions_of_children_kept_in_their_own_order_are_links_too(tmp_path: Path) -> None:
+    on_first = SAMPLE_EXPORT.replace(  # an ON block before the conditions: no common order
+        b'PARENT_FOLDER="UP77_INGEST_DAILY">\n            <QUANTITATIVE',
+        b'PARENT_FOLDER="UP77_INGEST_DAILY">\n            <ON STMT="*" CODE="NOTOK">\n'
+        b'                <DOCOND NAME="UP77_INGEST_INIT-UP77_INGEST_LOAD_OK" ODATE="ODAT" '
+        b'SIGN="-" />\n            </ON>\n            <QUANTITATIVE',
+    )
+    repo = _import(tmp_path, on_first)
+
+    assert "children" in _read(tmp_path / F / "jobs" / "P77_INGEST_INIT.json")
+    assert export_xml(repo, env="uat") == filter_applications(on_first, {APP})
+    link = load_links(repo)["P77_INGEST_INIT-P77_INGEST_LOAD_OK"]
+    assert [str(n) for n in link.producers] == ["P77_INGEST_DAILY/P77_INGEST_INIT"]
+
+
 def test_renaming_a_link_in_links_json_changes_every_occurrence_on_export(tmp_path: Path) -> None:
     repo = _import(tmp_path)
     path = tmp_path / F / "links.json"

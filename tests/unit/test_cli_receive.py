@@ -9,7 +9,7 @@ import pytest
 
 from controlm_chain_admin.cli import main
 from controlm_chain_admin.core.repo import load_repo
-from tests.support.envexports import both, constants_repo, job, to_prod
+from tests.support.envexports import both, constants_repo, fresh_repo, job, to_prod
 from tests.support.gitrepo import git, plain_git_identity
 
 C = "P77_CHAIN"
@@ -38,6 +38,29 @@ def test_receive_shows_the_decisions_and_previews(
     assert "  learn:user.proc  learn [learn|ignore]  user.proc = app77proc (11 uses)" in out
     assert f"  {C}/P77_E@TASKTYPE  change [change|exception|ignore]  Command -> Dummy" in out
     assert "Preview only" in out
+
+
+def test_receive_shows_a_group_with_the_values_of_its_constant(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    plain_git_identity(monkeypatch, tmp_path)
+    root = fresh_repo(tmp_path).root
+    uat = tmp_path / "uat.xml"
+    uat.write_bytes(both())
+
+    assert main(["receive", str(uat), "--repo", str(root), "--stat"]) == 0
+
+    out = capsys.readouterr().out
+    assert (
+        "  group:NODEID=PP77_BATCH>UP77_BATCH  new [new|exceptions|change|ignore]  "
+        "NODEID PP77_BATCH -> UP77_BATCH (9 uses); new: node.p77_batch "
+        "(test TP77_BATCH, uat UP77_BATCH, bench BP77_BATCH, prod PP77_BATCH)"
+    ) in out
+    assert (
+        "  group:DOMAIL/@SUBJECT~env  new [new|change|ignore]  DOMAIL/@SUBJECT: the name of the "
+        "environment inside the text (1 use); new: env.subject (inline: test TEST, uat UAT, "
+        "bench BENCH, prod PROD)"
+    ) in out
 
 
 def test_receive_applies_on_a_release_only(

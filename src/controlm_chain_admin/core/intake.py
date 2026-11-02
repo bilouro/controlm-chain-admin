@@ -10,7 +10,12 @@ repository, folder by folder and job by job. What still differs is a decision:
   this job, the new value of ``c``, or ignore;
 * ``value``: a plain attribute or variable differs: a change of the base (every environment),
   an exception for this environment, or ignore;
-* ``children``: conditions, ON blocks, resources... differ: change or ignore;
+* ``children``: conditions, ON blocks, resources... differ in their shape: change or ignore;
+* ``group``: the same difference in several jobs (or a machine, user, mail or variable in one):
+  a new constant with a value per environment, an exception in every job, a change of the base,
+  or ignore. A value with the letter of the environment (``UP77_BATCH`` for ``PP77_BATCH``)
+  gives every environment its value; the name of the environment inside a text
+  (``[UAT] Load failed``) is an inline constant;
 * ``removed``: a job of the repository is not in the export: remove it or keep it.
 
 New folders and jobs come as they are; a value of theirs that no constant explains in that
@@ -21,12 +26,19 @@ from __future__ import annotations
 
 import re
 from collections import Counter
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from controlm_chain_admin.core.constants import PLACEHOLDER, Selector, propose_name
+from controlm_chain_admin.core.constants import (
+    ENVIRONMENT_ATTRIBUTES,
+    PLACEHOLDER,
+    Selector,
+    parse_spec,
+    propose_name,
+    values_from_pattern,
+)
 from controlm_chain_admin.core.errors import InvalidChange, ModelError
 from controlm_chain_admin.core.model import XmlDocument
 from controlm_chain_admin.core.ops import JOB_TAG, JOBS_KEY, TAG_KEY, import_xml, only_application
@@ -40,6 +52,7 @@ if TYPE_CHECKING:
 VARIABLE_TAG = "VARIABLE"
 _KNOWN_OPTIONS = ("exception", "new", "set-value", "ignore")
 _NAME_ATTRIBUTES = ("FOLDER_NAME", "JOBNAME")
+_STRUCTURAL_KEYS = ("link", TAG_KEY)  # a condition's link, an element's tag: not a value
 
 
 @dataclass(frozen=True)
@@ -52,6 +65,16 @@ class Site:
     path: tuple[Any, ...]
     current: str | None
     incoming: str | None
+    tag: str | None = None  # the element of a child value (DOMAIL, OUTCOND...)
+
+    @property
+    def selector(self) -> Selector:
+        """What a constant for this value would replace."""
+        if self.scope == "variable":
+            return Selector("VALUE", VARIABLE_TAG, {"NAME": self.field})
+        if self.scope == "child":
+            return Selector(str(self.path[-1]), self.tag)
+        return Selector(self.field)
 
     @property
     def can_except(self) -> bool:
@@ -63,7 +86,7 @@ class Site:
 @dataclass(frozen=True)
 class Decision:
     id: str
-    kind: str  # learn | constant | value | children | removed
+    kind: str  # learn | set-value | constant | value | group | children | removed | unmatched
     options: tuple[str, ...]
     default: str
     node: str | None = None  # FOLDER/JOB or FOLDER/
@@ -75,6 +98,8 @@ class Decision:
     count: int = 1
     sites: tuple[Site, ...] = ()  # where the decision applies
     suggested: str | None = None  # the name of a new constant, for the option "new"
+    values: Mapping[str, str | None] | None = None  # of the new constant, per environment
+    inline: bool = False  # the new constant replaces a token inside a text
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -90,6 +115,8 @@ class Decision:
             "incoming": self.incoming,
             "count": self.count,
             "suggested": self.suggested,
+            "values": dict(self.values) if self.values is not None else None,
+            "inline": self.inline,
         }
 
 
@@ -206,6 +233,15 @@ def _leaves(before: Any, after: Any, path: tuple[Any, ...] = ()) -> Iterator[tup
         yield path if isinstance(before, str) and isinstance(after, str) else ("shape", *path)
 
 
+def _tag(tree: Any, path: tuple[Any, ...]) -> str | None:
+    """The tag of the element holding the value at ``path``."""
+    element = _get(tree, path[:-1])
+    if isinstance(element, dict) and isinstance(element.get(TAG_KEY), str):
+        return str(element[TAG_KEY])
+    keys = [key for key in path[:-1] if isinstance(key, str)]
+    return keys[-1] if keys else None
+
+
 def _get(tree: Any, path: tuple[Any, ...]) -> Any:
     for key in path:
         tree = tree[key]
@@ -263,14 +299,17 @@ class _Collector:
         bc, ac = _children(before), _children(after)
         structural = False
         for path in _leaves(bc, ac):
-            if path[:1] == ("shape",):
+            if path[:1] == ("shape",) or path[-1] in _STRUCTURAL_KEYS:
                 structural = True
                 continue
             current, incoming = _get(bc, path), _get(ac, path)
+            site = Site(node, _path_text(path), "child", path, current, incoming, _tag(bc, path))
             if PLACEHOLDER.fullmatch(current) and not PLACEHOLDER.fullmatch(incoming):
-                self.classify(Site(node, _path_text(path), "child", path, current, incoming))
-            else:
+                self.classify(site)
+            elif PLACEHOLDER.search(current) or PLACEHOLDER.search(incoming):
                 structural = True
+            else:
+                self.classify(site)  # a mail, a subject, a sign...: a value like the others
         if structural:
             self.decisions.append(
                 Decision(f"{node}#children", "children", ("change", "ignore"), "change", node)
@@ -370,12 +409,146 @@ def _elements(
                         yield (key, index, *path), inner_tag, inner
 
 
+# ---------------------------------------------------------------- groups
+
+
+@dataclass(frozen=True)
+class _Envs:
+    names: tuple[str, ...]
+    letters: Mapping[str, str]
+    displays: Mapping[str, str]
+    prefixes: tuple[str, ...]
+
+    @classmethod
+    def of(cls, repo: ChainRepo) -> _Envs:
+        configs = [repo.load_env(env) for env in repo.config.environments]
+        return cls(
+            tuple(repo.config.environments),
+            {c.name: c.letter for c in configs if c.letter},
+            {c.name: c.display for c in configs if c.display},
+            tuple(repo.config.letter_rule.prefixes),
+        )
+
+
+def _token(text: str) -> re.Pattern[str]:
+    return re.compile(rf"(?<![A-Za-z0-9]){re.escape(text)}(?![A-Za-z0-9])")
+
+
+def _letter_pattern(current: str, incoming: str, env: str, envs: _Envs) -> str | None:
+    """``{L}P77_BATCH`` when the two values differ only by the letters of their environments."""
+    if not envs.prefixes or env not in envs.letters:
+        return None
+    alternation = "|".join(re.escape(p) for p in sorted(envs.prefixes, key=len, reverse=True))
+    pattern = re.sub(rf"(?<![A-Za-z0-9])[A-Z](?=(?:{alternation}))", "{L}", incoming)
+    if "{L}" not in pattern:
+        return None
+    values = values_from_pattern(pattern, envs.letters)
+    if values[env] != incoming or current not in [v for e, v in values.items() if e != env]:
+        return None
+    return pattern
+
+
+def _display_swap(site: Site, env: str, envs: _Envs) -> bool:
+    """The two texts differ only by the name of their environments (``[PROD]``, ``[UAT]``)."""
+    target = envs.displays.get(env)
+    if not target or site.current is None or site.incoming is None:
+        return False
+    for other, display in envs.displays.items():
+        token = _token(display)
+        if other == env or not token.search(site.current):
+            continue
+        if token.sub(lambda _: target, site.current) == site.incoming:
+            return True
+    return False
+
+
+def _groups(decisions: list[Decision], env: str, envs: _Envs, taken: set[str]) -> list[Decision]:
+    """The value decisions that repeat one difference, or concern a value of the environment
+    (machine, user, mail, variable), as one decision each, before the others."""
+    keyed: dict[tuple[str, str | None, str | None], list[Site]] = {}
+    for decision in decisions:
+        if decision.kind != "value":
+            continue
+        [site] = decision.sites
+        if site.current is None or site.incoming is None:
+            continue
+        if PLACEHOLDER.search(site.current) or PLACEHOLDER.search(site.incoming):
+            continue
+        spec = site.selector.spec
+        if _display_swap(site, env, envs):
+            keyed.setdefault((spec, None, None), []).append(site)
+        else:
+            keyed.setdefault((spec, site.current, site.incoming), []).append(site)
+    # One value of an environment is one constant: when a value pairs with several others, only
+    # the pair most jobs share becomes the constant; the rest are exceptions to it.
+    largest: Counter[tuple[str, str, str]] = Counter()
+    for (spec, current, incoming), sites in keyed.items():
+        if current is None or incoming is None:
+            continue
+        for side, value in (("current", current), ("incoming", incoming)):
+            largest[(spec, side, value)] = max(largest[(spec, side, value)], len(sites))
+    groups: list[Decision] = []
+    grouped: set[Site] = set()
+    for (spec, current, incoming), sites in keyed.items():
+        first = sites[0]
+        environmental = first.scope == "variable" or first.selector.attribute in (
+            ENVIRONMENT_ATTRIBUTES
+        )
+        inline = current is None
+        if not inline and not environmental and len(sites) < 2:
+            continue
+        except_all = all(site.can_except for site in sites)
+        if inline:
+            clean = True
+            values: dict[str, str | None] = dict(envs.displays)
+            name = f"env.{first.selector.attribute.lower()}"
+            key = f"group:{spec}~env"
+        else:
+            assert current is not None and incoming is not None
+            clean = largest[(spec, "current", current)] == len(sites) and largest[
+                (spec, "incoming", incoming)
+            ] == len(sites)
+            pattern = _letter_pattern(current, incoming, env, envs)
+            if pattern:
+                values = dict(values_from_pattern(pattern, envs.letters))
+            else:
+                values = {e: incoming if e == env else current for e in envs.names}
+            name = propose_name(first.selector, current, envs.prefixes)
+            key = f"group:{spec}={current}>{incoming}"
+        options = (
+            *(("new",) if clean else ()),
+            *(("exceptions",) if except_all else ()),
+            "change",
+            "ignore",
+        )
+        if clean and (inline or environmental):
+            default = "new"
+        else:
+            default = "exceptions" if except_all else "change"
+        suggested = _free_name(name, taken)
+        taken.add(suggested)
+        groups.append(
+            Decision(
+                key, "group", options, default, field=spec, constant=suggested,
+                current=current, incoming=incoming if not inline else envs.displays[env],
+                count=len(sites), sites=tuple(sites), suggested=suggested,
+                values=values, inline=inline,
+            )
+        )  # fmt: skip
+        grouped.update(sites)
+    rest = [d for d in decisions if not (d.kind == "value" and d.sites[0] in grouped)]
+    return [*groups, *rest]
+
+
 def _unmatched(
     box: ChainRepo, env: str, nodes: list[tuple[str, Mapping[str, Any], str]],
-    learned: Mapping[str, str],
+    learned: Mapping[str, str], covered: Iterable[tuple[str, str]] = (),
+    taken: Iterable[str] = (),
 ) -> list[Decision]:  # fmt: skip
     """Values of new folders and jobs, bound to a constant, that no constant has there: create
-    a constant, use another one, or keep the value as it is in every environment."""
+    a constant, use another one, or keep the value as it is in every environment. A value a
+    group would make a constant (``covered``: spec, value) waits for that group."""
+    covered = set(covered)
     selectors = box.config.constants
     unique: dict[str, Selector] = {}
     for selector in selectors.values():
@@ -393,12 +566,14 @@ def _unmatched(
                     continue
                 if any(s == selector and known.get(c) == value for c, s in selectors.items()):
                     continue
+                if (spec, value) in covered:
+                    continue
                 attribute = selector.attribute
                 site = Site(node, attribute, "child" if path else "attribute",
                             (*path, attribute), value, value)  # fmt: skip
                 found.setdefault((spec, value), []).append(site)
     prefixes = box.config.letter_rule.prefixes
-    taken = set(selectors)
+    taken = {*selectors, *taken}
     decisions = []
     for (spec, value), sites in found.items():
         selector = unique[spec]
@@ -508,7 +683,13 @@ def analyze(repo: ChainRepo, data: bytes, env: str | None = None) -> Intake:
                 name = _free_name(f"{decision.constant}_2", taken)
                 taken.add(name)
                 decisions[decisions.index(decision)] = replace(decision, suggested=name)
-        decisions += _unmatched(box, env, new_nodes, learned)
+        decisions = _groups(decisions, env, _Envs.of(repo), taken)
+        covered = {
+            (d.field or "", d.incoming or "")
+            for d in decisions
+            if d.kind == "group" and "new" in d.options and not d.inline
+        }
+        decisions += _unmatched(box, env, new_nodes, learned, covered, taken)
         unresolved: list[str] = []
     present = {f.parent.name for f in repo.folders_dir.glob("*/folder.json")}
     if report.suspicious_values:
@@ -579,26 +760,37 @@ def _put(box: ChainRepo, site: Site, value: str) -> None:
 _CONSTANT_NAME = re.compile(r"[a-z][a-z0-9_]*(?:\.[a-z0-9_]+)+")
 
 
+def _created_name(decision: Decision, option: str) -> str | None:
+    """The constant an option creates: ``new`` (the suggested name) or ``new:NAME``."""
+    if option.startswith("new:"):
+        return option[4:]
+    return (decision.suggested or "") if option == "new" else None
+
+
 def _creations(
-    repo: ChainRepo, decisions: tuple[Decision, ...], chosen: Mapping[str, str]
-) -> dict[str, tuple[Selector, str]]:
-    """New constants the choices create: name -> (selector, value in the environment)."""
+    repo: ChainRepo, env: str, decisions: tuple[Decision, ...], chosen: Mapping[str, str]
+) -> dict[str, tuple[Selector, dict[str, str | None]]]:
+    """New constants the choices create: name -> (selector, value per environment)."""
     by_spec = {s.spec: s for s in repo.config.constants.values()}
-    created: dict[str, tuple[Selector, str]] = {}
+    created: dict[str, tuple[Selector, dict[str, str | None]]] = {}
     for decision in decisions:
         option = chosen[decision.id]
-        if option != "new" and not option.startswith("new:"):
+        name = _created_name(decision, option)
+        if name is None:
             continue
-        name = option[4:] if option.startswith("new:") else (decision.suggested or "")
         if not _CONSTANT_NAME.fullmatch(name):
             raise InvalidChange(f"invalid constant name {name!r}: use lower-case group.name")
         if name in repo.config.constants or name in created:
             raise InvalidChange(f"constant {name} already exists: choose another name")
+        if decision.kind == "group":
+            selector = parse_spec(decision.field or "", inline=decision.inline)
+            created[name] = (selector, dict(decision.values or {}))
+            continue
         if decision.kind == "constant" and decision.constant:
             selector = repo.config.constants[decision.constant]
         else:
             selector = by_spec[decision.field or ""]
-        created[name] = (selector, decision.incoming or "")
+        created[name] = (selector, {env: decision.incoming or ""})
     return created
 
 
@@ -642,6 +834,65 @@ def _keep_job(repo: ChainRepo, box: ChainRepo, node: str) -> None:
         write_json(box.folder_meta_file(folder), meta)
 
 
+def _site_key(site: Site) -> tuple[str, tuple[Any, ...]]:
+    if site.scope == "attribute":
+        return site.node, (site.field,)
+    if site.scope == "variable":
+        return site.node, (VARIABLE_TAG, site.field)
+    return site.node, site.path
+
+
+def _leaf_key(node: str, path: tuple[Any, ...], data: Mapping[str, Any]) -> tuple[str, Any]:
+    """The :func:`_site_key` of the value at ``path`` of a node."""
+    if len(path) == 1:
+        return node, path
+    if path[0] == VARIABLE_TAG and path[-1] == "VALUE" and len(path) == 3:
+        return node, (VARIABLE_TAG, str(data[VARIABLE_TAG][path[1]].get("NAME")))
+    return node, path
+
+
+def _common_leaves(
+    before: Any, after: Any, path: tuple[Any, ...] = ()
+) -> Iterator[tuple[Any, ...]]:
+    """Paths of the texts that differ where the two trees have the same shape."""
+    if isinstance(before, dict) and isinstance(after, dict):
+        for key in before:
+            if key in after:
+                yield from _common_leaves(before[key], after[key], (*path, key))
+    elif isinstance(before, list) and isinstance(after, list) and len(before) == len(after):
+        for index, (b, a) in enumerate(zip(before, after, strict=True)):
+            yield from _common_leaves(b, a, (*path, index))
+    elif isinstance(before, str) and isinstance(after, str) and before != after:
+        yield path
+
+
+def _keep_unchanged(repo: ChainRepo, box: ChainRepo, intake: Intake, names: Iterable[str]) -> None:
+    """A new constant takes its value wherever the export has it; where the export changed
+    nothing (a job of the repository that already had that value), the value stays as it was."""
+    marks = re.compile("|".join(re.escape("@{" + name + "}") for name in names))
+    differing = {_site_key(site) for decision in intake.decisions for site in decision.sites}
+    for folder in intake.folders:
+        if folder.status == "new":
+            continue
+        ids_before = {str(j) for j in read_json(repo.folder_file(folder.name)).get(JOBS_KEY, [])}
+        ids_after = [str(j) for j in read_json(box.folder_file(folder.name)).get(JOBS_KEY, [])]
+        nodes = [f"{folder.name}/", *(f"{folder.name}/{j}" for j in ids_after if j in ids_before)]
+        for node in nodes:
+            before, after = (
+                read_json(_node_file(repo, node)),
+                dict(read_json(_node_file(box, node))),
+            )
+            kept = False
+            for path in _common_leaves(before, after):
+                if not marks.search(_get(after, path)) or marks.search(_get(before, path)):
+                    continue
+                if _leaf_key(node, path, after) not in differing:
+                    _get(after, path[:-1])[path[-1]] = _get(before, path)
+                    kept = True
+            if kept:
+                write_json(_node_file(box, node), after)
+
+
 def _new_nodes(box: ChainRepo, intake: Intake) -> list[tuple[str, Mapping[str, Any], str]]:
     nodes: list[tuple[str, Mapping[str, Any], str]] = []
     for folder in intake.folders:
@@ -683,7 +934,7 @@ def receive(
         named = option.startswith("new:") and "new" in decision.options
         if option not in decision.options and not named:
             raise InvalidChange(f"{decision.id}: choose one of {', '.join(decision.options)}")
-    creations = _creations(repo, intake.decisions, chosen)
+    creations = _creations(repo, intake.env, intake.decisions, chosen)
     values: dict[str, str] = {}
     for decision in intake.decisions:
         option = chosen[decision.id]
@@ -702,10 +953,7 @@ def receive(
             box = box.save_config(replace(config, constants={**config.constants, **added}))
             for other in box.config.environments:
                 other_config = box.load_env(other)
-                new_values = {
-                    name: (value if other == env else None)
-                    for name, (_, value) in creations.items()
-                }
+                new_values = {name: values.get(other) for name, (_, values) in creations.items()}
                 merged = {**other_config.constants, **new_values}
                 write_json(box.env_file(other), replace(other_config, constants=merged).to_json())
         if values:
@@ -714,6 +962,8 @@ def receive(
             write_json(box.env_file(env), replace(env_config, constants=constants).to_json())
         import_xml(box, data, env)
         box = load_repo(box.root)
+        if creations:
+            _keep_unchanged(repo, box, intake, creations)
         overrides = load_overrides(box, env)
         exceptions = 0
         for decision in intake.decisions:
@@ -742,11 +992,23 @@ def receive(
         write_overrides(box, env, overrides)
         others = [e for e in box.config.environments if e != env]
         warnings = list(intake.warnings) + [
-            f"the new constant {name} has no value yet in {', '.join(others)}: give it one "
+            f"the new constant {name} has no value yet in {', '.join(missing)}: give it one "
             "before exporting there"
-            for name in creations
-            if others
+            for name, (_, values) in creations.items()
+            if (missing := [e for e in others if values.get(e) is None])
         ]
+        stand_ins = sorted(
+            name
+            for d in intake.decisions
+            if d.kind == "group" and d.values and d.current is not None
+            and (name := _created_name(d, chosen[d.id]))
+            and all(d.values.get(e) == d.current for e in others)
+        )  # fmt: skip
+        if stand_ins and others:
+            warnings.append(
+                f"{len(stand_ins)} new constant(s) have the base's value in {', '.join(others)} "
+                f"until an export of there is received: {', '.join(stand_ins)}"
+            )
         new = sum(1 for f in intake.folders if f.status == "new")
         changed = sum(1 for f in intake.folders if f.status == "changed")
         folders = len(intake.folders)

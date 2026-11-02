@@ -29,6 +29,19 @@ def test_init_creates_the_repo_and_reports_it(
     assert "Initialized chain repository" in out and APP in out
 
 
+def test_init_takes_the_whole_letter_rule(tmp_path: Path) -> None:
+    code = main(
+        [
+            "init", "--repo", str(tmp_path), "--application", APP, "--envs", "uat,prod",
+            "--prefixes", "P77,RQ_,RC_", "--leading-only", "RQ_,RC_",
+        ]
+    )  # fmt: skip
+
+    rule = json.loads((tmp_path / "chain.json").read_text(encoding="utf-8"))["letter_rule"]
+    assert code == 0
+    assert (rule["prefixes"], rule["leading_only"]) == (["P77", "RQ_", "RC_"], ["RQ_", "RC_"])
+
+
 def test_init_twice_fails_with_error_exit_code(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

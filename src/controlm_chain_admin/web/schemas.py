@@ -447,7 +447,7 @@ class IntakeRequest(BaseModel):
 class DecisionOut(BaseModel):
     id: str
     kind: str = Field(
-        description="learn | set-value | constant | value | children | removed | unmatched"
+        description="learn | set-value | constant | group | value | children | removed | unmatched"
     )
     options: list[str]
     default: str
@@ -459,6 +459,10 @@ class DecisionOut(BaseModel):
     incoming: str | None = Field(None, description="the export value (neutral)")
     count: int = 1
     suggested: str | None = Field(None, description="name of a new constant (option new)")
+    values: dict[str, str | None] | None = Field(
+        None, description="the value of the new constant in each environment (option new)"
+    )
+    inline: bool = Field(False, description="the new constant replaces a token inside a text")
 
 
 class FolderIntakeOut(BaseModel):

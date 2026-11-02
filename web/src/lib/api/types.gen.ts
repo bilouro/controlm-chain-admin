@@ -711,8 +711,14 @@ export interface components {
        */
       incoming?: string | null;
       /**
+       * Inline
+       * @description the new constant replaces a token inside a text
+       * @default false
+       */
+      inline: boolean;
+      /**
        * Kind
-       * @description learn | set-value | constant | value | children | removed | unmatched
+       * @description learn | set-value | constant | group | value | children | removed | unmatched
        */
       kind: string;
       /** Node */
@@ -724,6 +730,13 @@ export interface components {
        * @description name of a new constant (option new)
        */
       suggested?: string | null;
+      /**
+       * Values
+       * @description the value of the new constant in each environment (option new)
+       */
+      values?: {
+        [key: string]: string | null;
+      } | null;
     };
     /** DiscardRequest */
     DiscardRequest: {
