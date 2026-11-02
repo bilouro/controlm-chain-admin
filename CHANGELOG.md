@@ -61,5 +61,7 @@ All notable changes to this project are documented here. The format follows
 - Piping CLI output into a reader that closes early (`| head`) no longer prints a BrokenPipe error.
 - Reloading or opening a web UI page other than the home page (for example `/compare?...` or a
   job page) returned 404; the server now answers client routes with the app.
+- On Windows, unknown `/api/...` paths and missing assets were answered with the app instead of
+  404 (the static files handler sees `\` separators there).
 
 [Unreleased]: https://github.com/bilouro/controlm-chain-admin/commits/main

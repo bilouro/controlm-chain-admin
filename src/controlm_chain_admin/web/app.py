@@ -59,8 +59,8 @@ class SpaStaticFiles(StaticFiles):
 
 
 def _client_route(path: str) -> bool:
-    first, _, _ = path.partition("/")
-    return first != "api" and "." not in path.rsplit("/", 1)[-1]
+    parts = path.replace("\\", "/").split("/")  # StaticFiles joins with os.sep
+    return parts[0] != "api" and "." not in parts[-1]
 
 
 TAGS = [

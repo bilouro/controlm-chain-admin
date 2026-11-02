@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import os
+import shutil
+import stat
 import subprocess
 from pathlib import Path
 
@@ -44,3 +47,11 @@ def chain_git_repo(tmp_path: Path) -> ChainRepo:
     git(root, "init", "-q", "-b", "main")
     commit_all(root, "import the synthetic chain")
     return repo
+
+
+def remove_tree(path: Path) -> None:
+    """``shutil.rmtree`` that also removes read-only files (git objects on Windows)."""
+    for item in path.rglob("*"):
+        if item.is_file():
+            os.chmod(item, stat.S_IREAD | stat.S_IWRITE)
+    shutil.rmtree(path)

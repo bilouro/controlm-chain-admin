@@ -16,7 +16,7 @@ from controlm_chain_admin.core.history import (
     resolve,
     snapshot,
 )
-from tests.support.gitrepo import chain_git_repo, commit_all, git
+from tests.support.gitrepo import chain_git_repo, commit_all, git, remove_tree
 
 FOLDER = "folders/P77_CHAIN/folder.json"
 
@@ -97,7 +97,7 @@ def test_snapshot_of_a_chain_repository_in_a_subdirectory(tmp_path: Path) -> Non
     outer.mkdir()
     git(outer, "init", "-q", "-b", "main")
     repo = chain_git_repo(outer)  # creates outer/repo inside the outer git repository
-    (repo.root / ".git").exists() and __import__("shutil").rmtree(repo.root / ".git")
+    remove_tree(repo.root / ".git")  # read-only objects on Windows
     commit_all(outer, "chain in a subdirectory")
 
     with snapshot(repo.root, "main") as root:

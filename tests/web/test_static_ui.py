@@ -6,7 +6,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from controlm_chain_admin.web.app import create_app
+from controlm_chain_admin.web.app import _client_route, create_app
 from controlm_chain_admin.web.settings import Settings
 from tests.web.conftest import TOKEN
 
@@ -51,3 +51,10 @@ def test_without_a_built_ui_the_root_explains_how_to_get_it(
     client = TestClient(create_app(settings, static_dir=tmp_path / "nothing"))
 
     assert "web UI is not built" in client.get("/").text
+
+
+def test_client_routes_are_recognised_with_windows_separators() -> None:
+    # StaticFiles hands the path over with os.sep: backslashes on Windows
+    assert _client_route("folders/P77_CHAIN") and _client_route("folders\\P77_CHAIN")
+    assert not _client_route("api/nothing-here") and not _client_route("api\\nothing-here")
+    assert not _client_route("assets\\missing.js") and not _client_route("favicon.ico")
