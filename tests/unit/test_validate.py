@@ -127,3 +127,16 @@ def test_cli_validate_exit_codes_and_formats(
     assert data["counts"]["error"] == 1 and len(data["findings"]) == sum(
         len(v) for v in EXPECTED_FINDINGS.values()
     )
+
+
+def test_a_folder_prefixed_standard_name_is_not_stale(tmp_path: Path) -> None:
+    from controlm_chain_admin.core.refactor import apply, rename_link
+
+    repo = _import(tmp_path, ANOMALY_EXPORT)
+    # the name standard_names() gives when two links would collide: <FOLDER>_<PRODUCER>-...
+    apply(repo, rename_link(repo, "P77_OLDNAME-P77_D_OK", "P77_CHAIN_P77_C-P77_D_OK"))
+
+    codes = {(f.code, f.name) for f in validate(repo).findings}
+
+    assert ("stale-name", "P77_CHAIN_P77_C-P77_D_OK") not in codes
+    assert ("non-standard-name", "P77_CHAIN_P77_C-P77_D_OK") not in codes

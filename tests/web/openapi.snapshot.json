@@ -2150,6 +2150,103 @@
         ]
       }
     },
+    "/api/compare/markdown": {
+      "get": {
+        "operationId": "compare_markdown_api_compare_markdown_get",
+        "parameters": [
+          {
+            "description": "base ref, e.g. develop",
+            "in": "query",
+            "name": "base",
+            "required": true,
+            "schema": {
+              "description": "base ref, e.g. develop",
+              "title": "Base",
+              "type": "string"
+            }
+          },
+          {
+            "description": "head ref, or WORKTREE for uncommitted changes",
+            "in": "query",
+            "name": "head",
+            "required": false,
+            "schema": {
+              "default": "WORKTREE",
+              "description": "head ref, or WORKTREE for uncommitted changes",
+              "title": "Head",
+              "type": "string"
+            }
+          },
+          {
+            "description": "compare from the merge base (pull-request style)",
+            "in": "query",
+            "name": "merge_base",
+            "required": false,
+            "schema": {
+              "default": true,
+              "description": "compare from the merge base (pull-request style)",
+              "title": "Merge Base",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "comma-separated shas of the head commits to compare, applied on the base cherry-pick style; omitted: every commit; empty: none",
+            "in": "query",
+            "name": "commits",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "comma-separated shas of the head commits to compare, applied on the base cherry-pick style; omitted: every commit; empty: none",
+              "title": "Commits"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/markdown": {},
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Markdown"
+          },
+          "409": {
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "A selected commit needs one that was left out"
+          },
+          "422": {
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not a git repository, or unknown ref or commit"
+          }
+        },
+        "summary": "The comparison as Markdown, for a pull request",
+        "tags": [
+          "history"
+        ]
+      }
+    },
     "/api/folders": {
       "get": {
         "operationId": "list_folders_api_folders_get",

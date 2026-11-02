@@ -80,6 +80,13 @@ export async function api<T>(path: string): Promise<T> {
   return parse<T>(await fetch(path, { headers: { Accept: "application/json" } }));
 }
 
+/** GET a text endpoint (Markdown...); API errors become ApiError like the JSON calls. */
+export async function apiText(path: string): Promise<string> {
+  const response = await fetch(path);
+  if (!response.ok) await parse<never>(response);
+  return response.text();
+}
+
 /** POST JSON with the session token (editing endpoints). */
 export async function postApi<T>(path: string, body: unknown): Promise<T> {
   const headers: Record<string, string> = {

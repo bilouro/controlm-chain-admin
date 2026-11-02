@@ -7,9 +7,10 @@ from collections.abc import Callable, Hashable
 from typing import Any, TypeVar
 
 from fastapi import APIRouter, Depends, Query, Request
+from fastapi.responses import PlainTextResponse
 
 from controlm_chain_admin.core.commit import commit, pending
-from controlm_chain_admin.core.compare import compare
+from controlm_chain_admin.core.compare import Comparison, compare, render_markdown
 from controlm_chain_admin.core.history import git_state, resolve
 from controlm_chain_admin.core.repo import ChainRepo
 from controlm_chain_admin.web.deps import get_repo, require_token
@@ -101,24 +102,35 @@ def git_commit(
     return CommittedOut.model_validate(done.to_json())
 
 
-@router.get("/compare", response_model=ComparisonOut, responses=ERRORS, summary="Compare two refs")
-def compare_refs(
+def _comparison(
     request: Request,
     repo: ChainRepo = Depends(get_repo),
     base: str = Query(description="base ref, e.g. develop"),
     head: str = Query("WORKTREE", description="head ref, or WORKTREE for uncommitted changes"),
     merge_base: bool = Query(True, description="compare from the merge base (pull-request style)"),
     commits: str | None = COMMITS,
-) -> ComparisonOut:
+) -> Comparison:
     selection = parse_commits(commits)
-    data = cached(
+    return cached(
         request,
         "compare_cache",
         repo,
         (base, head),
         (merge_base, None if selection is None else tuple(selection)),
-        lambda: compare(
-            repo.root, base, head, use_merge_base=merge_base, commits=selection
-        ).to_json(),
+        lambda: compare(repo.root, base, head, use_merge_base=merge_base, commits=selection),
     )
-    return ComparisonOut.model_validate(data)
+
+
+@router.get("/compare", response_model=ComparisonOut, responses=ERRORS, summary="Compare two refs")
+def compare_refs(result: Comparison = Depends(_comparison)) -> ComparisonOut:
+    return ComparisonOut.model_validate(result.to_json())
+
+
+@router.get(
+    "/compare/markdown",
+    response_class=PlainTextResponse,
+    responses={**ERRORS, 200: {"content": {"text/markdown": {}}, "description": "Markdown"}},
+    summary="The comparison as Markdown, for a pull request",
+)
+def compare_markdown(result: Comparison = Depends(_comparison)) -> PlainTextResponse:
+    return PlainTextResponse(render_markdown(result), media_type="text/markdown")

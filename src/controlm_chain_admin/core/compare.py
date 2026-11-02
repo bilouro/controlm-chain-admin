@@ -745,5 +745,11 @@ def render_markdown(result: Comparison) -> str:
         lines.append("")
     if result.commits:
         lines += ["### Commits", ""]
-        lines += [f"- `{c.sha[:7]}` {_cell(c.subject)} — {c.author}" for c in result.commits]
+        left_out = set() if result.selected is None else {c.sha for c in result.commits}
+        left_out -= set(result.selected or ())
+        lines += [
+            f"- `{c.sha[:7]}` {_cell(c.subject)} — {c.author}"
+            + (" (left out)" if c.sha in left_out else "")
+            for c in result.commits
+        ]
     return "\n".join(lines).rstrip() + "\n"

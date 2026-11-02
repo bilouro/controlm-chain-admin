@@ -272,8 +272,8 @@ element exists only on one side. It runs as a dry-run report first.
   → the job the name points to waits for it (`wait`) or the producer stops emitting
   (`stop-emitting`); `unconsumed-external` → stop emitting; `never-cleaned` → the consumer
   deletes it after use (`add-cleanup`); `stale-name` and `non-standard-name` → the standard name
-  when it is unambiguous (`standard-name`; a folder-prefixed name is not offered, it would still
-  be stale); `duplicate-jobname` → number the copies (`number-copies`, the JOBNAME changes in
+  when it is unambiguous (`standard-name`, folder-prefixed `F_A-B_OK` included, which validate
+  accepts as standard); `duplicate-jobname` → number the copies (`number-copies`, the JOBNAME changes in
   Control-M). Without arguments it lists the kinds per code; `CODE=KIND` previews one change for
   every finding of the code with exactly one fix of that kind, `--apply` writes it. Several fixes
   run as one `batch` operation: each step runs in place in one sandbox, the diff is computed
@@ -461,7 +461,8 @@ Server-side concerns (not in the core):
   no token needed: `GET /api/git` (refs, current branch, dirty flag),
   `GET /api/compare?base=&head=&merge_base=&commits=`, `GET /api/package?…&env=` and
   `GET /api/package/xml?…` (cached per pair of commits and options; the working tree is never
-  cached).
+  cached). *Copy Markdown* copies `GET /api/compare/markdown` (the `--format md` report, left-out
+  commits marked) for a pull request description.
 
 - **Validation (resolving, implemented 2026-11-02).** The findings table uses the whole width
   (condition or job, node and message stacked in one column, no horizontal scrolling), filters

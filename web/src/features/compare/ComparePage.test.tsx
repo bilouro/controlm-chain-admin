@@ -282,4 +282,17 @@ describe("ComparePage", () => {
     expect(await within(panel).findByRole("alert")).toHaveTextContent("node.batch");
     expect(within(panel).queryByRole("link", { name: /Download/ })).not.toBeInTheDocument();
   });
+
+  it("copies the comparison as Markdown for a pull request", async () => {
+    const user = userEvent.setup();
+    renderAt(<ComparePage />, { path: "/compare" });
+    await screen.findByRole("button", { name: "P77_C modified" });
+
+    await user.click(screen.getByRole("button", { name: "Copy Markdown" }));
+
+    expect(await screen.findByText("Markdown copied")).toBeInTheDocument();
+    expect(await navigator.clipboard.readText()).toBe(
+      "## Chain changes: develop..feature/demo\n\n3 commits\n",
+    );
+  });
 });

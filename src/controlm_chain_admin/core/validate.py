@@ -8,6 +8,7 @@ whose other end lives outside this repository).
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass, replace
 from typing import Any
 
@@ -90,6 +91,20 @@ def _node_name(node: NodeRef) -> str:
     return base.split(DUPLICATE_SEPARATOR)[0]
 
 
+def embeds_endpoints(
+    parsed: tuple[str, str], producers: Iterable[NodeRef], consumers: Iterable[NodeRef]
+) -> bool:
+    """Whether a parsed condition name names the link's producer and consumer.
+
+    The producer may carry its folder as a prefix (``F_A-B_OK``): that is the standard name
+    when two links would otherwise collide.
+    """
+    producer_names: set[str] = set()
+    for node in producers:
+        producer_names |= {_node_name(node), f"{node.folder}_{_node_name(node)}"}
+    return parsed[0] in producer_names and parsed[1] in {_node_name(n) for n in consumers}
+
+
 def _first(*groups: tuple[NodeRef, ...]) -> str:
     for group in groups:
         if group:
@@ -164,20 +179,19 @@ def _check_link_findings(link: Link, known_names: set[str], out: list[Finding]) 
             out.append(
                 Finding("warning", "unconsumed", node, link.name, f"{who} never waits for it")
             )
-    elif parsed is not None:
-        producer_names = {_node_name(n) for n in producers}
-        consumer_names = {_node_name(n) for n in link.consumers}
-        if parsed[0] not in producer_names or parsed[1] not in consumer_names:
-            out.append(
-                Finding(
-                    "warning",
-                    "stale-name",
-                    _first(producers),
-                    link.name,
-                    f"name embeds {parsed[0]} -> {parsed[1]} but the link is "
-                    f"{', '.join(sorted(producer_names))} -> {', '.join(sorted(consumer_names))}",
-                )
+    elif parsed is not None and not embeds_endpoints(parsed, producers, link.consumers):
+        producer_names = ", ".join(sorted({_node_name(n) for n in producers}))
+        consumer_names = ", ".join(sorted({_node_name(n) for n in link.consumers}))
+        out.append(
+            Finding(
+                "warning",
+                "stale-name",
+                _first(producers),
+                link.name,
+                f"name embeds {parsed[0]} -> {parsed[1]} but the link is "
+                f"{producer_names} -> {consumer_names}",
             )
+        )
     cleaners = set(link.deleters) | {node for node, _ in link.docond_delete}
     for consumer in link.consumers:
         if consumer not in cleaners:

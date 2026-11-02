@@ -102,3 +102,15 @@ def test_package_errors(client: TestClient) -> None:
     assert nothing.status_code == 422 and nothing.json()["error"] == "NothingToPackage"
     assert unknown.status_code == 404 and unknown.json()["error"] == "UnknownEnvironment"
     assert empty.status_code == 200 and empty.json()["folders"] == []
+
+
+def test_compare_as_markdown_for_a_pull_request(client: TestClient, shas: dict[str, str]) -> None:
+    response = client.get("/api/compare/markdown", params={**BASE, "commits": shas["ingest"]})
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/markdown")
+    text = response.text
+    assert text.startswith("## Chain changes: develop..feature/x")
+    assert "1 of 3 commits" in text and "P77_INGEST_LOAD" in text
+    assert "P77_CHAIN/P77_C |" not in text  # its commits are left out
+    assert "feat: describe P77_C — Test (left out)" in text

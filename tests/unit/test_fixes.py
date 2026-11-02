@@ -208,3 +208,31 @@ def test_each_fix_says_what_it_adds_removes_or_changes_in_which_job(tmp_path: Pa
         "P77_F2",
     )
     assert renamed[0].to_json().keys() == {"node", "action", "element", "before", "after"}
+
+
+def test_a_folder_prefixed_standard_name_is_offered_and_clears_the_finding(
+    tmp_path: Path,
+) -> None:
+    from controlm_chain_admin.core.refactor import insert_job
+
+    repo = chain_git_repo(tmp_path)
+    # a second INIT -> LOAD pair in another folder: both links want the same standard name
+    apply(repo, insert_job(repo, f"{C}/P77_INGEST_INIT", after=f"{C}/P77_A", before=f"{C}/P77_B"))
+    apply(repo, insert_job(
+        repo, f"{C}/P77_INGEST_LOAD", after=f"{C}/P77_INGEST_INIT", before=f"{C}/P77_B"
+    ))  # fmt: skip
+    report = validate(repo)
+    offered = [
+        fix
+        for f, group in zip(report.findings, fixes_for(repo, report.findings), strict=True)
+        for fix in group
+        if fix.kind == "standard-name" and "P77_INGEST_LOAD" in fix.label
+    ]
+
+    (fix,) = offered
+    assert fix.params["name"] == "P77_CHAIN_P77_INGEST_INIT-P77_INGEST_LOAD_OK"
+    apply(repo, run_operation(repo, fix.op, fix.params))
+    names = {
+        f.name for f in validate(repo).findings if f.code in ("stale-name", "non-standard-name")
+    }
+    assert "P77_CHAIN_P77_INGEST_INIT-P77_INGEST_LOAD_OK" not in names

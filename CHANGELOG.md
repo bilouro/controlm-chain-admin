@@ -70,10 +70,18 @@ All notable changes to this project are documented here. The format follows
   commit on a new branch when on main, master or develop. Only the chain files are committed
   (`git commit --only`); a commit prepared before other edits is refused
   (`GET /api/git/pending`, `POST /api/git/commit`, `changes` in `GET /api/git`).
+- *Copy Markdown* on the Compare page (`GET /api/compare/markdown`): the comparison for a pull
+  request description; left-out commits are marked in the Markdown and the text reports.
 - Package skeleton, CI (lint, types, tests, web, build) and release workflows, community files.
 - `DESIGN.md` (architecture and data model) and `BACKLOG.md` (proof-of-concept plan and status).
 
 ### Fixed
+
+- A folder-prefixed standard name (`F_A-B_OK`, given when two links would collide) is no longer
+  reported as `stale-name`, and the fix to rename to it is offered.
+- Renaming a job or a folder, or inserting a job, could give a condition a name another link
+  already used, joining two chains in Control-M; the condition now keeps its name, with a
+  warning, and the new link of `insert-job` never reuses a name.
 
 - Piping CLI output into a reader that closes early (`| head`) no longer prints a BrokenPipe error.
 - Reloading or opening a web UI page other than the home page (for example `/compare?...` or a

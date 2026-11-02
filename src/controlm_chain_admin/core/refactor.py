@@ -309,12 +309,32 @@ def _touching(links: Mapping[str, Link], ref: NodeRef) -> list[Link]:
     ]
 
 
-def _renamed_names(links: Sequence[Link], old: str, new: str) -> dict[str, str]:
+def _renamed_names(
+    links: Sequence[Link],
+    old: str,
+    new: str,
+    every: Mapping[str, Link],
+    warnings: list[str],
+) -> dict[str, str]:
+    """New names of the ``links`` whose name embeds ``old``; never a name another link uses.
+
+    Condition names are global in Control-M: a name already used elsewhere (``every``) would
+    join two chains, so that link keeps its name and a warning says so.
+    """
     result: dict[str, str] = {}
     for link in links:
         renamed = rename_in_condition(link.name, old, new)
-        if renamed != link.name:
-            result[link.id] = renamed
+        if renamed == link.name:
+            continue
+        used = _name_in_use(every, renamed, except_id=link.id)
+        if used is None and renamed in result.values():
+            used = next(i for i, name in result.items() if name == renamed)
+        if used is not None:
+            warnings.append(
+                f"condition {link.name} keeps its name: {renamed} is already used by link {used}"
+            )
+            continue
+        result[link.id] = renamed
     return result
 
 
@@ -385,8 +405,9 @@ def rename_job(
         raise DuplicateName(f"job {new_name} already exists in folder {ref.folder}")
     warnings = _name_warnings(repo, new_name)
     old_name = ref.name
+    every = load_links(repo)
     names = (
-        _renamed_names(_touching(load_links(repo), ref), old_name, new_name)
+        _renamed_names(_touching(every, ref), old_name, new_name, every, warnings)
         if update_names
         else {}
     )
@@ -430,8 +451,11 @@ def rename_folder(
         raise DuplicateName(f"folder {new_name} already exists")
     warnings = _name_warnings(repo, new_name)
     ref = NodeRef(folder)
+    every = load_links(repo)
     names = (
-        _renamed_names(_touching(load_links(repo), ref), folder, new_name) if update_names else {}
+        _renamed_names(_touching(every, ref), folder, new_name, every, warnings)
+        if update_names
+        else {}
     )
     original = _tracked(repo.root)
     with _sandbox(original) as box:
@@ -589,10 +613,10 @@ def insert_job(
     existing = candidates[0]
     base_id = f"{new.job}-{downstream.name}_OK"
     new_id, suffix = base_id, 2
-    while new_id in links:
+    while new_id in links or _name_in_use(links, new_id):
         new_id, suffix = f"{base_id}_{suffix}", suffix + 1
     warnings = [*_name_warnings(repo, new.job), "the new job has no JOBISN; Control-M assigns one"]
-    names = _renamed_names([existing], downstream.name, new.job)
+    names = _renamed_names([existing], downstream.name, new.job, links, warnings)
     original = _tracked(repo.root)
     with _sandbox(original) as box:
         waiting = dict(read_json(box.job_file(downstream.folder, downstream.job)))

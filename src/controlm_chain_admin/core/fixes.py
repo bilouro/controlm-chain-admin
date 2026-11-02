@@ -21,7 +21,12 @@ from controlm_chain_admin.core.links import (
     standard_names,
 )
 from controlm_chain_admin.core.repo import ChainRepo, read_json
-from controlm_chain_admin.core.validate import Finding, parse_condition_name, validate
+from controlm_chain_admin.core.validate import (
+    Finding,
+    embeds_endpoints,
+    parse_condition_name,
+    validate,
+)
 
 _EXTERNAL = ("dangling-external", "unconsumed-external")
 
@@ -212,10 +217,8 @@ def _renaming(link: Link, index: _Index) -> list[Fix]:
     standard = index.standards.get(link.id)
     if not standard or standard == link.name or index.used.get(standard, link.id) != link.id:
         return []
-    if parse_condition_name(standard) != (
-        link.all_producers[0].name,
-        link.consumers[0].name,
-    ):  # a folder-prefixed name (two links would collide) would still be reported as stale
+    parsed = parse_condition_name(standard)
+    if parsed is None or not embeds_endpoints(parsed, link.all_producers, link.consumers):
         return []
     return [
         Fix(

@@ -82,6 +82,11 @@ export const handlers = [
     calls.compare.push(params);
     return HttpResponse.json(params.has("commits") ? comparisonSelected : comparison);
   }),
+  http.get("/api/compare/markdown", () =>
+    HttpResponse.text("## Chain changes: develop..feature/demo\n\n3 commits\n", {
+      headers: { "Content-Type": "text/markdown" },
+    }),
+  ),
   http.get("/api/package", ({ request }) => {
     calls.package.push(new URL(request.url).searchParams);
     return HttpResponse.json(packagePreview);

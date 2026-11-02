@@ -327,3 +327,23 @@ def test_change_set_json_shape(tmp_path: Path) -> None:
 
     assert set(data) == {"summary", "warnings", "files"}
     assert {"path": f"{CHAIN}/jobs/P77_BETA.json", "change": "create"} in data["files"]
+
+
+def test_renamed_conditions_never_take_a_name_another_link_uses(tmp_path: Path) -> None:
+    from controlm_chain_admin.core.refactor import apply as apply_change
+    from controlm_chain_admin.core.refactor import insert_job as insert
+    from tests.support.gitrepo import chain_git_repo
+
+    repo = chain_git_repo(tmp_path)
+    chain = "P77_CHAIN"
+    apply_change(repo, insert(repo, f"{chain}/P77_INGEST_INIT", after=f"{chain}/P77_A",
+                              before=f"{chain}/P77_B"))  # fmt: skip
+    # INIT -> B would follow the downstream job and become INIT-LOAD_OK: the ingest folder's
+    change = insert(
+        repo, f"{chain}/P77_INGEST_LOAD", after=f"{chain}/P77_INGEST_INIT", before=f"{chain}/P77_B"
+    )
+    apply_change(repo, change)
+
+    names = [link.name for link in load_links(repo).values()]
+    assert len(names) == len(set(names)), sorted(names)
+    assert any("already used by link" in w for w in change.warnings), change.warnings

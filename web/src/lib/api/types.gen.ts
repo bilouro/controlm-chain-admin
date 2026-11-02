@@ -55,6 +55,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/compare/markdown": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** The comparison as Markdown, for a pull request */
+    get: operations["compare_markdown_api_compare_markdown_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/folders": {
     parameters: {
       query?: never;
@@ -1136,6 +1153,54 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+    };
+  };
+  compare_markdown_api_compare_markdown_get: {
+    parameters: {
+      query: {
+        /** @description base ref, e.g. develop */
+        base: string;
+        /** @description head ref, or WORKTREE for uncommitted changes */
+        head?: string;
+        /** @description compare from the merge base (pull-request style) */
+        merge_base?: boolean;
+        /** @description comma-separated shas of the head commits to compare, applied on the base cherry-pick style; omitted: every commit; empty: none */
+        commits?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Markdown */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/markdown": unknown;
+          "text/plain": string;
+        };
+      };
+      /** @description A selected commit needs one that was left out */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/plain": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description Not a git repository, or unknown ref or commit */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/plain": components["schemas"]["ErrorOut"];
         };
       };
     };

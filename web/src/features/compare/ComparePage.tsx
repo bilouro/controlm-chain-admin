@@ -13,6 +13,7 @@ import { compareParams, useCompare, useGit, useRepo } from "@/lib/api/queries";
 import { cn, nodeRoute, parseNode } from "@/lib/utils";
 import { DiffView } from "@/components/DiffView";
 import { CommitPicker } from "./CommitPicker";
+import { CopyMarkdownButton } from "./CopyMarkdownButton";
 import { PackagePanel } from "./PackagePanel";
 import { defaultRefs, WORKTREE } from "./refs";
 import {
@@ -589,22 +590,25 @@ export function ComparePage() {
               order; the XML holds these changes only.
             </p>
           )}
-          <p className="text-sm text-muted">
-            {result.base.name} <span className="font-mono">{result.base.sha?.slice(0, 7)}</span> →{" "}
-            {result.head.name}{" "}
-            <span className="font-mono">{result.head.sha?.slice(0, 7) ?? "uncommitted"}</span> ·{" "}
-            {result.commits.length} commit(s)
-            {result.merge_base && (
-              <>
-                {" "}
-                · compared from the merge base{" "}
-                <span className="font-mono">{result.merge_base.slice(0, 7)}</span>
-              </>
-            )}
-            {result.metadata_files_changed > 0 && (
-              <> · {result.metadata_files_changed} metadata file(s) changed</>
-            )}
-          </p>
+          <div className="flex flex-wrap items-start gap-2">
+            <p className="flex-1 text-sm text-muted">
+              {result.base.name} <span className="font-mono">{result.base.sha?.slice(0, 7)}</span> →{" "}
+              {result.head.name}{" "}
+              <span className="font-mono">{result.head.sha?.slice(0, 7) ?? "uncommitted"}</span> ·{" "}
+              {result.commits.length} commit(s)
+              {result.merge_base && (
+                <>
+                  {" "}
+                  · compared from the merge base{" "}
+                  <span className="font-mono">{result.merge_base.slice(0, 7)}</span>
+                </>
+              )}
+              {result.metadata_files_changed > 0 && (
+                <> · {result.metadata_files_changed} metadata file(s) changed</>
+              )}
+            </p>
+            <CopyMarkdownButton params={compareParams(base, head, mergeBase, selection)} />
+          </div>
           <SummaryCards result={result} />
           <Card className="p-4">
             <Tabs
