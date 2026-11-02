@@ -38,6 +38,13 @@ All notable changes to this project are documented here. The format follows
   job, predecessors, successors) and tabbed folder and job pages to edit attributes, variables,
   raw JSON and predecessors/successors with their AND_OR, ODATE and `+`/`−` details. Edits are
   previewed as a diff and applied through `POST /api/changes/preview|apply` with a session token.
+- `ctmchain compare <base> [<head>]`: what a branch changed in the chain (folders and jobs added,
+  removed, modified, renamed or moved; attribute and variable values before and after;
+  predecessor and successor changes with AND_OR, ODATE, `+` and `−`; conditions; constants per
+  environment; commits), from the merge base by default, with `--worktree`, `--no-merge-base` and
+  text, Markdown or JSON output. The *Compare* web page shows the same comparison with ref
+  pickers, summary cards, a change list grouped by folder and a before/after detail
+  (`GET /api/git`, `GET /api/compare`).
 - Package skeleton, CI (lint, types, tests, web, build) and release workflows, community files.
 - `DESIGN.md` (architecture and data model) and `BACKLOG.md` (proof-of-concept plan and status).
 

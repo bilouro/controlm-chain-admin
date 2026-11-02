@@ -19,13 +19,26 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT))
 
 from fastapi.testclient import TestClient  # noqa: E402
+from tests.support.anomalies import ANOMALY_EXPORT  # noqa: E402
+from tests.support.gitrepo import chain_git_repo, commit_all, git  # noqa: E402
+from tests.support.samples import SAMPLE_EXPORT  # noqa: E402
 
+from controlm_chain_admin.core.constants import Selector, define_constant  # noqa: E402
 from controlm_chain_admin.core.ops import import_xml  # noqa: E402
+from controlm_chain_admin.core.refactor import (  # noqa: E402
+    apply,
+    insert_job,
+    link_nodes,
+    move_job,
+    rename_job,
+    rename_link,
+    set_attributes,
+    set_variables,
+    update_relation,
+)
 from controlm_chain_admin.core.repo import init_repo  # noqa: E402
 from controlm_chain_admin.web.app import create_app  # noqa: E402
 from controlm_chain_admin.web.settings import Settings  # noqa: E402
-from tests.support.anomalies import ANOMALY_EXPORT  # noqa: E402
-from tests.support.samples import SAMPLE_EXPORT  # noqa: E402
 
 FIXTURES = ROOT / "web" / "src" / "test" / "fixtures"
 ENDPOINTS = {
@@ -76,7 +89,51 @@ def main() -> int:
                 json.dumps(preview.json(), indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
             )
             print("wrote preview.json")
+    dump_compare()
     return 0
+
+
+def dump_compare() -> None:
+    """A synthetic git repository with develop and a feature branch, and its comparison."""
+    c = "P77_CHAIN"
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = chain_git_repo(Path(tmp))
+        define_constant(
+            repo, "node.batch", Selector("NODEID"), {"uat": "UP77_BATCH", "prod": "PP77_BATCH"}
+        )
+        commit_all(repo.root, "chore: constants")
+        git(repo.root, "branch", "develop")
+        git(repo.root, "checkout", "-q", "-b", "feature/demo")
+        apply(
+            repo,
+            set_attributes(repo, f"{c}/P77_C", {"DESCRIPTION": "Loaded nightly", "MAXRERUN": "2"}),
+        )
+        apply(repo, set_variables(repo, f"{c}/P77_C", [{"NAME": "%%RETRIES", "VALUE": "3"}]))
+        commit_all(repo.root, "feat: retries on P77_C")
+        apply(repo, rename_job(repo, f"{c}/P77_D", "P77_DELTA"))
+        apply(repo, move_job(repo, "P77_INGEST_DAILY/P77_INGEST_LOAD", c))
+        commit_all(repo.root, "refactor: rename P77_D and move the load job")
+        apply(repo, insert_job(repo, f"{c}/P77_CHECK", after=f"{c}/P77_A", before=f"{c}/P77_B"))
+        apply(repo, update_relation(repo, "P77_B-P77_C_OK", f"{c}/P77_C", and_or="O"))
+        apply(repo, link_nodes(repo, f"{c}/P77_E", producer=f"{c}/P77_C"))
+        apply(repo, rename_link(repo, "P77_D-P77_NOBODY_OK", "P77_DELTA_DONE"))
+        define_constant(repo, "node.batch", Selector("NODEID"), {"prod": "PP77_BATCH_V2"})
+        commit_all(repo.root, "feat: quality check before P77_B")
+        settings = Settings(
+            repo=repo.root, open_browser=False, token="t", allowed_hosts=["testserver"]
+        )
+        with TestClient(create_app(settings)) as client:
+            for filename, path in {
+                "git.json": "/api/git",
+                "compare.json": "/api/compare?base=develop&head=feature/demo",
+            }.items():
+                response = client.get(path)
+                response.raise_for_status()
+                (FIXTURES / filename).write_text(
+                    json.dumps(response.json(), indent=2, ensure_ascii=False) + "\n",
+                    encoding="utf-8",
+                )
+                print(f"wrote {filename}")
 
 
 if __name__ == "__main__":

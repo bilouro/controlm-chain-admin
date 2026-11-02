@@ -38,6 +38,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/compare": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Compare two refs */
+    get: operations["compare_refs_api_compare_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/folders": {
     parameters: {
       query?: never;
@@ -64,6 +81,23 @@ export interface paths {
     };
     /** Folder with jobs, links and graph */
     get: operations["folder_detail_api_folders__name__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/git": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Branches, tags and HEAD */
+    get: operations["git_api_git_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -223,6 +257,53 @@ export interface components {
       /** Path */
       path: string;
     };
+    /** CommitOut */
+    CommitOut: {
+      /** Author */
+      author: string;
+      /** Date */
+      date: string;
+      /** Sha */
+      sha: string;
+      /** Subject */
+      subject: string;
+    };
+    /** ComparisonOut */
+    ComparisonOut: {
+      base: components["schemas"]["RefOut"];
+      /** Commits */
+      commits: components["schemas"]["CommitOut"][];
+      /** Constants */
+      constants: components["schemas"]["ConstantChangeOut"][];
+      /** Folders */
+      folders: components["schemas"]["NodeChangeOut"][];
+      head: components["schemas"]["RefOut"];
+      /** Jobs */
+      jobs: components["schemas"]["NodeChangeOut"][];
+      /** Links */
+      links: components["schemas"]["LinkChangeOut"][];
+      /** Merge Base */
+      merge_base?: string | null;
+      /** Metadata Files Changed */
+      metadata_files_changed: number;
+      /** Rules Changed */
+      rules_changed: boolean;
+      /** Summary */
+      summary: {
+        [key: string]: unknown;
+      };
+    };
+    /** ConstantChangeOut */
+    ConstantChangeOut: {
+      /** After */
+      after?: string | null;
+      /** Before */
+      before?: string | null;
+      /** Env */
+      env: string;
+      /** Name */
+      name: string;
+    };
     /** EdgeOut */
     EdgeOut: {
       /** Conditional */
@@ -310,6 +391,20 @@ export interface components {
       /** Sub Application */
       sub_application?: string | null;
     };
+    /** GitStateOut */
+    GitStateOut: {
+      /**
+       * Current
+       * @description checked-out branch; null when detached
+       */
+      current: string | null;
+      /** Dirty */
+      dirty: boolean;
+      /** Head */
+      head: string;
+      /** Refs */
+      refs: components["schemas"]["RefOut"][];
+    };
     /** GraphOut */
     GraphOut: {
       /** Dangling */
@@ -388,6 +483,17 @@ export interface components {
       /** Prefixes */
       prefixes: string[];
     };
+    /** LinkChangeOut */
+    LinkChangeOut: {
+      /** After */
+      after?: string | null;
+      /** Before */
+      before?: string | null;
+      /** Change */
+      change: string;
+      /** Link */
+      link: string;
+    };
     /** LinkOut */
     LinkOut: {
       /** And Or */
@@ -436,6 +542,42 @@ export interface components {
        */
       node: string | null;
     };
+    /** NodeChangeOut */
+    NodeChangeOut: {
+      /** After */
+      after?: {
+        [key: string]: unknown;
+      } | null;
+      /** Attributes */
+      attributes: components["schemas"]["ValueChangeOut"][];
+      /** Before */
+      before?: {
+        [key: string]: unknown;
+      } | null;
+      /**
+       * Change
+       * @description added | removed | modified | renamed | moved
+       */
+      change: string;
+      /** Diff */
+      diff: string;
+      /** Groups */
+      groups: string[];
+      /** Jobs Added */
+      jobs_added: string[];
+      /** Jobs Removed */
+      jobs_removed: string[];
+      /** Kind */
+      kind: string;
+      /** Node */
+      node: string;
+      /** Previous */
+      previous?: string | null;
+      /** Relations */
+      relations: components["schemas"]["RelationChangeOut"][];
+      /** Variables */
+      variables: components["schemas"]["ValueChangeOut"][];
+    };
     /** PeerOut */
     PeerOut: {
       /** And Or */
@@ -449,6 +591,39 @@ export interface components {
       conditional?: string | null;
       /** Node */
       node: string;
+    };
+    /** RefOut */
+    RefOut: {
+      /** Date */
+      date?: string | null;
+      /**
+       * Kind
+       * @description branch | remote | tag | commit | worktree
+       */
+      kind: string;
+      /** Name */
+      name: string;
+      /** Sha */
+      sha?: string | null;
+      /** Subject */
+      subject?: string | null;
+    };
+    /** RelationChangeOut */
+    RelationChangeOut: {
+      /** Change */
+      change: string;
+      /** Details */
+      details: components["schemas"]["ValueChangeOut"][];
+      /** Direction */
+      direction: string;
+      /** Link */
+      link: string;
+      /** Name */
+      name: string;
+      /** Peers After */
+      peers_after: string[];
+      /** Peers Before */
+      peers_before: string[];
     };
     /** RelationOut */
     RelationOut: {
@@ -562,6 +737,15 @@ export interface components {
       /** Error Type */
       type: string;
     };
+    /** ValueChangeOut */
+    ValueChangeOut: {
+      /** After */
+      after?: string | null;
+      /** Before */
+      before?: string | null;
+      /** Name */
+      name: string;
+    };
   };
   responses: never;
   parameters: never;
@@ -669,6 +853,42 @@ export interface operations {
       };
     };
   };
+  compare_refs_api_compare_get: {
+    parameters: {
+      query: {
+        /** @description base ref, e.g. develop */
+        base: string;
+        /** @description head ref, or WORKTREE for uncommitted changes */
+        head?: string;
+        /** @description compare from the merge base (pull-request style) */
+        merge_base?: boolean;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ComparisonOut"];
+        };
+      };
+      /** @description Not a git repository, or unknown ref */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+    };
+  };
   list_folders_api_folders_get: {
     parameters: {
       query?: {
@@ -739,6 +959,35 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  git_api_git_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["GitStateOut"];
+        };
+      };
+      /** @description Not a git repository, or unknown ref */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
         };
       };
     };

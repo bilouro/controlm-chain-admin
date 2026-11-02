@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, NavLink, Navigate, Route, Routes } from "react-router";
 import { ChainTablePage } from "@/features/chain-table/ChainTablePage";
 import { ChangeProvider } from "@/features/changes/ChangeProvider";
+import { ComparePage } from "@/features/compare/ComparePage";
 import { FolderPage } from "@/features/folder-graph/FolderPage";
 import { JobPage } from "@/features/job-detail/JobPage";
 import { ValidatePage } from "@/features/validate/ValidatePage";
@@ -36,6 +37,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <nav aria-label="Main" className="flex gap-1">
           <NavItem to="/">Chains</NavItem>
           <NavItem to="/validate">Validate</NavItem>
+          <NavItem to="/compare">Compare</NavItem>
         </nav>
         <div className="ml-auto">
           <RepoBadge />
@@ -54,6 +56,7 @@ export function AppRoutes() {
       <Route path="/folders/:folder" element={<FolderPage />} />
       <Route path="/folders/:folder/jobs/:job" element={<JobPage />} />
       <Route path="/validate" element={<ValidatePage />} />
+      <Route path="/compare" element={<ComparePage />} />
       <Route path="*" element={<p className="p-6 text-muted">Page not found.</p>} />
     </Routes>
   );

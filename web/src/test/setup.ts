@@ -30,6 +30,7 @@ afterEach(() => {
   server.resetHandlers();
   calls.preview.length = 0;
   calls.apply.length = 0;
+  calls.compare.length = 0;
   sessionStorage.clear();
 });
 afterAll(() => server.close());

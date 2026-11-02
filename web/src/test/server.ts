@@ -8,6 +8,8 @@ import jobLoad from "./fixtures/job-P77_INGEST_DAILY-P77_INGEST_LOAD.json";
 import jobB from "./fixtures/job-P77_CHAIN-P77_B.json";
 import validate from "./fixtures/validate.json";
 import preview from "./fixtures/preview.json";
+import gitState from "./fixtures/git.json";
+import comparison from "./fixtures/compare.json";
 import type { FolderDetail, JobDetail } from "@/lib/api/client";
 
 // Fixtures are dumped from the real API running on the synthetic repository (web/scripts/dump_fixtures.py).
@@ -22,8 +24,12 @@ const jobByPath: Record<string, JobDetail> = {
   "P77_CHAIN/P77_B": jobB as JobDetail,
 };
 
-/** Bodies of the editing requests the UI sent, for assertions. */
-export const calls: { preview: unknown[]; apply: unknown[] } = { preview: [], apply: [] };
+/** Bodies of the editing requests and query strings of the comparisons the UI sent, for assertions. */
+export const calls: { preview: unknown[]; apply: unknown[]; compare: URLSearchParams[] } = {
+  preview: [],
+  apply: [],
+  compare: [],
+};
 
 function notFound(message: string) {
   return HttpResponse.json({ error: "ModelError", message, detail: null }, { status: 404 });
@@ -47,6 +53,11 @@ export const handlers = [
     return detail ? HttpResponse.json(detail) : notFound(`unknown job '${String(params.job)}'`);
   }),
   http.get("/api/validate", () => HttpResponse.json(validate)),
+  http.get("/api/git", () => HttpResponse.json(gitState)),
+  http.get("/api/compare", ({ request }) => {
+    calls.compare.push(new URL(request.url).searchParams);
+    return HttpResponse.json(comparison);
+  }),
   http.post("/api/changes/preview", async ({ request }) => {
     const denied = unauthorized(request);
     if (denied) return denied;

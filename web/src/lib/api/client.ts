@@ -21,6 +21,15 @@ export type Neighbour = Schemas["Neighbour"];
 export type ChangeRequest = Schemas["ChangeRequest"];
 export type ChangePreview = Schemas["ChangePreview"];
 export type ApplyOut = Schemas["ApplyOut"];
+export type GitStateOut = Schemas["GitStateOut"];
+export type RefOut = Schemas["RefOut"];
+export type ComparisonOut = Schemas["ComparisonOut"];
+export type NodeChangeOut = Schemas["NodeChangeOut"];
+export type RelationChangeOut = Schemas["RelationChangeOut"];
+export type ValueChangeOut = Schemas["ValueChangeOut"];
+export type LinkChangeOut = Schemas["LinkChangeOut"];
+export type ConstantChangeOut = Schemas["ConstantChangeOut"];
+export type CommitOut = Schemas["CommitOut"];
 
 export const TOKEN_HEADER = "X-Ctmchain-Token";
 

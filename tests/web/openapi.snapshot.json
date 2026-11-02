@@ -122,6 +122,157 @@
         "title": "ChangedFile",
         "type": "object"
       },
+      "CommitOut": {
+        "properties": {
+          "author": {
+            "title": "Author",
+            "type": "string"
+          },
+          "date": {
+            "title": "Date",
+            "type": "string"
+          },
+          "sha": {
+            "title": "Sha",
+            "type": "string"
+          },
+          "subject": {
+            "title": "Subject",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sha",
+          "subject",
+          "author",
+          "date"
+        ],
+        "title": "CommitOut",
+        "type": "object"
+      },
+      "ComparisonOut": {
+        "properties": {
+          "base": {
+            "$ref": "#/components/schemas/RefOut"
+          },
+          "commits": {
+            "items": {
+              "$ref": "#/components/schemas/CommitOut"
+            },
+            "title": "Commits",
+            "type": "array"
+          },
+          "constants": {
+            "items": {
+              "$ref": "#/components/schemas/ConstantChangeOut"
+            },
+            "title": "Constants",
+            "type": "array"
+          },
+          "folders": {
+            "items": {
+              "$ref": "#/components/schemas/NodeChangeOut"
+            },
+            "title": "Folders",
+            "type": "array"
+          },
+          "head": {
+            "$ref": "#/components/schemas/RefOut"
+          },
+          "jobs": {
+            "items": {
+              "$ref": "#/components/schemas/NodeChangeOut"
+            },
+            "title": "Jobs",
+            "type": "array"
+          },
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/LinkChangeOut"
+            },
+            "title": "Links",
+            "type": "array"
+          },
+          "merge_base": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Merge Base"
+          },
+          "metadata_files_changed": {
+            "title": "Metadata Files Changed",
+            "type": "integer"
+          },
+          "rules_changed": {
+            "title": "Rules Changed",
+            "type": "boolean"
+          },
+          "summary": {
+            "additionalProperties": true,
+            "title": "Summary",
+            "type": "object"
+          }
+        },
+        "required": [
+          "base",
+          "head",
+          "summary",
+          "commits",
+          "folders",
+          "jobs",
+          "links",
+          "constants",
+          "rules_changed",
+          "metadata_files_changed"
+        ],
+        "title": "ComparisonOut",
+        "type": "object"
+      },
+      "ConstantChangeOut": {
+        "properties": {
+          "after": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "After"
+          },
+          "before": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Before"
+          },
+          "env": {
+            "title": "Env",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "env",
+          "name"
+        ],
+        "title": "ConstantChangeOut",
+        "type": "object"
+      },
       "EdgeOut": {
         "properties": {
           "conditional": {
@@ -332,6 +483,45 @@
         "title": "FolderSummary",
         "type": "object"
       },
+      "GitStateOut": {
+        "properties": {
+          "current": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "checked-out branch; null when detached",
+            "title": "Current"
+          },
+          "dirty": {
+            "title": "Dirty",
+            "type": "boolean"
+          },
+          "head": {
+            "title": "Head",
+            "type": "string"
+          },
+          "refs": {
+            "items": {
+              "$ref": "#/components/schemas/RefOut"
+            },
+            "title": "Refs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "current",
+          "head",
+          "dirty",
+          "refs"
+        ],
+        "title": "GitStateOut",
+        "type": "object"
+      },
       "GraphOut": {
         "properties": {
           "dangling": {
@@ -533,6 +723,46 @@
         "title": "LetterRuleOut",
         "type": "object"
       },
+      "LinkChangeOut": {
+        "properties": {
+          "after": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "After"
+          },
+          "before": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Before"
+          },
+          "change": {
+            "title": "Change",
+            "type": "string"
+          },
+          "link": {
+            "title": "Link",
+            "type": "string"
+          }
+        },
+        "required": [
+          "link",
+          "change"
+        ],
+        "title": "LinkChangeOut",
+        "type": "object"
+      },
       "LinkOut": {
         "properties": {
           "and_or": {
@@ -675,6 +905,118 @@
         "title": "Neighbour",
         "type": "object"
       },
+      "NodeChangeOut": {
+        "properties": {
+          "after": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "After"
+          },
+          "attributes": {
+            "items": {
+              "$ref": "#/components/schemas/ValueChangeOut"
+            },
+            "title": "Attributes",
+            "type": "array"
+          },
+          "before": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Before"
+          },
+          "change": {
+            "description": "added | removed | modified | renamed | moved",
+            "title": "Change",
+            "type": "string"
+          },
+          "diff": {
+            "title": "Diff",
+            "type": "string"
+          },
+          "groups": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Groups",
+            "type": "array"
+          },
+          "jobs_added": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Jobs Added",
+            "type": "array"
+          },
+          "jobs_removed": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Jobs Removed",
+            "type": "array"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "node": {
+            "title": "Node",
+            "type": "string"
+          },
+          "previous": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous"
+          },
+          "relations": {
+            "items": {
+              "$ref": "#/components/schemas/RelationChangeOut"
+            },
+            "title": "Relations",
+            "type": "array"
+          },
+          "variables": {
+            "items": {
+              "$ref": "#/components/schemas/ValueChangeOut"
+            },
+            "title": "Variables",
+            "type": "array"
+          }
+        },
+        "required": [
+          "node",
+          "kind",
+          "change",
+          "attributes",
+          "variables",
+          "relations",
+          "groups",
+          "jobs_added",
+          "jobs_removed",
+          "diff"
+        ],
+        "title": "NodeChangeOut",
+        "type": "object"
+      },
       "PeerOut": {
         "properties": {
           "and_or": {
@@ -713,6 +1055,110 @@
           "node"
         ],
         "title": "PeerOut",
+        "type": "object"
+      },
+      "RefOut": {
+        "properties": {
+          "date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date"
+          },
+          "kind": {
+            "description": "branch | remote | tag | commit | worktree",
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "sha": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sha"
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject"
+          }
+        },
+        "required": [
+          "name",
+          "kind"
+        ],
+        "title": "RefOut",
+        "type": "object"
+      },
+      "RelationChangeOut": {
+        "properties": {
+          "change": {
+            "title": "Change",
+            "type": "string"
+          },
+          "details": {
+            "items": {
+              "$ref": "#/components/schemas/ValueChangeOut"
+            },
+            "title": "Details",
+            "type": "array"
+          },
+          "direction": {
+            "title": "Direction",
+            "type": "string"
+          },
+          "link": {
+            "title": "Link",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "peers_after": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Peers After",
+            "type": "array"
+          },
+          "peers_before": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Peers Before",
+            "type": "array"
+          }
+        },
+        "required": [
+          "direction",
+          "link",
+          "name",
+          "change",
+          "peers_before",
+          "peers_after",
+          "details"
+        ],
+        "title": "RelationChangeOut",
         "type": "object"
       },
       "RelationOut": {
@@ -1076,6 +1522,41 @@
         ],
         "title": "ValidationError",
         "type": "object"
+      },
+      "ValueChangeOut": {
+        "properties": {
+          "after": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "After"
+          },
+          "before": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Before"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "ValueChangeOut",
+        "type": "object"
       }
     }
   },
@@ -1191,6 +1672,74 @@
         "summary": "Preview a change",
         "tags": [
           "changes"
+        ]
+      }
+    },
+    "/api/compare": {
+      "get": {
+        "operationId": "compare_refs_api_compare_get",
+        "parameters": [
+          {
+            "description": "base ref, e.g. develop",
+            "in": "query",
+            "name": "base",
+            "required": true,
+            "schema": {
+              "description": "base ref, e.g. develop",
+              "title": "Base",
+              "type": "string"
+            }
+          },
+          {
+            "description": "head ref, or WORKTREE for uncommitted changes",
+            "in": "query",
+            "name": "head",
+            "required": false,
+            "schema": {
+              "default": "WORKTREE",
+              "description": "head ref, or WORKTREE for uncommitted changes",
+              "title": "Head",
+              "type": "string"
+            }
+          },
+          {
+            "description": "compare from the merge base (pull-request style)",
+            "in": "query",
+            "name": "merge_base",
+            "required": false,
+            "schema": {
+              "default": true,
+              "description": "compare from the merge base (pull-request style)",
+              "title": "Merge Base",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComparisonOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not a git repository, or unknown ref"
+          }
+        },
+        "summary": "Compare two refs",
+        "tags": [
+          "history"
         ]
       }
     },
@@ -1311,6 +1860,37 @@
         "summary": "Folder with jobs, links and graph",
         "tags": [
           "folders"
+        ]
+      }
+    },
+    "/api/git": {
+      "get": {
+        "operationId": "git_api_git_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GitStateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not a git repository, or unknown ref"
+          }
+        },
+        "summary": "Branches, tags and HEAD",
+        "tags": [
+          "history"
         ]
       }
     },
@@ -1515,6 +2095,10 @@
     {
       "description": "Preview and apply edits (needs the session token).",
       "name": "changes"
+    },
+    {
+      "description": "Git refs and the comparison of two refs.",
+      "name": "history"
     }
   ]
 }

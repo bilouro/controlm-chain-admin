@@ -2,7 +2,9 @@ import { useQuery } from "@tanstack/react-query";
 import {
   api,
   encode,
+  type ComparisonOut,
   type FolderDetail,
+  type GitStateOut,
   type JobDetail,
   type RepoInfo,
   type TableOut,
@@ -15,6 +17,9 @@ export const queryKeys = {
   folder: (name: string) => ["folder", name] as const,
   job: (folder: string, job: string) => ["job", folder, job] as const,
   validate: ["validate"] as const,
+  git: ["git"] as const,
+  compare: (base: string, head: string, mergeBase: boolean) =>
+    ["compare", base, head, mergeBase] as const,
 };
 
 export function useRepo() {
@@ -43,5 +48,23 @@ export function useValidate() {
   return useQuery({
     queryKey: queryKeys.validate,
     queryFn: () => api<ValidateOut>("/api/validate"),
+  });
+}
+
+export function useGit() {
+  return useQuery({
+    queryKey: queryKeys.git,
+    queryFn: () => api<GitStateOut>("/api/git"),
+    retry: false,
+  });
+}
+
+export function useCompare(base: string, head: string, mergeBase: boolean) {
+  const params = new URLSearchParams({ base, head, merge_base: String(mergeBase) });
+  return useQuery({
+    queryKey: queryKeys.compare(base, head, mergeBase),
+    queryFn: () => api<ComparisonOut>(`/api/compare?${params.toString()}`),
+    enabled: Boolean(base && head),
+    retry: false,
   });
 }

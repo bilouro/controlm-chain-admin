@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import secrets
 import threading
+from collections import OrderedDict
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -13,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 
 from controlm_chain_admin import __version__
 from controlm_chain_admin.web import errors
-from controlm_chain_admin.web.routers import changes, folders, jobs, repo, table, validate
+from controlm_chain_admin.web.routers import changes, folders, history, jobs, repo, table, validate
 from controlm_chain_admin.web.settings import Settings
 
 STATIC_DIR = Path(__file__).with_name("static")
@@ -36,6 +37,7 @@ TAGS = [
     {"name": "validate", "description": "Validation findings and links by condition name."},
     {"name": "table", "description": "Folders and jobs with predecessors and successors."},
     {"name": "changes", "description": "Preview and apply edits (needs the session token)."},
+    {"name": "history", "description": "Git refs and the comparison of two refs."},
 ]
 
 
@@ -50,11 +52,13 @@ def create_app(settings: Settings) -> FastAPI:
     app.state.settings = settings
     app.state.token = settings.token or secrets.token_urlsafe(18)
     app.state.write_lock = threading.Lock()
+    app.state.compare_cache = OrderedDict()
     app.add_middleware(
         TrustedHostMiddleware, allowed_hosts=sorted({*settings.allowed_hosts, settings.host})
     )
     errors.register(app)
-    for router in (repo.router, table.router, folders.router, jobs.router, validate.router, changes.router):
+    for router in (repo.router, table.router, folders.router, jobs.router, validate.router, changes.router,
+        history.router):
         app.include_router(router)
 
     if (STATIC_DIR / "index.html").is_file():

@@ -57,3 +57,7 @@ class ChangeConflict(ChainError):
 
 class InvalidChange(ModelError):
     """A requested edit is not allowed or not consistent (bad attribute, duplicate link...)."""
+
+
+class GitError(ChainError):
+    """A git command failed (not a git repository, unknown ref...)."""

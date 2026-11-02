@@ -17,12 +17,14 @@ from pathlib import Path
 from typing import Any
 
 from controlm_chain_admin import __version__
+from controlm_chain_admin.core import compare as compare_mod
 from controlm_chain_admin.core import constants as constants_mod
 from controlm_chain_admin.core import graph as graph_mod
 from controlm_chain_admin.core import inspect as inspect_mod
 from controlm_chain_admin.core import ops
 from controlm_chain_admin.core import refactor as refactor_mod
 from controlm_chain_admin.core.errors import ChainError, NotAChainRepo
+from controlm_chain_admin.core.history import WORKTREE
 from controlm_chain_admin.core.links import NodeRef, folder_names
 from controlm_chain_admin.core.repo import init_repo, load_repo, read_json, write_json
 from controlm_chain_admin.core.validate import render_markdown, render_text, validate
@@ -202,6 +204,24 @@ def build_parser() -> argparse.ArgumentParser:
     envc.add_argument("--format", choices=("text", "json"), default="text")
     envc.set_defaults(func=cmd_env_constants)
     envp.set_defaults(func=cmd_env_help)
+
+    cmp_ = commands.add_parser("compare", help="what changed in the chains between two git refs")
+    cmp_.add_argument("base", help="base ref, e.g. develop")
+    cmp_.add_argument("head", nargs="?", default="HEAD", help="head ref (default: HEAD)")
+    cmp_.add_argument(
+        "--worktree", action="store_true", help="compare base with the uncommitted working tree"
+    )
+    cmp_.add_argument(
+        "--no-merge-base",
+        action="store_true",
+        help="compare the two tips directly; by default the base side is the merge base, "
+        "so only the changes made on head are shown, as in a pull request",
+    )
+    cmp_.add_argument(
+        "--repo", type=Path, default=Path("."), help="repository directory (default: .)"
+    )
+    cmp_.add_argument("--format", choices=("text", "md", "json"), default="text")
+    cmp_.set_defaults(func=cmd_compare)
 
     _add_refactorings(commands)
 
@@ -449,6 +469,20 @@ def cmd_links(args: argparse.Namespace) -> int:
         standard = link.standard_name()
         suffix = f"  standard: {standard}" if standard and standard != link.name else ""
         print(f"{link.kind:11} {link.name}  {producers} -> {consumers}{suffix}")
+    return EXIT_OK
+
+
+def cmd_compare(args: argparse.Namespace) -> int:
+    head = WORKTREE if args.worktree else args.head
+    result = compare_mod.compare(
+        load_repo(args.repo).root, args.base, head, use_merge_base=not args.no_merge_base
+    )
+    if args.format == "json":
+        print(json.dumps(result.to_json(), indent=2, ensure_ascii=False))
+    elif args.format == "md":
+        print(compare_mod.render_markdown(result), end="")
+    else:
+        print(compare_mod.render_text(result), end="")
     return EXIT_OK
 
 

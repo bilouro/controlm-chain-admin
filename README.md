@@ -54,7 +54,8 @@ ctmchain validate --repo ./my-chains                                # chain find
 ctmchain graph P77_INGEST_DAILY --repo ./my-chains --format mermaid # the chain of one folder
 ctmchain export --env uat -o uat.xml --repo ./my-chains             # byte-identical to the import
 ctmchain export --env prod -o prod.xml --repo ./my-chains           # same chain, prod letters
-ctmchain serve --repo ./my-chains                                   # local read-only web UI
+ctmchain serve --repo ./my-chains                                   # local web UI
+ctmchain compare develop feature/new-check --repo ./my-chains       # what the branch changed
 ```
 
 Refactorings preview a change set and write only with `--apply`:

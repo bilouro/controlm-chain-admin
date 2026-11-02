@@ -1,0 +1,28 @@
+{
+  "current": "feature/demo",
+  "head": "a63a29f5614e410b256774195a14d9d1646bd188",
+  "dirty": false,
+  "refs": [
+    {
+      "name": "feature/demo",
+      "kind": "branch",
+      "sha": "a63a29f5614e410b256774195a14d9d1646bd188",
+      "subject": "feat: quality check before P77_B",
+      "date": "2026-11-02T01:19:17Z"
+    },
+    {
+      "name": "develop",
+      "kind": "branch",
+      "sha": "e15378a0a7c8e5257c387b658cc5be3dc790daf4",
+      "subject": "chore: constants",
+      "date": "2026-11-02T01:19:16Z"
+    },
+    {
+      "name": "main",
+      "kind": "branch",
+      "sha": "e15378a0a7c8e5257c387b658cc5be3dc790daf4",
+      "subject": "chore: constants",
+      "date": "2026-11-02T01:19:16Z"
+    }
+  ]
+}

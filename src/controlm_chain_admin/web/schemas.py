@@ -201,3 +201,85 @@ class ChangePreview(BaseModel):
 class ApplyOut(BaseModel):
     written: int
     deleted: int
+
+
+class RefOut(BaseModel):
+    name: str
+    kind: str = Field(description="branch | remote | tag | commit | worktree")
+    sha: str | None = None
+    subject: str | None = None
+    date: str | None = None
+
+
+class GitStateOut(BaseModel):
+    current: str | None = Field(description="checked-out branch; null when detached")
+    head: str
+    dirty: bool
+    refs: list[RefOut]
+
+
+class CommitOut(BaseModel):
+    sha: str
+    subject: str
+    author: str
+    date: str
+
+
+class ValueChangeOut(BaseModel):
+    name: str
+    before: str | None = None
+    after: str | None = None
+
+
+class RelationChangeOut(BaseModel):
+    direction: str
+    link: str
+    name: str
+    change: str
+    peers_before: list[str]
+    peers_after: list[str]
+    details: list[ValueChangeOut]
+
+
+class NodeChangeOut(BaseModel):
+    node: str
+    kind: str
+    change: str = Field(description="added | removed | modified | renamed | moved")
+    previous: str | None = None
+    attributes: list[ValueChangeOut]
+    variables: list[ValueChangeOut]
+    relations: list[RelationChangeOut]
+    groups: list[str]
+    jobs_added: list[str]
+    jobs_removed: list[str]
+    before: dict[str, Any] | None = None
+    after: dict[str, Any] | None = None
+    diff: str
+
+
+class LinkChangeOut(BaseModel):
+    link: str
+    change: str
+    before: str | None = None
+    after: str | None = None
+
+
+class ConstantChangeOut(BaseModel):
+    env: str
+    name: str
+    before: str | None = None
+    after: str | None = None
+
+
+class ComparisonOut(BaseModel):
+    base: RefOut
+    head: RefOut
+    merge_base: str | None = None
+    summary: dict[str, Any]
+    commits: list[CommitOut]
+    folders: list[NodeChangeOut]
+    jobs: list[NodeChangeOut]
+    links: list[LinkChangeOut]
+    constants: list[ConstantChangeOut]
+    rules_changed: bool
+    metadata_files_changed: int

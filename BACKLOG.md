@@ -174,6 +174,11 @@ or addresses anywhere in this public repository.
 4. **Editing web UI — DONE (2026-11-01)**: Chains table, tabbed folder/job pages, predecessors &
    successors editor, change preview and apply through the API with a session token.
 
+5. **Branch comparison — DONE (2026-11-02)**, asked by the author: `ctmchain compare` and the
+   *Compare* web page (feature branch against develop, from the merge base; how each changed node
+   was and how it is now).
+
 Later, unordered: overrides and `envs` variants; second-environment import with learning; `diff`
-and `xmldiffreport`; mapping editor and editing in the UI; git bar; PyPI release and bilingual
-docs.
+of environments and XML files with `xmldiffreport`; mapping editor; git bar (commit from the UI);
+upstream graph explorer (paused by the author); cycle detection in `validate`; PyPI release and
+bilingual docs.
