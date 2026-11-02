@@ -12,6 +12,9 @@ or any position not preceded by a letter or digit (after ``-``, ``_``, ``/``, ``
   ``literal:<value>`` and exported unchanged in every environment. Import reports these marks.
 * A value carrying another known environment's letter (``PP77_X`` in a UAT export) is kept and
   reported as suspicious.
+* *Leading-only* prefixes (``RQ_``, ``RC_``: resources) carry the letter on the first token
+  only: ``URQ_P77_AGGREGATION`` is stored as ``RQ_P77_AGGREGATION`` and exported as
+  ``PRQ_P77_AGGREGATION``; the inner bare ``P77`` is part of the resource name.
 """
 
 from __future__ import annotations
@@ -42,13 +45,22 @@ class LetterRule:
 
     prefixes: tuple[str, ...] = ()
     attributes: tuple[str, ...] = DEFAULT_LETTER_ATTRIBUTES
+    leading_only: tuple[str, ...] = ()  # names starting with these carry one letter, in front
 
     @property
     def enabled(self) -> bool:
         return bool(self.prefixes)
 
-    def _alternation(self) -> str:
-        return "|".join(re.escape(p) for p in sorted(self.prefixes, key=len, reverse=True))
+    def _alternation(self, prefixes: tuple[str, ...] | None = None) -> str:
+        chosen = self.prefixes if prefixes is None else prefixes
+        return "|".join(re.escape(p) for p in sorted(chosen, key=len, reverse=True))
+
+    def leading_pattern(self) -> re.Pattern[str] | None:
+        """A value starting with a leading-only prefix, with or without a letter in front."""
+        if not self.leading_only:
+            return None
+        return re.compile(rf"^(?:(?P<letter>[A-Z])(?={self._alternation(self.leading_only)})|"
+                          rf"(?={self._alternation(self.leading_only)}))")  # fmt: skip
 
     def boundary_pattern(self) -> re.Pattern[str]:
         """At a token boundary: an upper-case letter followed by a prefix, or a bare prefix."""
@@ -95,12 +107,25 @@ def strip_letter(
         return document, LetterReport((), ())
     others = {k for k in known_letters if k != letter}
     pattern = rule.boundary_pattern()
+    leading = rule.leading_pattern()
     literal_marks: list[str] = []
     suspicious: list[str] = []
 
     def transform(tag: str, attribute: str, value: str) -> str:
         bare = False
         other = False
+        where = f"{tag}/@{attribute}={value}"
+        lead = leading.match(value) if leading else None
+        if lead:
+            found = lead.group("letter")
+            if found == letter:
+                return value[1:]
+            if found is None:
+                literal_marks.append(where)
+                return LITERAL_PREFIX + value
+            if found in others:
+                suspicious.append(where)
+            return value
 
         def repl(match: re.Match[str]) -> str:
             nonlocal bare, other
@@ -115,7 +140,6 @@ def strip_letter(
             return found
 
         stripped = pattern.sub(repl, value)
-        where = f"{tag}/@{attribute}={value}"
         if other:
             suspicious.append(where)
         if bare:
@@ -132,10 +156,14 @@ def add_letter(document: XmlDocument, letter: str, rule: LetterRule) -> XmlDocum
     if not rule.enabled:
         return document
     pattern = rule.bare_pattern()
+    leading = rule.leading_pattern()
 
     def transform(tag: str, attribute: str, value: str) -> str:
         if value.startswith(LITERAL_PREFIX):
             return value[len(LITERAL_PREFIX) :]
+        lead = leading.match(value) if leading else None
+        if lead:
+            return value if lead.group("letter") else letter + value
         return pattern.sub(letter, value)
 
     return _map_attrs(document, rule, transform)

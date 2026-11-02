@@ -9,7 +9,7 @@ import pytest
 
 from controlm_chain_admin.core.errors import EnvironmentRequired, ModelError, UnknownEnvironment
 from controlm_chain_admin.core.ops import export_xml, import_xml
-from controlm_chain_admin.core.repo import init_repo
+from controlm_chain_admin.core.repo import init_repo, load_repo
 from tests.support.rawxml import filter_applications
 from tests.support.samples import SAMPLE_EXPORT
 from tests.unit.test_repo_ops import snapshot
@@ -115,3 +115,19 @@ def test_without_prefixes_the_rule_is_off_and_env_is_optional(tmp_path: Path) ->
 
     assert (tmp_path / "folders/UP77_INGEST_DAILY/folder.json").is_file()
     assert export_xml(repo, env="prod") == filter_applications(SAMPLE_EXPORT, {APP})
+
+
+def test_leading_only_prefixes_are_kept_in_chain_json(tmp_path: Path) -> None:
+    repo = init_repo(tmp_path, "P77_RISK_ENGINE", ("uat",), prefixes=("P77", "RQ_"))
+    data = json.loads(repo.chain_file.read_text(encoding="utf-8"))
+    data["letter_rule"]["leading_only"] = ["RQ_"]
+    repo.chain_file.write_text(json.dumps(data), encoding="utf-8")
+
+    config = load_repo(tmp_path).config
+
+    assert config.letter_rule.leading_only == ("RQ_",)
+    assert config.to_json()["letter_rule"]["leading_only"] == ["RQ_"]
+    assert (
+        "leading_only"
+        not in init_repo(tmp_path / "new", "P77", ("uat",)).config.to_json()["letter_rule"]
+    )

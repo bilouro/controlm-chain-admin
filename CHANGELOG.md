@@ -88,6 +88,13 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- Resource names with an inner application code (`URQ_P77_AGGREGATION`) were kept literally,
+  with the letter of the imported environment, so another environment's export would have used
+  that environment's resource: prefixes listed in `letter_rule.leading_only` carry the letter on
+  the first token only.
+- Exports saved with Windows line endings (`\r\n`) are written back with them.
+- Importing an export of some folders only replaced the header of the full export (the
+  *Exported at* comment); it is now kept. `JOBS_IN_GROUP` is a volatile attribute by default.
 - A folder-prefixed standard name (`F_A-B_OK`, given when two links would collide) is no longer
   reported as `stale-name`, and the fix to rename to it is offered.
 - Renaming a job or a folder, or inserting a job, could give a condition a name another link

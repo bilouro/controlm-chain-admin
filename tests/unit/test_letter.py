@@ -132,3 +132,40 @@ def test_disabled_rule_changes_nothing() -> None:
 
     assert stripped == original and add_letter(original, "P", LetterRule()) == original
     assert report == LetterReport((), ())
+
+
+RESOURCES = LetterRule(prefixes=("P77", "RQ_", "RC_"), leading_only=("RQ_", "RC_"))
+
+
+@pytest.mark.parametrize(
+    ("tag", "value", "neutral", "prod"),
+    [
+        ("QUANTITATIVE", "URQ_P77_AGGREGATION", "RQ_P77_AGGREGATION", "PRQ_P77_AGGREGATION"),
+        ("CONTROL", "URC_P77ALIMECO", "RC_P77ALIMECO", "PRC_P77ALIMECO"),
+        ("QUANTITATIVE", "URQ_AM", "RQ_AM", "PRQ_AM"),
+        ("INCOND", "UP77_A-UP77_B_OK", "P77_A-P77_B_OK", "PP77_A-PP77_B_OK"),
+    ],
+)
+def test_resource_names_carry_the_letter_on_their_first_prefix_only(
+    tag: str, value: str, neutral: str, prod: str
+) -> None:
+    doc, report = strip_letter(_single(tag, "NAME", value), "U", RESOURCES, LETTERS)
+
+    assert _values(doc, tag, "NAME") == [neutral]
+    assert report == LetterReport((), ())
+    assert _values(add_letter(doc, "P", RESOURCES), tag, "NAME") == [prod]
+
+
+def test_a_resource_of_another_environment_is_kept_and_reported() -> None:
+    doc, report = strip_letter(_single("QUANTITATIVE", "NAME", "TRQ_AM"), "U", RESOURCES, LETTERS)
+
+    assert _values(doc, "QUANTITATIVE", "NAME") == ["TRQ_AM"]
+    assert report.suspicious == ("QUANTITATIVE/@NAME=TRQ_AM",)
+    assert _values(add_letter(doc, "P", RESOURCES), "QUANTITATIVE", "NAME") == ["TRQ_AM"]
+
+
+def test_a_bare_resource_name_is_still_a_literal() -> None:
+    doc, report = strip_letter(_single("QUANTITATIVE", "NAME", "RQ_P77"), "U", RESOURCES, LETTERS)
+
+    assert _values(doc, "QUANTITATIVE", "NAME") == ["literal:RQ_P77"]
+    assert report.literal_marks == ("QUANTITATIVE/@NAME=RQ_P77",)

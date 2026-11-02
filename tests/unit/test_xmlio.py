@@ -133,3 +133,12 @@ def test_serialize_writes_non_ascii_as_utf8() -> None:
 
     assert 'D="Préparation"'.encode() in serialize_xml(doc)
     assert parse_xml(serialize_xml(doc)).root.get("D") == "Préparation"
+
+
+def test_windows_line_endings_are_read_and_written_back() -> None:
+    crlf = SAMPLE_EXPORT.replace(b"\n", b"\r\n")
+
+    doc = parse_xml(crlf)
+
+    assert doc.newline == "\r\n" and parse_xml(SAMPLE_EXPORT).newline == "\n"
+    assert serialize_xml(doc) == crlf

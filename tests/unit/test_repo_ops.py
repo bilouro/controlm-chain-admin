@@ -9,7 +9,8 @@ import pytest
 
 from controlm_chain_admin.core.errors import DuplicateName, NotAChainRepo, RepoExists, UnsafeName
 from controlm_chain_admin.core.ops import export_xml, import_xml, job_ids
-from controlm_chain_admin.core.repo import init_repo, load_repo
+from controlm_chain_admin.core.repo import DEFAULT_VOLATILE_ATTRIBUTES, init_repo, load_repo
+from tests.support.anomalies import ANOMALY_EXPORT
 from tests.support.rawxml import filter_applications
 from tests.support.samples import SAMPLE_EXPORT
 
@@ -180,3 +181,38 @@ def test_reimport_removes_jobs_that_disappeared_from_the_export(tmp_path: Path) 
     import_xml(repo, SAMPLE_EXPORT)
 
     assert not stale.exists()
+
+
+# ---------------------------------------------------------------- partial exports
+
+
+def test_windows_line_endings_survive_import_and_export(tmp_path: Path) -> None:
+    repo = init_repo(tmp_path, APP, ENVS)
+    import_xml(repo, SAMPLE_EXPORT.replace(b"\n", b"\r\n"))
+
+    assert _read(tmp_path / "meta/export.json")["newline"] == "\r\n"
+    assert export_xml(repo) == filter_applications(SAMPLE_EXPORT, {APP}).replace(b"\n", b"\r\n")
+
+
+def test_a_partial_export_keeps_the_header_of_the_full_one(tmp_path: Path) -> None:
+    repo = init_repo(tmp_path, APP, ENVS)
+    import_xml(repo, SAMPLE_EXPORT)
+    later = ANOMALY_EXPORT.replace(b"02-01-2026", b"14-07-2026").replace(b"\n", b"\r\n")
+
+    import_xml(repo, later)  # one folder only: an EGMA delivery
+
+    meta = _read(tmp_path / "meta/export.json")
+    assert meta["prolog_comments"] == ["Exported at 01-01-2026 00:00:00"]
+    assert meta.get("newline", "\n") == "\n"
+    assert meta["folder_order"] == ["UP77_INGEST_DAILY", "UP77_CHAIN"]
+
+    full = export_xml(repo).replace(b"01-01-2026", b"20-07-2026")
+    import_xml(repo, full)  # every folder: a full export sets the header again
+
+    assert _read(tmp_path / "meta/export.json")["prolog_comments"] == [
+        "Exported at 20-07-2026 00:00:00"
+    ]
+
+
+def test_jobs_in_group_is_volatile_by_default() -> None:
+    assert "JOBS_IN_GROUP" in DEFAULT_VOLATILE_ATTRIBUTES

@@ -10,7 +10,7 @@ four-space indentation, ``<X ... />`` for empty elements, ``&amp; &lt; &gt; &quo
 from __future__ import annotations
 
 import xml.parsers.expat
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from controlm_chain_admin.core.errors import XmlFormatError
 from controlm_chain_admin.core.model import XmlComment, XmlDeclaration, XmlDocument, XmlElement
@@ -103,7 +103,11 @@ class _Parser:
 
 def parse_xml(data: bytes) -> XmlDocument:
     """Parse export bytes into an :class:`XmlDocument`, keeping attribute and child order."""
-    return _Parser().parse(data)
+    document = _Parser().parse(data)
+    first = data.find(b"\n")
+    if first > 0 and data[first - 1 : first] == b"\r":
+        document = replace(document, newline="\r\n")
+    return document
 
 
 def escape_attr(value: str) -> str:
@@ -141,4 +145,7 @@ def serialize_xml(document: XmlDocument) -> bytes:
     out = [_declaration_line(document.declaration)]
     out.extend(f"<!--{text}-->\n" for text in document.prolog_comments)
     _write_element(document.root, 0, out)
-    return "".join(out).encode("utf-8")
+    text = "".join(out)  # line breaks inside values are escaped: every "\n" ends a line
+    if document.newline != "\n":
+        text = text.replace("\n", document.newline)
+    return text.encode("utf-8")

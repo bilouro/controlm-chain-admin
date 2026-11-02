@@ -423,14 +423,22 @@ def _write_folder(
 
 
 def _export_meta(repo: ChainRepo, document: XmlDocument, imported: list[str]) -> dict[str, Any]:
-    """Header of the export plus the folder order, merged with a previous import if any."""
+    """Header of the export plus the folder order, merged with a previous import if any.
+
+    A partial export (some folders of the repository are not in it, e.g. one folder delivered
+    on its own) keeps the header of the previous import; a full export replaces it.
+    """
     previous: list[str] = []
+    recorded_meta: dict[str, Any] = {}
     if repo.export_meta_file.exists():
-        recorded = read_json(repo.export_meta_file).get("folder_order", [])
+        recorded_meta = read_json(repo.export_meta_file)
+        recorded = recorded_meta.get("folder_order", [])
         previous = [f for f in recorded if repo.folder_file(f).exists()]
     order = previous + [f for f in imported if f not in previous]
+    if recorded_meta and set(previous) - set(imported):
+        return {**recorded_meta, "folder_order": order}
     declaration = document.declaration
-    return {
+    header: dict[str, Any] = {
         "declaration": {
             "version": declaration.version,
             "encoding": declaration.encoding,
@@ -439,8 +447,10 @@ def _export_meta(repo: ChainRepo, document: XmlDocument, imported: list[str]) ->
         "prolog_comments": list(document.prolog_comments),
         "root_tag": document.root.tag,
         "root_attrs": dict(document.root.attrs),
-        "folder_order": order,
     }
+    if document.newline != "\n":
+        header["newline"] = document.newline
+    return {**header, "folder_order": order}
 
 
 # ---------------------------------------------------------------- export
@@ -487,7 +497,8 @@ def load_document(
     )
     root = XmlElement(str(meta["root_tag"]), tuple(dict(meta["root_attrs"]).items()), elements)
     declaration = XmlDeclaration(**meta["declaration"])
-    return XmlDocument(root, declaration, tuple(meta.get("prolog_comments", []))), renamed
+    comments = tuple(meta.get("prolog_comments", []))
+    return XmlDocument(root, declaration, comments, str(meta.get("newline", "\n"))), renamed
 
 
 def export_document(

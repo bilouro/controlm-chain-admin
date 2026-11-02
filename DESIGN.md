@@ -72,6 +72,11 @@ one line per job; a job move is a rename plus two `links.json` edits.
 - The only ambiguous case is a value that already starts with a bare prefix in the source
   (`P77STOCKSERVICE` with no letter): import writes it as `literal:P77STOCKSERVICE` so export
   does not add a letter. Import lists every `literal:` mark in the report.
+- Resource names carry the letter on their first prefix only (`letter_rule.leading_only` in
+  `chain.json`, e.g. `["RQ_", "RC_"]`): `URQ_P77_AGGREGATION` is stored as
+  `RQ_P77_AGGREGATION`, with the inner bare application code untouched, and exported as
+  `PRQ_P77_AGGREGATION`; a resource of another environment (`TRQ_AM` in a UAT export) is kept
+  and reported.
 - `MEMNAME` therefore behaves as the author asked: usually equal to `JOBNAME` and adjusted with
   it; when it has the `xP77` pattern it is adjusted too; otherwise it stays identical in all
   environments.
@@ -225,6 +230,11 @@ element exists only on one side. It runs as a dry-run report first.
 
 - Lossless by default: re-importing the XML produced by `export` yields no changes
   (idempotency test).
+- Partial exports (some folders only, as a team delivers a changed or new folder) import the
+  same way: only their folders are rewritten, new folders are appended to the export order, and
+  the header of the last full export (declaration, *Exported at* comment, line endings) is
+  kept. Line endings are recorded (`newline` in `meta/export.json`, `\r\n` for exports saved
+  on Windows) and written back on export.
 - Policies are opt-in flags and every applied action is written to the report:
   `--application P77_RISK_ENGINE` (skip and report other applications), `--env uat`
   (tokenise the letter, derive constants), `--dedupe-jobnames` (duplicate JOBNAMEs across
@@ -597,8 +607,6 @@ the fixtures.
 3. Whether `reports/` is committed or git-ignored (git-ignored in the data repository for now).
 4. Inner-token ambiguity of the letter rule (found on real data, 113 values): a name such as
    `URQ_<APP>_AGGREGATION` has a lettered prefix *and* the bare application code as an inner
-   token. The whole value is kept `literal:`, so its letter is not swapped on export to another
-   environment. Options: a finer rule that marks only the inner token, or a per-value decision
-   recorded in `chain.json`.
+   token. Resolved 2026-11-02 with the author: resource prefixes are leading-only (see §4.1).
 5. Values carrying another environment's letter in the UAT export (4): bug or intentional?
 6. The CLI should swallow BrokenPipe when its output is piped into `head`.

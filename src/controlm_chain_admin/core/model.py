@@ -64,3 +64,4 @@ class XmlDocument:
     root: XmlElement
     declaration: XmlDeclaration = field(default_factory=XmlDeclaration)
     prolog_comments: tuple[str, ...] = ()
+    newline: str = "\n"  # "\r\n" for exports saved on Windows

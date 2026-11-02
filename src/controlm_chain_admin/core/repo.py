@@ -50,6 +50,7 @@ DEFAULT_VOLATILE_ATTRIBUTES: tuple[str, ...] = (
     "LAST_UPLOAD",
     "FOLDER_ORDER_METHOD",
     "REAL_FOLDER_ID",
+    "JOBS_IN_GROUP",
 )
 
 
@@ -144,6 +145,11 @@ class ChainConfig:
             "letter_rule": {
                 "prefixes": list(self.letter_rule.prefixes),
                 "attributes": list(self.letter_rule.attributes),
+                **(
+                    {"leading_only": list(self.letter_rule.leading_only)}
+                    if self.letter_rule.leading_only
+                    else {}
+                ),
             },
             "volatile_attributes": list(self.volatile_attributes),
             "attribute_order": {k: list(v) for k, v in self.attribute_order.items()},
@@ -174,6 +180,7 @@ class ChainConfig:
                     attributes=tuple(
                         str(a) for a in rule.get("attributes", DEFAULT_LETTER_ATTRIBUTES)
                     ),
+                    leading_only=tuple(str(p) for p in rule.get("leading_only", ())),
                 ),
                 constants={
                     str(k): Selector.from_json(v) for k, v in data.get("constants", {}).items()
