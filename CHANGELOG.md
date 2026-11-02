@@ -105,6 +105,9 @@ All notable changes to this project are documented here. The format follows
 - Receiving an export, a value no constant has is a decision instead of a refusal: a new
   constant (suggested name, or `new:NAME`), another existing constant (`use:NAME`), or the same
   value in every environment (`literal`); a job that disagrees with a constant can get its own.
+- The *Environments* page of the web UI: every constant with its value per environment, the
+  missing ones marked, where it is used; give a value or rename a constant through the review
+  (`GET /api/environments`, `constants_overview`).
 - Package skeleton, CI (lint, types, tests, web, build) and release workflows, community files.
 - `DESIGN.md` (architecture and data model) and `BACKLOG.md` (proof-of-concept plan and status).
 

@@ -370,6 +370,65 @@
         "title": "ConstantChangeOut",
         "type": "object"
       },
+      "ConstantOut": {
+        "properties": {
+          "missing": {
+            "description": "environments without a value",
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "nodes": {
+            "description": "FOLDER/JOB or FOLDER/ that use it",
+            "items": {
+              "type": "string"
+            },
+            "title": "Nodes",
+            "type": "array"
+          },
+          "spec": {
+            "description": "what it replaces: ATTR, TAG/@ATTR or TAG[K=V]/@ATTR",
+            "title": "Spec",
+            "type": "string"
+          },
+          "uses": {
+            "description": "placeholders in jobs, folders and exceptions",
+            "title": "Uses",
+            "type": "integer"
+          },
+          "values": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "description": "value per environment; null: missing",
+            "title": "Values",
+            "type": "object"
+          }
+        },
+        "required": [
+          "name",
+          "spec",
+          "values",
+          "missing",
+          "uses",
+          "nodes"
+        ],
+        "title": "ConstantOut",
+        "type": "object"
+      },
       "DecisionOut": {
         "properties": {
           "constant": {
@@ -575,6 +634,53 @@
           "element"
         ],
         "title": "EffectOut",
+        "type": "object"
+      },
+      "EnvironmentOut": {
+        "properties": {
+          "display": {
+            "title": "Display",
+            "type": "string"
+          },
+          "letter": {
+            "title": "Letter",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "letter",
+          "display"
+        ],
+        "title": "EnvironmentOut",
+        "type": "object"
+      },
+      "EnvironmentsOut": {
+        "properties": {
+          "constants": {
+            "items": {
+              "$ref": "#/components/schemas/ConstantOut"
+            },
+            "title": "Constants",
+            "type": "array"
+          },
+          "environments": {
+            "items": {
+              "$ref": "#/components/schemas/EnvironmentOut"
+            },
+            "title": "Environments",
+            "type": "array"
+          }
+        },
+        "required": [
+          "environments",
+          "constants"
+        ],
+        "title": "EnvironmentsOut",
         "type": "object"
       },
       "ErrorOut": {
@@ -2930,6 +3036,27 @@
         ]
       }
     },
+    "/api/environments": {
+      "get": {
+        "operationId": "environments_api_environments_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnvironmentsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Every constant with its value per environment and the nodes that use it",
+        "tags": [
+          "environments"
+        ]
+      }
+    },
     "/api/folders": {
       "get": {
         "operationId": "list_folders_api_folders_get",
@@ -4371,6 +4498,10 @@
     {
       "description": "The Control-M import file with every folder a comparison changed.",
       "name": "package"
+    },
+    {
+      "description": "The constants of every environment: values, gaps, uses.",
+      "name": "environments"
     },
     {
       "description": "What an export of one environment brings, before receiving it.",

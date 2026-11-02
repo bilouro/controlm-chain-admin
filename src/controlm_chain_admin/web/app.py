@@ -19,6 +19,7 @@ from controlm_chain_admin import __version__
 from controlm_chain_admin.web import errors
 from controlm_chain_admin.web.routers import (
     changes,
+    environments,
     folders,
     history,
     intake,
@@ -78,6 +79,10 @@ TAGS = [
         "description": "The Control-M import file with every folder a comparison changed.",
     },
     {
+        "name": "environments",
+        "description": "The constants of every environment: values, gaps, uses.",
+    },
+    {
         "name": "intake",
         "description": "What an export of one environment brings, before receiving it.",
     },
@@ -114,6 +119,7 @@ def create_app(settings: Settings, *, static_dir: Path = STATIC_DIR) -> FastAPI:
         changes.router,
         history.router,
         package.router,
+        environments.router,
         intake.router,
         workspace.router,
     ):

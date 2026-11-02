@@ -22,7 +22,7 @@ from typing import Any
 
 from controlm_chain_admin.core.errors import ConstantConflict, ModelError, UnresolvedConstant
 from controlm_chain_admin.core.model import XmlComment, XmlDocument, XmlElement
-from controlm_chain_admin.core.repo import ChainRepo, load_repo, write_json
+from controlm_chain_admin.core.repo import ChainRepo, load_repo, read_json, write_json
 
 PLACEHOLDER = re.compile(r"@\{([A-Za-z0-9_.\-]+)\}")
 _SPEC = re.compile(
@@ -222,6 +222,61 @@ def constants_table(repo: ChainRepo) -> dict[str, dict[str, str | None]]:
         name: {env: per_env[env].get(name) for env in repo.config.environments}
         for name in repo.config.constants
     }
+
+
+@dataclass(frozen=True)
+class ConstantRow:
+    """One constant: what it replaces, its value per environment, where it is used."""
+
+    name: str
+    spec: str
+    values: dict[str, str | None]
+    uses: int  # placeholders in jobs, folders and exceptions
+    nodes: tuple[str, ...]  # FOLDER/JOB or FOLDER/ using it, in folder order
+
+    @property
+    def missing(self) -> tuple[str, ...]:
+        return tuple(env for env, value in self.values.items() if value is None)
+
+    def to_json(self) -> dict[str, Any]:
+        return {
+            "name": self.name,
+            "spec": self.spec,
+            "values": dict(self.values),
+            "missing": list(self.missing),
+            "uses": self.uses,
+            "nodes": list(self.nodes),
+        }
+
+
+def constants_overview(repo: ChainRepo) -> list[ConstantRow]:
+    """Every constant with its values per environment and the nodes that use it."""
+    from controlm_chain_admin.core.links import folder_names  # local: avoids an import cycle
+
+    repo = load_repo(repo.root)
+    table = constants_table(repo)
+    uses: dict[str, int] = dict.fromkeys(table, 0)
+    nodes: dict[str, list[str]] = {name: [] for name in table}
+    for folder in folder_names(repo):
+        ids = [str(j) for j in read_json(repo.folder_file(folder)).get("jobs", [])]
+        files = [(f"{folder}/", repo.folder_file(folder))]
+        files += [(f"{folder}/{j}", repo.job_file(folder, j)) for j in ids]
+        for node, path in files:
+            for name in PLACEHOLDER.findall(path.read_text(encoding="utf-8")):
+                if name in uses:
+                    uses[name] += 1
+                    if node not in nodes[name]:
+                        nodes[name].append(node)
+    for env in repo.config.environments:
+        exceptions = repo.env_file(env).with_name("overrides.json")
+        if exceptions.is_file():
+            for name in PLACEHOLDER.findall(exceptions.read_text(encoding="utf-8")):
+                if name in uses:
+                    uses[name] += 1
+    return [
+        ConstantRow(name, repo.config.constants[name].spec, values, uses[name], tuple(nodes[name]))
+        for name, values in table.items()
+    ]
 
 
 def define_constant(

@@ -72,6 +72,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/environments": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Every constant with its value per environment and the nodes that use it */
+    get: operations["environments_api_environments_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/folders": {
     parameters: {
       query?: never;
@@ -631,6 +648,38 @@ export interface components {
       /** Name */
       name: string;
     };
+    /** ConstantOut */
+    ConstantOut: {
+      /**
+       * Missing
+       * @description environments without a value
+       */
+      missing: string[];
+      /** Name */
+      name: string;
+      /**
+       * Nodes
+       * @description FOLDER/JOB or FOLDER/ that use it
+       */
+      nodes: string[];
+      /**
+       * Spec
+       * @description what it replaces: ATTR, TAG/@ATTR or TAG[K=V]/@ATTR
+       */
+      spec: string;
+      /**
+       * Uses
+       * @description placeholders in jobs, folders and exceptions
+       */
+      uses: number;
+      /**
+       * Values
+       * @description value per environment; null: missing
+       */
+      values: {
+        [key: string]: string | null;
+      };
+    };
     /** DecisionOut */
     DecisionOut: {
       /** Constant */
@@ -713,6 +762,22 @@ export interface components {
       element: string;
       /** Node */
       node: string;
+    };
+    /** EnvironmentOut */
+    EnvironmentOut: {
+      /** Display */
+      display: string;
+      /** Letter */
+      letter: string;
+      /** Name */
+      name: string;
+    };
+    /** EnvironmentsOut */
+    EnvironmentsOut: {
+      /** Constants */
+      constants: components["schemas"]["ConstantOut"][];
+      /** Environments */
+      environments: components["schemas"]["EnvironmentOut"][];
     };
     /** ErrorOut */
     ErrorOut: {
@@ -1720,6 +1785,26 @@ export interface operations {
         };
         content: {
           "text/plain": components["schemas"]["ErrorOut"];
+        };
+      };
+    };
+  };
+  environments_api_environments_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["EnvironmentsOut"];
         };
       };
     };

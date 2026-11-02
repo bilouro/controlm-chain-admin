@@ -94,7 +94,23 @@ def main() -> int:
     dump_compare()
     dump_workspace()
     dump_intake()
+    dump_environments()
     return 0
+
+
+def dump_environments() -> None:
+    """The constants of the synthetic chain with constants (one value missing in prod)."""
+    from tests.support.envexports import constants_repo
+
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = constants_repo(Path(tmp))
+        settings = Settings(
+            repo=repo.root, open_browser=False, token="t", allowed_hosts=["testserver"]
+        )
+        with TestClient(create_app(settings)) as client:
+            response = client.get("/api/environments")
+            response.raise_for_status()
+            _write("environments.json", response.json())
 
 
 def dump_intake() -> None:

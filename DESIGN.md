@@ -566,6 +566,11 @@ Server-side concerns (not in the core):
   the default checked: values to learn, jobs that differ from a constant, differences,
   children, jobs not in the export. Unresolved values block the review. *Review change* sends
   the `receive` change with the choices that differ from the defaults to the usual review.
+- **Environments page (implemented 2026-11-02).** Every constant (agents, users, e-mail
+  addresses, variables) with what it replaces, how many times it is used (the nodes, linked)
+  and its value in each environment, missing values marked and counted, *Only missing values*
+  and a text filter; a value is given in place (the `set-values` change) and a constant renamed
+  everywhere (`rename-constant`), both through the review. `GET /api/environments`.
 - **Exceptions (implemented 2026-11-02).** The job and folder pages have an *Environments*
   tab: the exceptions of each environment (attribute or variable, the value used there, or
   *left out*), *Remove*, and a form for a new one (environment, attribute or `%%variable`,

@@ -15,6 +15,7 @@ import packagePreview from "./fixtures/package.json";
 import pendingChanges from "./fixtures/pending.json";
 import workspace from "./fixtures/workspace.json";
 import intake from "./fixtures/intake.json";
+import environments from "./fixtures/environments.json";
 import type { FolderDetail, JobDetail } from "@/lib/api/client";
 
 // Fixtures are dumped from the real API running on the synthetic repository (web/scripts/dump_fixtures.py).
@@ -90,6 +91,7 @@ export const handlers = [
     });
   }),
   http.get("/api/workspace", () => HttpResponse.json(workspace)),
+  http.get("/api/environments", () => HttpResponse.json(environments)),
   http.post("/api/intake", async ({ request }) => {
     const denied = unauthorized(request);
     if (denied) return denied;

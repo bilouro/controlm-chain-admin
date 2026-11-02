@@ -3,6 +3,7 @@ import {
   api,
   encode,
   type ComparisonOut,
+  type EnvironmentsOut,
   type FolderDetail,
   type GitStateOut,
   type JobDetail,
@@ -26,6 +27,7 @@ export const queryKeys = {
   package: (query: string) => ["package", query] as const,
   pending: ["git-pending"] as const,
   workspace: ["workspace"] as const,
+  environments: ["environments"] as const,
 };
 
 export function useRepo() {
@@ -121,5 +123,13 @@ export function useWorkspace() {
     queryKey: queryKeys.workspace,
     queryFn: () => api<WorkspaceOut>("/api/workspace"),
     retry: false,
+  });
+}
+
+/** Every constant with its value per environment and the nodes that use it. */
+export function useEnvironments() {
+  return useQuery({
+    queryKey: queryKeys.environments,
+    queryFn: () => api<EnvironmentsOut>("/api/environments"),
   });
 }

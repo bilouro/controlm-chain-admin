@@ -46,6 +46,8 @@ export type IntakeOut = Schemas["IntakeOut"];
 export type IntakeRequest = Schemas["IntakeRequest"];
 export type DecisionOut = Schemas["DecisionOut"];
 export type ExceptionOut = Schemas["ExceptionOut"];
+export type EnvironmentsOut = Schemas["EnvironmentsOut"];
+export type ConstantOut = Schemas["ConstantOut"];
 
 export const TOKEN_HEADER = "X-Ctmchain-Token";
 

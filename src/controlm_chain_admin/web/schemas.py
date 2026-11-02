@@ -478,3 +478,23 @@ class IntakeOut(BaseModel):
     unresolved: list[str] = Field(description="values no constant explains: they block")
     warnings: list[str]
     skipped: list[str] = Field(description="folders of other applications")
+
+
+class EnvironmentOut(BaseModel):
+    name: str
+    letter: str
+    display: str
+
+
+class ConstantOut(BaseModel):
+    name: str
+    spec: str = Field(description="what it replaces: ATTR, TAG/@ATTR or TAG[K=V]/@ATTR")
+    values: dict[str, str | None] = Field(description="value per environment; null: missing")
+    missing: list[str] = Field(description="environments without a value")
+    uses: int = Field(description="placeholders in jobs, folders and exceptions")
+    nodes: list[str] = Field(description="FOLDER/JOB or FOLDER/ that use it")
+
+
+class EnvironmentsOut(BaseModel):
+    environments: list[EnvironmentOut]
+    constants: list[ConstantOut]
