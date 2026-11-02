@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 
 from controlm_chain_admin.web.app import create_app
 from controlm_chain_admin.web.settings import Settings
+from tests.support.anomalies import ANOMALY_EXPORT
 from tests.support.envexports import both, constants_repo, fresh_repo, job, to_prod
 from tests.support.gitrepo import git, plain_git_identity
 
@@ -76,3 +77,22 @@ def test_a_group_carries_the_values_its_constant_would_have(
     groups = {d["field"]: d for d in body["decisions"] if d["kind"] == "group"}
     assert groups["NODEID"]["values"]["bench"] == "BP77_BATCH"
     assert (groups["NODEID"]["inline"], groups["DOMAIL/@SUBJECT"]["inline"]) == (False, True)
+
+
+def test_the_export_can_be_told_full(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    plain_git_identity(monkeypatch, tmp_path)
+    repo = fresh_repo(tmp_path)
+    git(repo.root, "switch", "-q", "-c", "release/baseline")
+    settings = Settings(repo=repo.root, open_browser=False, token="t", allowed_hosts=["testserver"])
+    chain = ANOMALY_EXPORT.decode()
+    with TestClient(create_app(settings)) as fresh:
+        delivery = fresh.post("/api/intake", json={"xml": chain}, headers=TOKEN).json()
+        full = fresh.post("/api/intake", json={"xml": chain, "full": True}, headers=TOKEN).json()
+        request = {"op": "receive", "params": {"xml": chain, "full": True}}
+        preview = fresh.post("/api/changes/preview", json=request, headers=TOKEN).json()
+
+    assert (delivery["full"], full["full"]) == (False, True)
+    assert [d["id"] for d in full["decisions"] if d["kind"] == "absent"] == [
+        "P77_INGEST_DAILY/#absent"
+    ]
+    assert any(f["path"] == "folders/P77_INGEST_DAILY/folder.json" for f in preview["files"])

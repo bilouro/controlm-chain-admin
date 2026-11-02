@@ -509,7 +509,7 @@
             "type": "boolean"
           },
           "kind": {
-            "description": "learn | set-value | constant | group | value | children | removed | unmatched",
+            "description": "learn | set-value | constant | group | value | children | removed | added | absent | unmatched",
             "title": "Kind",
             "type": "string"
           },
@@ -1246,6 +1246,12 @@
             "title": "Folders",
             "type": "array"
           },
+          "full": {
+            "default": false,
+            "description": "taken as every folder of the environment",
+            "title": "Full",
+            "type": "boolean"
+          },
           "partial": {
             "description": "some folders of the repository are not in the export",
             "title": "Partial",
@@ -1301,6 +1307,18 @@
             ],
             "description": "its environment; default: told by the names",
             "title": "Env"
+          },
+          "full": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "every folder of the environment; default: more than half of them",
+            "title": "Full"
           },
           "xml": {
             "description": "the export, as text",

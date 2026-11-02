@@ -4,6 +4,7 @@
     "13 folder and job names carry the letter U of uat"
   ],
   "partial": false,
+  "full": true,
   "folders": [
     {
       "name": "P77_INGEST_DAILY",

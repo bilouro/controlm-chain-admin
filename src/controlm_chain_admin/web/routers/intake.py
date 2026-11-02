@@ -27,4 +27,5 @@ ERRORS: dict[int | str, dict[str, Any]] = {
     summary="The environment of an export, the values to learn and every difference",
 )
 def intake(body: IntakeRequest, repo: ChainRepo = Depends(get_repo)) -> IntakeOut:
-    return IntakeOut.model_validate(analyze(repo, body.xml.encode("utf-8"), body.env).to_json())
+    intake = analyze(repo, body.xml.encode("utf-8"), body.env, body.full)
+    return IntakeOut.model_validate(intake.to_json())

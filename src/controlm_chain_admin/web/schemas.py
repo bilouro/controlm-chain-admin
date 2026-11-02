@@ -442,12 +442,16 @@ class InstalledRequest(BaseModel):
 class IntakeRequest(BaseModel):
     xml: str = Field(description="the export, as text")
     env: str | None = Field(None, description="its environment; default: told by the names")
+    full: bool | None = Field(
+        None, description="every folder of the environment; default: more than half of them"
+    )
 
 
 class DecisionOut(BaseModel):
     id: str
     kind: str = Field(
-        description="learn | set-value | constant | group | value | children | removed | unmatched"
+        description="learn | set-value | constant | group | value | children | removed | added "
+        "| absent | unmatched"
     )
     options: list[str]
     default: str
@@ -477,6 +481,7 @@ class IntakeOut(BaseModel):
     env: str
     evidence: list[str]
     partial: bool = Field(description="some folders of the repository are not in the export")
+    full: bool = Field(False, description="taken as every folder of the environment")
     folders: list[FolderIntakeOut]
     decisions: list[DecisionOut]
     unresolved: list[str] = Field(description="values no constant explains: they block")

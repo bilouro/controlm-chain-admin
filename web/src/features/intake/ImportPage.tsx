@@ -28,6 +28,9 @@ function optionLabel(option: string, env: string): string {
     keep: "Keep",
     new: "New constant",
     literal: "Same in every environment",
+    "only-here": `Only in ${env}`,
+    everywhere: "Every environment",
+    "not-here": `Not in ${env}`,
   };
   if (option.startsWith("use:")) return `Use ${option.slice(4)}`;
   return labels[option] ?? option;
@@ -62,6 +65,8 @@ function describe(decision: DecisionOut): string {
       return `${decision.node}: conditions, ON blocks or other children differ`;
     case "unmatched":
       return `${decision.field} = ${decision.incoming} (${plural(decision.count, "use")})`;
+    case "added":
+      return `${decision.node} is not in the repository`;
     case "group":
       return decision.inline
         ? `${decision.field}: the name of the environment inside the text (${plural(decision.count, "use")})`
@@ -105,7 +110,17 @@ const SECTIONS: { kind: string[]; title: string; help: string }[] = [
   {
     kind: ["removed"],
     title: "Jobs not in the export",
-    help: "Folders come whole: a job missing from the export is removed unless you keep it.",
+    help: "Folders come whole: a job missing from the export is removed unless you keep it; a full export can note that this environment does not have it.",
+  },
+  {
+    kind: ["added"],
+    title: "Only in this export",
+    help: "Folders and jobs the repository does not have: only in this environment, or in every environment.",
+  },
+  {
+    kind: ["absent"],
+    title: "Folders this export does not have",
+    help: "A full export without a folder of the repository: note that this environment does not have it (its export leaves it out), or keep it.",
   },
 ];
 
@@ -212,6 +227,7 @@ export function ImportPage() {
   const { propose } = useChanges();
   const [file, setFile] = useState<{ name: string; text: string } | null>(null);
   const [env, setEnv] = useState("");
+  const [full, setFull] = useState<boolean | null>(null);
   const [choices, setChoices] = useState<Record<string, string>>({});
   const analyze = useMutation({
     mutationFn: (body: IntakeRequest) => postApi<IntakeOut>("/api/intake", body),
@@ -223,9 +239,15 @@ export function ImportPage() {
   const handleFile = async (event: ChangeEvent<HTMLInputElement>) => {
     const chosen = event.target.files?.[0];
     analyze.reset();
+    setFull(null);
     setFile(chosen ? { name: chosen.name, text: await readText(chosen) } : null);
   };
-  const handleAnalyze = () => file && analyze.mutate({ xml: file.text, env: env || null });
+  const handleAnalyze = (scope: boolean | null = full) =>
+    file && analyze.mutate({ xml: file.text, env: env || null, full: scope });
+  const handleScope = (isFull: boolean) => {
+    setFull(isFull);
+    handleAnalyze(isFull);
+  };
   const handleReview = () => {
     if (!file || !result) return;
     const changed = Object.fromEntries(
@@ -233,7 +255,10 @@ export function ImportPage() {
         .filter((d) => (choices[d.id] ?? d.default) !== d.default)
         .map((d) => [d.id, choices[d.id] ?? d.default]),
     );
-    propose({ op: "receive", params: { xml: file.text, env: result.env, choices: changed } });
+    propose({
+      op: "receive",
+      params: { xml: file.text, env: result.env, choices: changed, full: result.full },
+    });
   };
 
   return (
@@ -272,20 +297,32 @@ export function ImportPage() {
             ))}
           </SelectInput>
         </label>
-        <Button disabled={!file || analyze.isPending} onClick={handleAnalyze}>
+        <Button disabled={!file || analyze.isPending} onClick={() => handleAnalyze()}>
           {analyze.isPending ? "Analyzing…" : "Analyze"}
         </Button>
       </Card>
       {analyze.isPending && <Loading what="export" />}
       {analyze.isError && !needsToken && <ErrorBox error={analyze.error} />}
-      {needsToken && <TokenForm onToken={handleAnalyze} />}
+      {needsToken && <TokenForm onToken={() => handleAnalyze()} />}
       {result && (
         <Card className="space-y-4 p-4">
           <div className="space-y-1">
             <h2 className="text-base font-semibold">
               {result.env} export{file ? ` · ${file.name}` : ""}
-              {result.partial ? " · some folders only" : ""}
+              {result.full ? " · full export" : result.partial ? " · some folders only" : ""}
             </h2>
+            <label className="flex items-center gap-2 text-xs">
+              <input
+                type="checkbox"
+                checked={result.full}
+                disabled={analyze.isPending}
+                onChange={(e) => handleScope(e.target.checked)}
+              />
+              Full export of {result.env}
+              <span className="text-muted">
+                (every folder it has; what it lacks or alone has is noted, production is left alone)
+              </span>
+            </label>
             <ul className="text-xs text-muted">
               {result.evidence.map((line) => (
                 <li key={line}>{line}</li>

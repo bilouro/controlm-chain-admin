@@ -236,6 +236,21 @@ def build_parser() -> argparse.ArgumentParser:
     )
     rec.add_argument("xml", type=Path, help="the export")
     rec.add_argument("--env", help="its environment (default: told by the letter of the names)")
+    scope = rec.add_mutually_exclusive_group()
+    scope.add_argument(
+        "--full",
+        action="store_const",
+        const=True,
+        dest="full",
+        help="every folder of the environment (default: when it has more than half of them)",
+    )
+    scope.add_argument(
+        "--partial",
+        action="store_const",
+        const=False,
+        dest="full",
+        help="some folders only, e.g. a delivery",
+    )
     rec.add_argument(
         "--choose",
         action="append",
@@ -516,6 +531,7 @@ def cmd_env_help(args: argparse.Namespace) -> int:
 _SHOWN_PER_KIND = 20
 _DECISION_ORDER = (
     "learn", "set-value", "group", "constant", "unmatched", "value", "children", "removed",
+    "added", "absent",
 )  # fmt: skip
 
 
@@ -555,7 +571,8 @@ def _print_intake(intake: intake_mod.Intake) -> None:
     }
     print(
         f"Folders: {len(intake.folders)} ({statuses['new']} new, {statuses['changed']} changed, "
-        f"{statuses['same']} unchanged)" + (", some folders only" if intake.partial else "")
+        f"{statuses['same']} unchanged)"
+        + (", full export" if intake.full else ", some folders only" if intake.partial else "")
     )
     if intake.decisions:
         print(
@@ -579,12 +596,12 @@ def cmd_receive(args: argparse.Namespace) -> int:
     repo = load_repo(args.repo)
     data = args.xml.read_bytes()
     choices = _pairs(args.choose, "ID=OPTION")
-    intake = intake_mod.analyze(repo, data, args.env)
+    intake = intake_mod.analyze(repo, data, args.env, args.full)
     if args.format == "text":
         _print_intake(intake)
     if args.apply:
         workspace_mod.ensure_editable(repo)
-    change = intake_mod.receive(repo, data, intake.env, choices)
+    change = intake_mod.receive(repo, data, intake.env, choices, intake.full)
     if args.format == "json":
         result = refactor_mod.apply(repo, change) if args.apply and change.edits else None
         body = {"intake": intake.to_json(), "change": change.to_json(), "applied": bool(result)}

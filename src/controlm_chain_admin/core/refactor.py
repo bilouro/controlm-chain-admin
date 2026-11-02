@@ -1255,16 +1255,22 @@ OPERATIONS: dict[str, Callable[..., ChangeSet]] = {
     "set-exception": set_exception,
     "rename-constant": lambda repo, old, new: rename_constant(repo, old, new),
     "set-values": lambda repo, env, values: set_values(repo, env, values),
-    "receive": lambda repo, xml, env=None, choices=None: _receive(repo, xml, env, choices),
+    "receive": lambda repo, xml, env=None, choices=None, full=None: _receive(
+        repo, xml, env, choices, full
+    ),
 }
 
 
 def _receive(
-    repo: ChainRepo, xml: str, env: str | None, choices: Mapping[str, str] | None
+    repo: ChainRepo,
+    xml: str,
+    env: str | None,
+    choices: Mapping[str, str] | None,
+    full: bool | None = None,
 ) -> ChangeSet:
     from controlm_chain_admin.core.intake import receive  # intake builds on this module
 
-    return receive(repo, xml.encode("utf-8"), env, choices)
+    return receive(repo, xml.encode("utf-8"), env, choices, full)
 
 
 def run_operation(repo: ChainRepo, op: str, params: Mapping[str, Any]) -> ChangeSet:

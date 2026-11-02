@@ -718,7 +718,7 @@ export interface components {
       inline: boolean;
       /**
        * Kind
-       * @description learn | set-value | constant | group | value | children | removed | unmatched
+       * @description learn | set-value | constant | group | value | children | removed | added | absent | unmatched
        */
       kind: string;
       /** Node */
@@ -1029,6 +1029,12 @@ export interface components {
       /** Folders */
       folders: components["schemas"]["FolderIntakeOut"][];
       /**
+       * Full
+       * @description taken as every folder of the environment
+       * @default false
+       */
+      full: boolean;
+      /**
        * Partial
        * @description some folders of the repository are not in the export
        */
@@ -1053,6 +1059,11 @@ export interface components {
        * @description its environment; default: told by the names
        */
       env?: string | null;
+      /**
+       * Full
+       * @description every folder of the environment; default: more than half of them
+       */
+      full?: boolean | null;
       /**
        * Xml
        * @description the export, as text

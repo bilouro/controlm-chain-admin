@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { renderAt } from "@/test/render";
 import { calls, server } from "@/test/server";
 import intake from "@/test/fixtures/intake.json";
+import intakeFull from "@/test/fixtures/intake-full.json";
 import intakeGroups from "@/test/fixtures/intake-groups.json";
 import { ImportPage } from "./ImportPage";
 
@@ -28,7 +29,7 @@ describe("ImportPage", () => {
   it("analyzes the export: environment, folders and the decisions with their defaults", async () => {
     await analyzed();
 
-    expect(calls.intake).toEqual([{ xml: XML, env: null }]);
+    expect(calls.intake).toEqual([{ xml: XML, env: null, full: null }]);
     expect(
       screen.getByText(/13 folder and job names carry the letter P of prod/),
     ).toBeInTheDocument();
@@ -57,7 +58,12 @@ describe("ImportPage", () => {
     await waitFor(() =>
       expect(calls.preview[0]).toEqual({
         op: "receive",
-        params: { xml: XML, env: "prod", choices: { "P77_CHAIN/P77_E@TASKTYPE": "exception" } },
+        params: {
+          xml: XML,
+          env: "prod",
+          choices: { "P77_CHAIN/P77_E@TASKTYPE": "exception" },
+          full: true,
+        },
       }),
     );
   });
@@ -153,6 +159,37 @@ describe("ImportPage, the same difference in several jobs", () => {
       expect(calls.preview[0]).toMatchObject({
         params: { env: "uat", choices: { "group:RUN_AS=app77proc>aup77proc": "exceptions" } },
       }),
+    );
+  });
+});
+
+describe("ImportPage, a full export", () => {
+  it("is told full, then shows the folders the environment does not have", async () => {
+    const asked: unknown[] = [];
+    server.use(
+      http.post("/api/intake", async ({ request }) => {
+        const body = (await request.json()) as { full?: boolean | null };
+        asked.push(body);
+        if (body.full) return HttpResponse.json(intakeFull);
+        const delivery = intakeFull.decisions.filter((d) => d.kind !== "absent");
+        return HttpResponse.json({ ...intakeFull, full: false, decisions: delivery });
+      }),
+    );
+    const user = await analyzed(/uat export/);
+    const scope = screen.getByRole("checkbox", { name: /Full export of uat/ });
+    expect(scope).not.toBeChecked();
+    expect(screen.queryByRole("region", { name: "Folders this export does not have" })).toBeNull();
+
+    await user.click(scope);
+
+    const absent = await screen.findByRole("region", { name: "Folders this export does not have" });
+    expect(asked.at(-1)).toMatchObject({ full: true });
+    expect(screen.getByRole("checkbox", { name: /Full export of uat/ })).toBeChecked();
+    const folder = within(absent).getByRole("radiogroup", { name: "P77_INGEST_DAILY/#absent" });
+    expect(within(folder).getByRole("radio", { name: "Not in uat" })).toBeChecked();
+    await user.click(screen.getByRole("button", { name: "Review change" }));
+    await waitFor(() =>
+      expect(calls.preview[0]).toMatchObject({ params: { env: "uat", full: true } }),
     );
   });
 });

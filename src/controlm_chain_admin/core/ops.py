@@ -51,6 +51,7 @@ from controlm_chain_admin.core.links import (
     write_index,
     write_names,
 )
+from controlm_chain_admin.core.membership import ENVS_KEY, belongs, environments_of, with_envs
 from controlm_chain_admin.core.model import XmlComment, XmlDeclaration, XmlDocument, XmlElement
 from controlm_chain_admin.core.overrides import Override, apply_override, load_overrides
 from controlm_chain_admin.core.repo import ChainRepo, load_repo, read_json, write_json
@@ -367,7 +368,7 @@ def import_xml(
         if name in imported:
             raise DuplicateName(f"folder {name} appears twice in the export")
         refs = _to_link_refs(folder, ids_by_name)
-        written, repeated = _write_folder(repo, refs, name, originals.get(name, {}))
+        written, repeated = _write_folder(repo, refs, name, originals.get(name, {}), env)
         files += written
         duplicates.extend(f"{name}/{job}" for job in repeated)
         imported.append(name)
@@ -408,12 +409,17 @@ def _existing_jobs(repo: ChainRepo) -> dict[str, dict[str, str]]:
 
 
 def _write_folder(
-    repo: ChainRepo, folder: XmlElement, name: str, renamed: Mapping[str, str]
+    repo: ChainRepo,
+    folder: XmlElement,
+    name: str,
+    renamed: Mapping[str, str],
+    env: str | None = None,
 ) -> tuple[int, list[str]]:
     """Write folder.json, the job files and the metadata sidecar. Returns (files, repeats).
 
     ``renamed`` maps deduplicated JOBNAMEs of this import to their originals; originals recorded
-    by a previous import are kept for jobs that still carry the deduplicated name.
+    by a previous import are kept for jobs that still carry the deduplicated name. A folder or
+    job that exists in some environments only keeps them, plus ``env`` (the export has it).
     """
     config = repo.config
     meta_file = repo.folder_meta_file(name)
@@ -426,8 +432,21 @@ def _write_folder(
     repeated = sorted({n for n in job_names if job_names.count(n) > 1})
 
     folder_dir = repo.folder_dir(name)
+    memberships: dict[str, tuple[str, ...] | None] = {}
+    if repo.folder_file(name).is_file():
+        before = read_json(repo.folder_file(name))
+        memberships[""] = environments_of(before)
+        for job_id in (str(j) for j in before.get(JOBS_KEY, [])):
+            if repo.job_file(name, job_id).is_file():
+                memberships[job_id] = environments_of(read_json(repo.job_file(name, job_id)))
     if folder_dir.exists():
         shutil.rmtree(folder_dir)  # drop jobs that disappeared since the previous import
+
+    def member(data: dict[str, Any], key: str) -> dict[str, Any]:
+        envs = memberships.get(key)
+        if envs is None:
+            return data
+        return with_envs(data, (*envs, *((env,) if env else ())), config.environments)
 
     kept_attrs, folder_meta = split_volatile(folder.attrs, config.volatile_attributes)
     without_jobs = replace(
@@ -442,14 +461,16 @@ def _write_folder(
         raise ModelError(
             f"folder {name}: children cannot be grouped (comments or unexpected order)"
         )
-    write_json(repo.folder_file(name), {TAG_KEY: folder.tag, **folder_json, JOBS_KEY: ids})
+    write_json(
+        repo.folder_file(name), member({TAG_KEY: folder.tag, **folder_json, JOBS_KEY: ids}, "")
+    )
 
     jobs_meta: dict[str, dict[str, str]] = {}
     for job_id, job in zip(ids, job_elements, strict=True):
         job_attrs, job_meta = split_volatile(job.attrs, config.volatile_attributes)
         jobs_meta[job_id] = job_meta
         job_json = element_to_json(replace(job, attrs=job_attrs), config.child_order)
-        write_json(repo.job_file(name, job_id), job_json)
+        write_json(repo.job_file(name, job_id), member(job_json, job_id))
     meta: dict[str, Any] = {"attrs": folder_meta, JOBS_KEY: jobs_meta}
     originals = {
         job_id: renamed.get(job_id) or previous[job_id]
@@ -516,12 +537,13 @@ def load_document(
     jobnames: str = "deduped",
     folders: Collection[str] | None = None,
     overrides: Mapping[str, Override] | None = None,
+    env: str | None = None,
 ) -> tuple[XmlDocument, int]:
     """The repository as one neutral document (metadata merged, link references resolved).
 
     ``folders`` keeps only those folders, in export order; ``overrides`` are the exceptions of
-    one environment, applied per node. Returns the document and the number of links renamed by
-    the name policy.
+    one environment, applied per node; with ``env``, folders and jobs that do not exist there
+    are left out. Returns the document and the number of links renamed by the name policy.
     """
     repo = load_repo(repo.root)
     if not repo.export_meta_file.exists():
@@ -534,10 +556,10 @@ def load_document(
         )
     elements = tuple(
         _from_link_refs(
-            _read_folder(repo, name, jobnames, overrides or {}), resolved, f"folder {name}"
+            _read_folder(repo, name, jobnames, overrides or {}, env), resolved, f"folder {name}"
         )
         for name in meta.get("folder_order", [])
-        if folders is None or name in folders
+        if (folders is None or name in folders) and belongs(read_json(repo.folder_file(name)), env)
     )
     root = XmlElement(str(meta["root_tag"]), tuple(dict(meta["root_attrs"]).items()), elements)
     declaration = XmlDeclaration(**meta["declaration"])
@@ -561,7 +583,7 @@ def export_document(
     repo = load_repo(repo.root)
     letter = _letter(repo, env, "export")
     exceptions = load_overrides(repo, env) if env is not None else {}
-    document, renamed = load_document(repo, names, jobnames, folders, exceptions)
+    document, renamed = load_document(repo, names, jobnames, folders, exceptions, env)
     constants = ExportConstantsReport(0, ())
     if env is not None and repo.config.constants:
         document, constants = apply_export(
@@ -594,10 +616,12 @@ def _read_folder(
     name: str,
     jobnames: str = "deduped",
     overrides: Mapping[str, Override] | None = None,
+    env: str | None = None,
 ) -> XmlElement:
     config = repo.config
     exceptions = overrides or {}
     folder_json = apply_override(read_json(repo.folder_file(name)), exceptions.get(f"{name}/"))
+    folder_json.pop(ENVS_KEY, None)
     meta_file = repo.folder_meta_file(name)
     empty_meta: dict[str, Any] = {"attrs": {}, JOBS_KEY: {}}
     folder_meta: dict[str, Any] = read_json(meta_file) if meta_file.exists() else empty_meta
@@ -610,6 +634,9 @@ def _read_folder(
         job_json = apply_override(
             read_json(repo.job_file(name, job_id)), exceptions.get(f"{name}/{job_id}")
         )
+        if not belongs(job_json, env):
+            continue
+        job_json.pop(ENVS_KEY, None)
         job_meta = folder_meta.get(JOBS_KEY, {}).get(job_id, {})
         attrs = merge_volatile(_strings(job_json), job_meta, job_order)
         original = folder_meta.get(ORIGINALS_KEY, {}).get(job_id)

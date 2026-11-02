@@ -118,6 +118,14 @@ All notable changes to this project are documented here. The format follows
   Jobs the export does not change keep their values. `ctmchain receive` prints the groups;
   the *Import* page has a section for them; decisions carry `values` and `inline`.
 - `ctmchain init --leading-only RQ_,RC_`: the whole letter rule from the start.
+- Folders and jobs that exist in some environments only: `"envs": ["uat"]` in their JSON; the
+  export of another environment leaves them out, importing an export that has them adds that
+  environment. Receiving a *full* export (more than half of the folders, or `--full`,
+  `--partial`, the *Full export* box of the Import page) of an environment other than
+  production leaves production alone: exceptions instead of changes, children ignored, a
+  job or folder it lacks noted as not there, one only it has noted as only there, production's
+  header, job order and volatile attributes kept. A prod baseline then still exports byte for
+  byte after uat and bench came in.
 - The source distribution carries the whole project (rules, skills, docs, tests, the `web/`
   sources and the built web UI), so it can be developed where only PyPI is reachable.
 - Package skeleton, CI (lint, types, tests, web, build) and release workflows, community files.
