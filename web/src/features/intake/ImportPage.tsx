@@ -10,7 +10,7 @@ import {
 import { useRepo, useWorkspace } from "@/lib/api/queries";
 import { useChanges } from "@/features/changes/changes-context";
 import { TokenForm } from "@/features/changes/TokenForm";
-import { Badge, Button, Card, ErrorBox, Loading, SelectInput } from "@/components/ui";
+import { Badge, Button, Card, ErrorBox, Loading, SelectInput, TextInput } from "@/components/ui";
 
 const SHOWN = 50;
 
@@ -26,7 +26,10 @@ function optionLabel(option: string, env: string): string {
     change: "Change the base",
     remove: "Remove",
     keep: "Keep",
+    new: "New constant",
+    literal: "Same in every environment",
   };
+  if (option.startsWith("use:")) return `Use ${option.slice(4)}`;
   return labels[option] ?? option;
 }
 
@@ -57,12 +60,19 @@ function describe(decision: DecisionOut): string {
       return `${decision.node} · ${decision.field}: ${decision.current ?? "(none)"} → ${decision.incoming ?? "(none)"}`;
     case "children":
       return `${decision.node}: conditions, ON blocks or other children differ`;
+    case "unmatched":
+      return `${decision.field} = ${decision.incoming} (${plural(decision.count, "use")})`;
     default:
       return `${decision.node} is not in the export`;
   }
 }
 
 const SECTIONS: { kind: string[]; title: string; help: string }[] = [
+  {
+    kind: ["unmatched"],
+    title: "Values no constant has",
+    help: "New folders and jobs bring values no constant has in this environment: create a constant (its other environments are filled in later), use an existing one, or keep the value as it is in every environment.",
+  },
   {
     kind: ["learn", "set-value"],
     title: "Values to learn",
@@ -101,22 +111,36 @@ function DecisionRow({
   value: string;
   onChange: (option: string) => void;
 }) {
+  const isNew = value === "new" || value.startsWith("new:");
+  const name = value.startsWith("new:") ? value.slice(4) : (decision.suggested ?? "");
   return (
     <li className="flex flex-wrap items-center gap-x-4 gap-y-1 py-1.5 hover:bg-surface-2">
       <span className="min-w-0 flex-1 font-mono text-xs">{describe(decision)}</span>
-      <span role="radiogroup" aria-label={decision.id} className="flex gap-3 text-xs">
+      <span role="radiogroup" aria-label={decision.id} className="flex flex-wrap gap-3 text-xs">
         {decision.options.map((option) => (
           <label key={option} className="flex items-center gap-1">
             <input
               type="radio"
               name={decision.id}
-              checked={value === option}
+              checked={option === "new" ? isNew : value === option}
               onChange={() => onChange(option)}
             />
             {optionLabel(option, env)}
           </label>
         ))}
       </span>
+      {isNew && (
+        <label className="text-xs text-muted">
+          Name of the new constant
+          <TextInput
+            value={name}
+            onChange={(e) =>
+              onChange(e.target.value === decision.suggested ? "new" : `new:${e.target.value}`)
+            }
+            className="ml-2 font-mono"
+          />
+        </label>
+      )}
     </li>
   );
 }

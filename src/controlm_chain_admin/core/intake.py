@@ -26,7 +26,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from controlm_chain_admin.core.constants import PLACEHOLDER, Selector
+from controlm_chain_admin.core.constants import PLACEHOLDER, Selector, propose_name
 from controlm_chain_admin.core.errors import InvalidChange, ModelError
 from controlm_chain_admin.core.model import XmlDocument
 from controlm_chain_admin.core.ops import JOB_TAG, JOBS_KEY, TAG_KEY, import_xml, only_application
@@ -38,7 +38,7 @@ if TYPE_CHECKING:
     from controlm_chain_admin.core.refactor import ChangeSet
 
 VARIABLE_TAG = "VARIABLE"
-_KNOWN_OPTIONS = ("exception", "set-value", "ignore")
+_KNOWN_OPTIONS = ("exception", "new", "set-value", "ignore")
 _NAME_ATTRIBUTES = ("FOLDER_NAME", "JOBNAME")
 
 
@@ -74,6 +74,7 @@ class Decision:
     incoming: str | None = None  # the export (neutral)
     count: int = 1
     sites: tuple[Site, ...] = ()  # where the decision applies
+    suggested: str | None = None  # the name of a new constant, for the option "new"
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -88,6 +89,7 @@ class Decision:
             "expected": self.expected,
             "incoming": self.incoming,
             "count": self.count,
+            "suggested": self.suggested,
         }
 
 
@@ -300,7 +302,7 @@ class _Collector:
                 continue
             for sites in by_value.values():
                 for site in sites:
-                    options = _KNOWN_OPTIONS if site.can_except else ("set-value", "ignore")
+                    options = _KNOWN_OPTIONS if site.can_except else ("new", "set-value", "ignore")
                     disagree.append(
                         _site_decision(
                             site, "constant", options,
@@ -320,7 +322,7 @@ class _Collector:
             for _, other_sites in ranked[1:]:
                 for site in other_sites:
                     learned_options: tuple[str, ...] = (
-                        ("exception", "ignore") if site.can_except else ("ignore",)
+                        ("exception", "new", "ignore") if site.can_except else ("new", "ignore")
                     )
                     disagree.append(
                         _site_decision(
@@ -354,29 +356,70 @@ def _walk(data: Mapping[str, Any], tag: str) -> Iterator[tuple[str, Mapping[str,
                     yield from _walk(item, str(item.get(TAG_KEY, key)))
 
 
-def _unresolved(
+def _elements(
+    data: Mapping[str, Any], tag: str
+) -> Iterator[tuple[tuple[Any, ...], str, Mapping[str, Any]]]:
+    """(path from the node, tag, element) of the node and of every element inside it."""
+    yield (), tag, data
+    for key, value in data.items():
+        if isinstance(value, list):
+            for index, item in enumerate(value):
+                if isinstance(item, dict):
+                    item_tag = str(item.get(TAG_KEY, key))
+                    for path, inner_tag, inner in _elements(item, item_tag):
+                        yield (key, index, *path), inner_tag, inner
+
+
+def _unmatched(
     box: ChainRepo, env: str, nodes: list[tuple[str, Mapping[str, Any], str]],
     learned: Mapping[str, str],
-) -> list[str]:  # fmt: skip
-    """Values of new folders and jobs, bound to a constant, that no constant explains."""
+) -> list[Decision]:  # fmt: skip
+    """Values of new folders and jobs, bound to a constant, that no constant has there: create
+    a constant, use another one, or keep the value as it is in every environment."""
     selectors = box.config.constants
+    unique: dict[str, Selector] = {}
+    for selector in selectors.values():
+        if not selector.inline:
+            unique.setdefault(selector.spec, selector)
     known = {**{k: v for k, v in box.load_env(env).constants.items() if v}, **learned}
-    found: list[str] = []
+    found: dict[tuple[str, str], list[Site]] = {}
     for node, data, tag in nodes:
-        for element_tag, element in _walk(data, tag):
-            for constant, selector in selectors.items():
+        for path, element_tag, element in _elements(data, tag):
+            for spec, selector in unique.items():
                 if not _bound(selector, element_tag, element):
                     continue
                 value = element.get(selector.attribute)
                 if not isinstance(value, str) or PLACEHOLDER.search(value):
                     continue
-                same = [c for c, s in selectors.items() if s == selector and known.get(c) == value]
-                line = (
-                    f"{selector.attribute}={value} ({node}): no constant has this value in {env}"
-                )
-                if not same and line not in found and constant:
-                    found.append(line)
-    return found
+                if any(s == selector and known.get(c) == value for c, s in selectors.items()):
+                    continue
+                attribute = selector.attribute
+                site = Site(node, attribute, "child" if path else "attribute",
+                            (*path, attribute), value, value)  # fmt: skip
+                found.setdefault((spec, value), []).append(site)
+    prefixes = box.config.letter_rule.prefixes
+    taken = set(selectors)
+    decisions = []
+    for (spec, value), sites in found.items():
+        selector = unique[spec]
+        name = _free_name(propose_name(selector, value, prefixes), taken)
+        taken.add(name)
+        others = tuple(f"use:{c}" for c, s in selectors.items() if s == selector)
+        decisions.append(
+            Decision(
+                f"unmatched:{spec}={value}", "unmatched", ("new", *others, "literal"), "new",
+                field=spec, constant=name, incoming=value, count=len(sites),
+                sites=tuple(sites), suggested=name,
+            )
+        )  # fmt: skip
+    return decisions
+
+
+def _free_name(name: str, taken: set[str]) -> str:
+    candidate, number = name, 2
+    while candidate in taken:
+        candidate, number = f"{name}_{number}", number + 1
+    return candidate
 
 
 def _bound(selector: Selector, tag: str, element: Mapping[str, Any]) -> bool:
@@ -459,7 +502,14 @@ def analyze(repo: ChainRepo, data: bytes, env: str | None = None) -> Intake:
             for d in decisions
             if d.kind in ("learn", "set-value")
         }
-        unresolved = _unresolved(box, env, new_nodes, learned)
+        taken = set(box.config.constants)
+        for decision in decisions:
+            if decision.kind == "constant" and decision.constant:
+                name = _free_name(f"{decision.constant}_2", taken)
+                taken.add(name)
+                decisions[decisions.index(decision)] = replace(decision, suggested=name)
+        decisions += _unmatched(box, env, new_nodes, learned)
+        unresolved: list[str] = []
     present = {f.parent.name for f in repo.folders_dir.glob("*/folder.json")}
     if report.suspicious_values:
         warnings.append(
@@ -511,6 +561,45 @@ def _restore(box: ChainRepo, site: Site) -> None:
     else:
         _get(data, site.path[:-1])[site.path[-1]] = site.current
     write_json(path, data)
+
+
+def _put(box: ChainRepo, site: Site, value: str) -> None:
+    """Write ``value`` at ``site`` in the copy."""
+    path = _node_file(box, site.node)
+    data = dict(read_json(path))
+    if site.scope == "attribute":
+        data[site.field] = value
+    elif site.scope == "variable":
+        _set_variable(data, site.field, value)
+    else:
+        _get(data, site.path[:-1])[site.path[-1]] = value
+    write_json(path, data)
+
+
+_CONSTANT_NAME = re.compile(r"[a-z][a-z0-9_]*(?:\.[a-z0-9_]+)+")
+
+
+def _creations(
+    repo: ChainRepo, decisions: tuple[Decision, ...], chosen: Mapping[str, str]
+) -> dict[str, tuple[Selector, str]]:
+    """New constants the choices create: name -> (selector, value in the environment)."""
+    by_spec = {s.spec: s for s in repo.config.constants.values()}
+    created: dict[str, tuple[Selector, str]] = {}
+    for decision in decisions:
+        option = chosen[decision.id]
+        if option != "new" and not option.startswith("new:"):
+            continue
+        name = option[4:] if option.startswith("new:") else (decision.suggested or "")
+        if not _CONSTANT_NAME.fullmatch(name):
+            raise InvalidChange(f"invalid constant name {name!r}: use lower-case group.name")
+        if name in repo.config.constants or name in created:
+            raise InvalidChange(f"constant {name} already exists: choose another name")
+        if decision.kind == "constant" and decision.constant:
+            selector = repo.config.constants[decision.constant]
+        else:
+            selector = by_spec[decision.field or ""]
+        created[name] = (selector, decision.incoming or "")
+    return created
 
 
 def _except(overrides: dict[str, Override], site: Site) -> None:
@@ -590,8 +679,11 @@ def receive(
         raise InvalidChange(f"unknown decision(s): {', '.join(unknown)}")
     chosen = {d.id: choices.get(d.id, d.default) for d in intake.decisions}
     for decision in intake.decisions:
-        if chosen[decision.id] not in decision.options:
+        option = chosen[decision.id]
+        named = option.startswith("new:") and "new" in decision.options
+        if option not in decision.options and not named:
             raise InvalidChange(f"{decision.id}: choose one of {', '.join(decision.options)}")
+    creations = _creations(repo, intake.decisions, chosen)
     values: dict[str, str] = {}
     for decision in intake.decisions:
         option = chosen[decision.id]
@@ -604,6 +696,18 @@ def receive(
     env = intake.env
     original = _tracked(repo.root)
     with _sandbox(original) as box:
+        if creations:
+            config = box.config
+            added = {name: selector for name, (selector, _) in creations.items()}
+            box = box.save_config(replace(config, constants={**config.constants, **added}))
+            for other in box.config.environments:
+                other_config = box.load_env(other)
+                new_values = {
+                    name: (value if other == env else None)
+                    for name, (_, value) in creations.items()
+                }
+                merged = {**other_config.constants, **new_values}
+                write_json(box.env_file(other), replace(other_config, constants=merged).to_json())
         if values:
             env_config = box.load_env(env)
             constants = {**env_config.constants, **values}
@@ -622,6 +726,10 @@ def receive(
                 if option == "keep" and decision.node:
                     _keep_job(repo, box, decision.node)
                 continue
+            if option.startswith("use:"):
+                for site in decision.sites:
+                    _put(box, site, "@{" + option[4:] + "}")
+                continue
             if option in ("exception", "exceptions"):
                 for site in decision.sites:
                     _restore(box, site)
@@ -632,13 +740,13 @@ def receive(
                 for site in decision.sites:
                     _restore(box, site)
         write_overrides(box, env, overrides)
-        remaining = _unresolved(box, env, _new_nodes(box, intake), {})
-        if remaining:
-            raise InvalidChange(
-                f"values no constant explains in {env}: {'; '.join(remaining[:5])}"
-                + (f" and {len(remaining) - 5} more" if len(remaining) > 5 else "")
-                + "; give the constants a value there first"
-            )
+        others = [e for e in box.config.environments if e != env]
+        warnings = list(intake.warnings) + [
+            f"the new constant {name} has no value yet in {', '.join(others)}: give it one "
+            "before exporting there"
+            for name in creations
+            if others
+        ]
         new = sum(1 for f in intake.folders if f.status == "new")
         changed = sum(1 for f in intake.folders if f.status == "changed")
         folders = len(intake.folders)
@@ -647,4 +755,6 @@ def receive(
             f"({new} new, {changed} changed), {len(values)} value(s) of {env}, "
             f"{exceptions} exception(s)"
         )
-        return _finish(original, box, summary, list(intake.warnings))
+        if creations:
+            summary += f", {len(creations)} new constant(s)"
+        return _finish(original, box, summary, warnings)

@@ -30,7 +30,8 @@
       "current": "@{user.proc}",
       "expected": null,
       "incoming": "app77proc",
-      "count": 11
+      "count": 11,
+      "suggested": null
     },
     {
       "id": "learn:var.geienv",
@@ -43,7 +44,8 @@
       "current": "@{var.geienv}",
       "expected": null,
       "incoming": "x",
-      "count": 1
+      "count": 1,
+      "suggested": null
     },
     {
       "id": "P77_CHAIN/P77_E@TASKTYPE",
@@ -56,7 +58,8 @@
       "current": "Command",
       "expected": null,
       "incoming": "Dummy",
-      "count": 1
+      "count": 1,
+      "suggested": null
     }
   ],
   "unresolved": [],

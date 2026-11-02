@@ -518,6 +518,11 @@ def _decision_line(decision: intake_mod.Decision) -> str:
         return f"{head}  {decision.constant}: {decision.expected} -> {decision.incoming}{uses}"
     if decision.kind in ("value", "constant"):
         return f"{head}  {decision.current} -> {decision.incoming}"
+    if decision.kind == "unmatched":
+        uses = _plural(decision.count, "use")
+        return (
+            f"{head}  {decision.field} = {decision.incoming} ({uses}); new: {decision.suggested}"
+        )
     return head
 
 
@@ -531,8 +536,11 @@ def _print_intake(intake: intake_mod.Intake) -> None:
         f"{statuses['same']} unchanged)" + (", some folders only" if intake.partial else "")
     )
     if intake.decisions:
-        print("Decisions (default [options]; another one with --choose ID=OPTION):")
-    for kind in ("learn", "set-value", "constant", "value", "children", "removed"):
+        print(
+            "Decisions (default [options]; another one with --choose ID=OPTION, "
+            "a new constant with ID=new:NAME):"
+        )
+    for kind in ("learn", "set-value", "constant", "unmatched", "value", "children", "removed"):
         of_kind = [d for d in intake.decisions if d.kind == kind]
         for decision in of_kind[:_SHOWN_PER_KIND]:
             print(_decision_line(decision))

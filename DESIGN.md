@@ -241,13 +241,18 @@ export contradicts the value `c` has there), *constant* (one job disagrees: an e
 default, as the author asked), *value* (a plain attribute or variable: change the base, an
 exception for that environment, or ignore), *children* (conditions, ON blocks... change or
 ignore) and *removed* (a job not in the export). Values of new folders and jobs that no
-constant explains are *unresolved*. Volatile attributes are not compared. On the real prod
+constant explains are *unmatched* (asked by the author: "pergunta se quer trocar ou criar
+um outro"): one decision per value, to create a constant (a suggested name, or `new:NAME`),
+use an existing constant of the same attribute (`use:NAME`), or keep the value as it is in
+every environment (`literal`); a job that disagrees with a constant can also get a constant of
+its own (`new`). A new constant has a value in that environment only; the others are filled in
+later. Volatile attributes are not compared. On the real prod
 export (337 folders) it takes about 2.5 s and finds 12 constants to learn, one wrong value
 (`%%GEIENV`) and a few hundred differences. *Receiving* the export (`ctmchain receive`, the
 `receive` change, the *Import* page) applies the chosen options over the defaults as one
 change set: values learned in `envs/<env>/env.json`, exceptions in `overrides.json`, the
 folders rewritten neutral with the base kept where a value is ignored or excepted, kept jobs
-restored; unresolved values refuse it. It is previewed, applied and committed like any edit,
+restored, new constants declared. It is previewed, applied and committed like any edit,
 so it goes to the checked-out release. `ctmchain env learn` takes the values only.
 
 ## 6. Import

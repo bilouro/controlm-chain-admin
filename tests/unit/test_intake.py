@@ -58,12 +58,12 @@ def test_values_to_learn_exceptions_and_changes(repo: ChainRepo) -> None:
     assert (special.kind, special.current, special.incoming, special.default) == (
         "constant", "@{user.proc}", "special", "exception",
     )  # fmt: skip
-    assert special.options == ("exception", "ignore")
+    assert special.options == ("exception", "new", "ignore")
     other = by_id[f"{C}/P77_A@NODEID"]  # disagrees with the value prod already has
     assert (other.kind, other.expected, other.incoming, other.default) == (
         "constant", "PP77_BATCH", "PP77_OTHER", "exception",
     )  # fmt: skip
-    assert other.options == ("exception", "set-value", "ignore")
+    assert other.options == ("exception", "new", "set-value", "ignore")
     dummy = by_id[f"{C}/P77_E@TASKTYPE"]
     assert (dummy.kind, dummy.current, dummy.incoming, dummy.default) == (
         "value", "Command", "Dummy", "change",
@@ -94,9 +94,12 @@ def test_a_partial_export_with_new_and_removed_jobs(repo: ChainRepo) -> None:
     assert (removed.kind, removed.options, removed.default) == (
         "removed", ("remove", "keep"), "remove",
     )  # fmt: skip
-    assert intake.unresolved == (
-        "RUN_AS=nobody (P77_CHAIN/P77_NEW): no constant has this value in uat",
-    )
+    unmatched = by_id["unmatched:RUN_AS=nobody"]
+    assert (unmatched.kind, unmatched.constant, unmatched.count, unmatched.default) == (
+        "unmatched", "user.nobody", 1, "new",
+    )  # fmt: skip
+    assert unmatched.options == ("new", "use:user.proc", "literal")
+    assert intake.unresolved == ()
 
 
 def test_a_known_value_the_whole_export_contradicts_is_one_decision(repo: ChainRepo) -> None:

@@ -102,6 +102,9 @@ All notable changes to this project are documented here. The format follows
 - The *Environments* tab of the job and folder pages: the exceptions of each environment
   (e.g. `TASKTYPE` Dummy or another `CMDLINE` in one environment), remove one, add one; job
   and folder details carry their `exceptions`.
+- Receiving an export, a value no constant has is a decision instead of a refusal: a new
+  constant (suggested name, or `new:NAME`), another existing constant (`use:NAME`), or the same
+  value in every environment (`literal`); a job that disagrees with a constant can get its own.
 - Package skeleton, CI (lint, types, tests, web, build) and release workflows, community files.
 - `DESIGN.md` (architecture and data model) and `BACKLOG.md` (proof-of-concept plan and status).
 

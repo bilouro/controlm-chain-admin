@@ -76,3 +76,52 @@ describe("ImportPage", () => {
     expect(screen.getByRole("button", { name: "Review change" })).toBeDisabled();
   });
 });
+
+describe("ImportPage, values no constant has", () => {
+  it("creates a constant with the suggested or another name, or uses an existing one", async () => {
+    server.use(
+      http.post("/api/intake", () =>
+        HttpResponse.json({
+          ...intake,
+          decisions: [
+            {
+              id: "unmatched:RUN_AS=nobody",
+              kind: "unmatched",
+              options: ["new", "use:user.proc", "literal"],
+              default: "new",
+              node: null,
+              field: "RUN_AS",
+              constant: "user.nobody",
+              current: null,
+              expected: null,
+              incoming: "nobody",
+              count: 2,
+              suggested: "user.nobody",
+            },
+          ],
+        }),
+      ),
+    );
+    const user = await analyzed();
+    const section = screen.getByRole("region", { name: "Values no constant has" });
+    expect(section).toHaveTextContent("RUN_AS = nobody (2 uses)");
+    const group = within(section).getByRole("radiogroup", { name: "unmatched:RUN_AS=nobody" });
+    expect(within(group).getByRole("radio", { name: "New constant" })).toBeChecked();
+    expect(within(group).getByRole("radio", { name: "Use user.proc" })).toBeInTheDocument();
+    expect(
+      within(group).getByRole("radio", { name: "Same in every environment" }),
+    ).toBeInTheDocument();
+
+    const name = within(section).getByLabelText("Name of the new constant");
+    expect(name).toHaveValue("user.nobody");
+    await user.clear(name);
+    await user.type(name, "user.lala_user_proc");
+    await user.click(screen.getByRole("button", { name: "Review change" }));
+
+    await waitFor(() =>
+      expect(calls.preview[0]).toMatchObject({
+        params: { choices: { "unmatched:RUN_AS=nobody": "new:user.lala_user_proc" } },
+      }),
+    );
+  });
+});

@@ -663,13 +663,18 @@ export interface components {
       incoming?: string | null;
       /**
        * Kind
-       * @description learn | set-value | constant | value | children | removed
+       * @description learn | set-value | constant | value | children | removed | unmatched
        */
       kind: string;
       /** Node */
       node?: string | null;
       /** Options */
       options: string[];
+      /**
+       * Suggested
+       * @description name of a new constant (option new)
+       */
+      suggested?: string | null;
     };
     /** DiscardRequest */
     DiscardRequest: {

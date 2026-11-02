@@ -444,7 +444,7 @@
             "title": "Incoming"
           },
           "kind": {
-            "description": "learn | set-value | constant | value | children | removed",
+            "description": "learn | set-value | constant | value | children | removed | unmatched",
             "title": "Kind",
             "type": "string"
           },
@@ -465,6 +465,18 @@
             },
             "title": "Options",
             "type": "array"
+          },
+          "suggested": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "name of a new constant (option new)",
+            "title": "Suggested"
           }
         },
         "required": [

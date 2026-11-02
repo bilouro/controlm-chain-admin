@@ -446,7 +446,9 @@ class IntakeRequest(BaseModel):
 
 class DecisionOut(BaseModel):
     id: str
-    kind: str = Field(description="learn | set-value | constant | value | children | removed")
+    kind: str = Field(
+        description="learn | set-value | constant | value | children | removed | unmatched"
+    )
     options: list[str]
     default: str
     node: str | None = None
@@ -456,6 +458,7 @@ class DecisionOut(BaseModel):
     expected: str | None = Field(None, description="the value of the constant there")
     incoming: str | None = Field(None, description="the export value (neutral)")
     count: int = 1
+    suggested: str | None = Field(None, description="name of a new constant (option new)")
 
 
 class FolderIntakeOut(BaseModel):

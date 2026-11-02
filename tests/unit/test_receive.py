@@ -71,20 +71,56 @@ def test_ignored_values_and_kept_jobs_leave_the_repository_as_it_was(repo: Chain
     assert export_xml(repo, "uat") == before
 
 
-def test_bad_choices_and_unresolved_values_are_refused(repo: ChainRepo) -> None:
+def test_bad_choices_are_refused(repo: ChainRepo) -> None:
     data = job(ANOMALY_EXPORT, b"UP77_E", b'TASKTYPE="Command"', b'TASKTYPE="Dummy"')
     with pytest.raises(InvalidChange, match="choose one of change, exception, ignore"):
         receive(repo, data, choices={f"{C}/P77_E@TASKTYPE": "learn"})
     with pytest.raises(InvalidChange, match="unknown decision"):
         receive(repo, data, choices={"nope": "ignore"})
 
-    new = ANOMALY_EXPORT.replace(
-        b"    </SMART_FOLDER>",
-        b'        <JOB JOBISN="9" APPLICATION="P77_RISK_ENGINE" JOBNAME="UP77_NEW" '
-        b'RUN_AS="nobody" PARENT_FOLDER="UP77_CHAIN" />\n    </SMART_FOLDER>',
-    )
-    with pytest.raises(InvalidChange, match="RUN_AS=nobody"):
-        receive(repo, new)
+
+NEW_JOB = ANOMALY_EXPORT.replace(
+    b"    </SMART_FOLDER>",
+    b'        <JOB JOBISN="9" APPLICATION="P77_RISK_ENGINE" JOBNAME="UP77_NEW" '
+    b'RUN_AS="nobody" PARENT_FOLDER="UP77_CHAIN" />\n    </SMART_FOLDER>',
+)
+
+
+@pytest.mark.parametrize(
+    ("choice", "constant", "run_as"),
+    [
+        (None, "user.nobody", "@{user.nobody}"),
+        ("new:user.lala_user_proc", "user.lala_user_proc", "@{user.lala_user_proc}"),
+        ("use:user.proc", None, "@{user.proc}"),
+        ("literal", None, "nobody"),
+    ],
+)
+def test_a_value_no_constant_has_gets_a_new_constant_or_another_one(
+    repo: ChainRepo, choice: str | None, constant: str | None, run_as: str
+) -> None:
+    choices = {"unmatched:RUN_AS=nobody": choice} if choice else {}
+
+    apply(repo, receive(repo, NEW_JOB, choices=choices))
+
+    repo = load_repo(repo.root)
+    assert _job(repo, "P77_NEW")["RUN_AS"] == run_as
+    if constant:
+        assert repo.config.constants[constant].attribute == "RUN_AS"
+        assert repo.load_env("uat").constants[constant] == "nobody"
+        assert repo.load_env("prod").constants[constant] is None
+
+
+def test_a_job_can_get_its_own_constant_like_another(repo: ChainRepo) -> None:
+    data = job(to_prod(both()), b"PP77_A", b'NODEID="PP77_BATCH"', b'NODEID="PP77_OTHER"')
+
+    with pytest.raises(InvalidChange, match="already exists"):
+        receive(repo, data, choices={f"{C}/P77_A@NODEID": "new:node.batch"})
+    apply(repo, receive(repo, data, choices={f"{C}/P77_A@NODEID": "new:node.other"}))
+
+    repo = load_repo(repo.root)
+    assert _job(repo, "P77_A")["NODEID"] == "@{node.other}"
+    assert repo.load_env("prod").constants["node.other"] == "PP77_OTHER"
+    assert repo.load_env("uat").constants["node.other"] is None  # to fill in: see env constants
 
 
 def test_receive_is_an_operation_with_the_xml_as_text(repo: ChainRepo) -> None:
