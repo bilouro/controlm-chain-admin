@@ -88,11 +88,17 @@ All notable changes to this project are documented here. The format follows
   constants; `ctmchain set-exception` and the `set-exception` change; a changed exception
   puts its folder in that environment's package. `ctmchain rename-constant` (and the change of
   the same name) renames a constant everywhere it is used.
+- The intake analysis of an export of one environment (`core/intake.py`): its environment
+  told by the letter of the names, the values of constants to learn, values the export
+  contradicts, exceptions, changes of the base, removed jobs and unresolved values.
 - Package skeleton, CI (lint, types, tests, web, build) and release workflows, community files.
 - `DESIGN.md` (architecture and data model) and `BACKLOG.md` (proof-of-concept plan and status).
 
 ### Fixed
 
+- With deduplicated JOBNAMEs, importing some folders only gave their jobs new names (`X`
+  instead of the `X2` the full export gave); a job now keeps the name a previous import gave
+  it, and folders that are not in the export keep theirs.
 - Resource names with an inner application code (`URQ_P77_AGGREGATION`) were kept literally,
   with the letter of the imported environment, so another environment's export would have used
   that environment's resource: prefixes listed in `letter_rule.leading_only` carry the letter on

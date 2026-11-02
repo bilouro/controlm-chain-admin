@@ -232,6 +232,19 @@ identity and proposes, for every differing value: a constant when the old→new 
 consistently, an override when it is specific to one job, and an `envs` exception when an
 element exists only on one side. It runs as a dry-run report first.
 
+Implemented 2026-11-02 as the *intake* analysis (`core/intake.py`). The environment of an
+export is told by the letter every folder and job name carries (several letters: the author
+names it). The export is imported into a copy of the repository and compared with it, job by
+job; what still differs is a decision: *learn* (the repository has `@{c}`, `c` has no value in
+that environment: one decision per constant for every job that agrees), *set-value* (the whole
+export contradicts the value `c` has there), *constant* (one job disagrees: an exception by
+default, as the author asked), *value* (a plain attribute or variable: change the base, an
+exception for that environment, or ignore), *children* (conditions, ON blocks... change or
+ignore) and *removed* (a job not in the export). Values of new folders and jobs that no
+constant explains are *unresolved*. Volatile attributes are not compared. On the real prod
+export (337 folders) it takes about 2.5 s and finds 12 constants to learn, one wrong value
+(`%%GEIENV`) and a few hundred differences.
+
 ## 6. Import
 
 - Lossless by default: re-importing the XML produced by `export` yields no changes

@@ -198,35 +198,60 @@ def _from_link_refs(element: XmlElement, names: Mapping[str, str], where: str) -
 
 
 def _dedupe_jobnames(
-    document: XmlDocument,
+    document: XmlDocument, existing: Mapping[str, Mapping[str, str]] | None = None
 ) -> tuple[XmlDocument, tuple[tuple[str, str, str], ...]]:
     """Give every repeated JOBNAME a numeric suffix (``X``, ``X2``, ``X3``) in document order.
 
     The first occurrence keeps its name; a suffix already used by a real job is skipped. Only
-    ``JOBNAME`` changes (``MEMNAME`` and condition names are left alone). Returns the new
-    document and the renames as ``(folder, original, new)``.
+    ``JOBNAME`` changes (``MEMNAME`` and condition names are left alone). ``existing`` is the
+    repository (folder -> job id -> original JOBNAME): its folders that are not in the document
+    keep their names, and a job keeps the name a previous import gave it, so an export of some
+    folders only gets the names of the full one. Returns the new document and the renames as
+    ``(folder, original, new)``.
     """
+    existing = existing or {}
+    in_document = {f.get("FOLDER_NAME") for f in document.root.elements()}
     taken = {
         job.get("JOBNAME") or ""
         for folder in document.root.elements()
         for job in folder.find_all(JOB_TAG)
     }
     seen: set[str] = set()
+    for folder_name, jobs in existing.items():
+        if folder_name not in in_document:
+            taken.update(jobs)
+            seen.update(jobs)
     renames: list[tuple[str, str, str]] = []
     new_folders: list[XmlElement | XmlComment] = []
     for folder in document.root.children:
         if not isinstance(folder, XmlElement):
             new_folders.append(folder)
             continue
+        previous: dict[str, list[str]] = {}
+        for job_id, original in existing.get(folder.get("FOLDER_NAME") or "", {}).items():
+            previous.setdefault(original, []).append(job_id)
         children: list[XmlElement | XmlComment] = []
         for child in folder.children:
             if isinstance(child, XmlElement) and child.tag == JOB_TAG:
                 name = child.get("JOBNAME") or ""
-                if name in seen:
+                reuse = next(
+                    (
+                        p
+                        for p in previous.get(name, [])
+                        if p not in seen and (p == name or p not in taken)
+                    ),
+                    None,
+                )
+                new = name
+                if reuse is not None:
+                    previous[name].remove(reuse)
+                    new = reuse
+                elif name in seen:
                     suffix = 2
-                    while f"{name}{suffix}" in taken:
+                    while f"{name}{suffix}" in taken or f"{name}{suffix}" in seen:
                         suffix += 1
                     new = f"{name}{suffix}"
+                if new != name:
                     taken.add(new)
                     renames.append((folder.get("FOLDER_NAME") or "", name, new))
                     attrs = tuple((k, new if k == "JOBNAME" else v) for k, v in child.attrs)
@@ -328,7 +353,7 @@ def import_xml(
         kept, letter_report = strip_letter(kept, letter, config.letter_rule, known)
     renames: tuple[tuple[str, str, str], ...] = ()
     if config.dedupe_jobnames:
-        kept, renames = _dedupe_jobnames(kept)
+        kept, renames = _dedupe_jobnames(kept, _existing_jobs(repo))
     originals: dict[str, dict[str, str]] = {}
     for folder_name, original, new in renames:
         originals.setdefault(folder_name, {})[new] = original
@@ -366,6 +391,20 @@ def import_xml(
         links=len(links),
         jobnames_deduped=tuple(f"{f}/{o} -> {n}" for f, o, n in renames),
     )
+
+
+def _existing_jobs(repo: ChainRepo) -> dict[str, dict[str, str]]:
+    """Folder -> job id -> original JOBNAME, for every folder already in the repository."""
+    jobs: dict[str, dict[str, str]] = {}
+    if not repo.folders_dir.is_dir():
+        return jobs
+    for folder_file in sorted(repo.folders_dir.glob("*/folder.json")):
+        name = folder_file.parent.name
+        meta_file = repo.folder_meta_file(name)
+        originals = read_json(meta_file).get(ORIGINALS_KEY, {}) if meta_file.is_file() else {}
+        ids = [str(j) for j in read_json(folder_file).get(JOBS_KEY, [])]
+        jobs[name] = {job_id: str(originals.get(job_id, job_id)) for job_id in ids}
+    return jobs
 
 
 def _write_folder(

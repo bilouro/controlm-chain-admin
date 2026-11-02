@@ -180,3 +180,18 @@ def test_cli_dedupe_and_jobnames_flags(tmp_path: Path, capsys: pytest.CaptureFix
         == 0
     )
     assert target.read_bytes() == data
+
+
+def test_a_partial_export_keeps_the_names_the_full_one_gave(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    import_xml(repo, _double(), env="uat", dedupe_jobnames=True)
+    folder_file = tmp_path / "folders/P77_CHAIN2/folder.json"
+    before = _read(folder_file)["jobs"]
+    raw = split_folders(_double())
+    second = raw.header + _double()[raw.folders[1].start : raw.folders[1].end] + raw.footer
+
+    import_xml(repo, second, env="uat")  # only the second folder, as a team delivers it
+
+    assert before[0] == "P77_A2" and _read(folder_file)["jobs"] == before
+    originals = _read(tmp_path / "meta/folders/P77_CHAIN2.json")["original_jobnames"]
+    assert originals["P77_A2"] == "P77_A"
