@@ -45,6 +45,7 @@ dev = [
     "mypy>=1.11",
     "build>=1.2",
     "httpx>=0.27",   # FastAPI TestClient
+    "hatchling",     # tests/unit/test_packaging.py builds the sdist
 ]
 docs = [
     "mkdocs-material",
@@ -70,8 +71,11 @@ packages = ["src/controlm_chain_admin"]
 # The built web UI is git-ignored; include it in the wheel when present (release workflow builds it).
 artifacts = ["src/controlm_chain_admin/web/static/**"]
 
+# The whole project (everything git does not ignore): rules, skills, docs, tests and the web/
+# sources travel with the code, so it can be developed where only PyPI is reachable. The built
+# web UI rides along when present, so an editable install serves it without npm.
 [tool.hatch.build.targets.sdist]
-include = ["src/", "tests/", "README.md", "LICENSE", "CHANGELOG.md"]
+artifacts = ["src/controlm_chain_admin/web/static/**"]
 
 [tool.ruff]
 line-length = 99

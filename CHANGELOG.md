@@ -108,6 +108,8 @@ All notable changes to this project are documented here. The format follows
 - The *Environments* page of the web UI: every constant with its value per environment, the
   missing ones marked, where it is used; give a value or rename a constant through the review
   (`GET /api/environments`, `constants_overview`).
+- The source distribution carries the whole project (rules, skills, docs, tests, the `web/`
+  sources and the built web UI), so it can be developed where only PyPI is reachable.
 - Package skeleton, CI (lint, types, tests, web, build) and release workflows, community files.
 - `DESIGN.md` (architecture and data model) and `BACKLOG.md` (proof-of-concept plan and status).
 
