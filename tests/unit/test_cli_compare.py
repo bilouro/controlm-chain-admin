@@ -8,7 +8,13 @@ from pathlib import Path
 import pytest
 
 from controlm_chain_admin.cli import main
-from controlm_chain_admin.core.refactor import apply, rename_job, set_attributes, update_relation
+from controlm_chain_admin.core.refactor import (
+    apply,
+    insert_job,
+    rename_job,
+    set_attributes,
+    update_relation,
+)
 from tests.support.gitrepo import chain_git_repo, commit_all, git
 
 C = "P77_CHAIN"
@@ -69,3 +75,20 @@ def test_errors_exit_3(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> No
 
     assert main(["compare", "main", "nope", "--repo", str(root)]) == 3
     assert "unknown git ref" in capsys.readouterr().err
+
+
+def test_text_report_summarises_the_attributes_of_an_added_job(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    repo = chain_git_repo(tmp_path)
+    git(repo.root, "checkout", "-q", "-b", "feature")
+    apply(repo, insert_job(repo, f"{C}/P77_NEW", after=f"{C}/P77_A", before=f"{C}/P77_B"))
+    commit_all(repo.root, "feat: insert P77_NEW")
+
+    assert main(["compare", "main", "feature", "--repo", str(repo.root)]) == 0
+
+    out = capsys.readouterr().out
+    assert "added    job P77_CHAIN/P77_NEW" in out
+    assert "JOBNAME: (none) -> P77_NEW" not in out
+    assert "attributes (see --format json)" in out
+    assert "predecessor P77_A-P77_NEW_OK added" in out

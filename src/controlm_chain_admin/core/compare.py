@@ -474,11 +474,14 @@ def diff_snapshots(base_root: Path, head_root: Path) -> tuple[Any, ...]:
         else:
             change = "renamed" if old != identity else "modified"
         old_name = old[:-1] if old else ""
-        jobs_before = [
-            job_map.get(f"{old_name}/{j}", f"{old_name}/{j}")
+        # base identity -> head identity, so renames inside the folder are not listed;
+        # a job that left is shown where it was, a job that arrived where it is
+        jobs_before = {
+            f"{old_name}/{j}": job_map.get(f"{old_name}/{j}", f"{old_name}/{j}")
             for j in (before or {}).get("jobs", [])
-        ]
+        }
         jobs_after = [f"{name}/{j}" for j in (after or {}).get("jobs", [])]
+        arrived = set(jobs_before.values())
         relations = _relations(
             base.relations.get(old) if old else None,
             head.relations.get(identity),
@@ -489,8 +492,8 @@ def diff_snapshots(base_root: Path, head_root: Path) -> tuple[Any, ...]:
         node = _node(
             "folder", change, identity, old if change == "renamed" else None, before, after, {},
             relations,
-            tuple(j for j in jobs_after if j not in jobs_before),
-            tuple(j for j in jobs_before if j not in jobs_after),
+            tuple(j for j in jobs_after if j not in arrived),
+            tuple(b for b, a in jobs_before.items() if a not in jobs_after),
         )  # fmt: skip
         if change != "modified" or _significant(node):
             folders.append(node)
@@ -599,10 +602,20 @@ def _node_lines(node: NodeChange) -> list[str]:
     if node.previous:
         title += f" (was {node.previous})"
     lines = [title]
-    lines += [f"    {a.name}: {_value(a.before)} -> {_value(a.after)}" for a in node.attributes]
-    lines += [
-        f"    variable {v.name}: {_value(v.before)} -> {_value(v.after)}" for v in node.variables
-    ]
+    if node.change in ("added", "removed"):
+        # every value of a new or deleted node is a change: count them, list the relations
+        counts = f"{len(node.attributes)} attributes"
+        if node.variables:
+            counts += f", {len(node.variables)} variables"
+        lines.append(f"    {counts} (see --format json)")
+    else:
+        lines += [
+            f"    {a.name}: {_value(a.before)} -> {_value(a.after)}" for a in node.attributes
+        ]
+        lines += [
+            f"    variable {v.name}: {_value(v.before)} -> {_value(v.after)}"
+            for v in node.variables
+        ]
     lines += [f"    {_relation_line(r)}" for r in node.relations]
     if node.groups:
         lines.append(f"    changed: {', '.join(node.groups)}")

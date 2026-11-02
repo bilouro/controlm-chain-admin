@@ -18,6 +18,13 @@ describe("defaultRefs", () => {
     expect(defaultRefs(git)).toEqual({ base: "develop", head: "feature/demo" });
   });
 
+  it("on a long-lived branch, picks the most recent feature branch as head", () => {
+    expect(defaultRefs({ ...git, current: "main" })).toEqual({
+      base: "develop",
+      head: "feature/demo",
+    });
+  });
+
   it("falls back to main and to another branch when develop is checked out", () => {
     const refs = git.refs.filter((r) => r.name !== "develop");
     expect(defaultRefs({ ...git, current: "main", refs })).toEqual({
@@ -63,6 +70,16 @@ describe("ComparePage", () => {
       "href",
       "/folders/P77_CHAIN/jobs/P77_C",
     );
+  });
+
+  it("links to the node only when head is what the server has checked out", async () => {
+    renderAt(<ComparePage />, { path: "/compare?base=main&head=develop&node=P77_CHAIN%2FP77_C" });
+    await screen.findByRole("heading", { name: "P77_CHAIN/P77_C" });
+
+    expect(
+      screen.queryByRole("link", { name: /Open in the working tree/ }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText(/check out develop to open it/)).toBeInTheDocument();
   });
 
   it("a removed predecessor keeps the condition name it had", async () => {

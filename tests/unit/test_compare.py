@@ -233,3 +233,15 @@ def test_removed_relation_shows_the_condition_name_it_had_before(tmp_path: Path)
     b = {(r.direction, r.change): r for r in _job(result, f"{C}/P77_B").relations}
     assert b[("predecessor", "removed")].name == "P77_A-P77_B_OK"
     assert b[("predecessor", "added")].name == "P77_NEW-P77_B_OK"
+
+
+def test_folders_of_a_moved_job_list_it_where_it_was_and_where_it_is(tmp_path: Path) -> None:
+    repo = _feature(tmp_path)
+    apply(repo, move_job(repo, "P77_INGEST_DAILY/P77_INGEST_LOAD", C))
+    commit_all(repo.root, "refactor: move the load job")
+
+    result = compare(repo.root, "main", "feature")
+
+    folders = {f.node: f for f in result.folders}
+    assert folders["P77_INGEST_DAILY/"].jobs_removed == ("P77_INGEST_DAILY/P77_INGEST_LOAD",)
+    assert folders[f"{C}/"].jobs_added == (f"{C}/P77_INGEST_LOAD",)

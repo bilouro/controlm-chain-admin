@@ -11,6 +11,9 @@ from fastapi import FastAPI
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.responses import Response
+from starlette.types import Scope
 
 from controlm_chain_admin import __version__
 from controlm_chain_admin.web import errors
@@ -30,6 +33,27 @@ _PLACEHOLDER = """<!doctype html>
 </body></html>
 """
 
+
+class SpaStaticFiles(StaticFiles):
+    """Built UI files; client routes (no file extension, not under api/) get index.html."""
+
+    async def get_response(self, path: str, scope: Scope) -> Response:
+        try:
+            response = await super().get_response(path, scope)
+        except StarletteHTTPException as exc:
+            if exc.status_code != 404 or not _client_route(path):
+                raise
+            return await super().get_response("index.html", scope)
+        if response.status_code == 404 and _client_route(path):
+            return await super().get_response("index.html", scope)
+        return response
+
+
+def _client_route(path: str) -> bool:
+    first, _, _ = path.partition("/")
+    return first != "api" and "." not in path.rsplit("/", 1)[-1]
+
+
 TAGS = [
     {"name": "repo", "description": "The chain repository as a whole."},
     {"name": "folders", "description": "Folders, their jobs, links and chain graph."},
@@ -41,7 +65,7 @@ TAGS = [
 ]
 
 
-def create_app(settings: Settings) -> FastAPI:
+def create_app(settings: Settings, *, static_dir: Path = STATIC_DIR) -> FastAPI:
     """Build the FastAPI application for one repository. Nothing is read until a request."""
     app = FastAPI(
         title="controlm-chain-admin",
@@ -57,12 +81,19 @@ def create_app(settings: Settings) -> FastAPI:
         TrustedHostMiddleware, allowed_hosts=sorted({*settings.allowed_hosts, settings.host})
     )
     errors.register(app)
-    for router in (repo.router, table.router, folders.router, jobs.router, validate.router, changes.router,
-        history.router):
+    for router in (
+        repo.router,
+        table.router,
+        folders.router,
+        jobs.router,
+        validate.router,
+        changes.router,
+        history.router,
+    ):
         app.include_router(router)
 
-    if (STATIC_DIR / "index.html").is_file():
-        app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="ui")
+    if (static_dir / "index.html").is_file():
+        app.mount("/", SpaStaticFiles(directory=static_dir, html=True), name="ui")
     else:
 
         @app.get("/", include_in_schema=False, response_class=HTMLResponse)

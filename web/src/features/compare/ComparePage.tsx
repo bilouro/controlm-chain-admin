@@ -138,31 +138,33 @@ function RelationsTable({ rows, folder }: { rows: RelationChangeOut[]; folder: s
       <table className="w-full text-xs" aria-label="Relation changes">
         <thead className="text-left text-[11px] text-muted">
           <tr>
-            <th className="py-1">Change</th>
-            <th>Direction</th>
-            <th>Condition</th>
-            <th>Before</th>
-            <th>After</th>
+            <th className="py-1 pr-3">Change</th>
+            <th className="pr-3">Direction</th>
+            <th className="pr-3">Condition</th>
+            <th className="pr-3">Before</th>
+            <th className="pr-3">After</th>
             <th>Details</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-border/60">
           {rows.map((row) => (
             <tr key={`${row.direction}-${row.link}`}>
-              <td className="py-1">
+              <td className="py-1 pr-3 align-top">
                 <ChangeBadge change={row.change} />
               </td>
-              <td>{row.direction === "predecessor" ? "waits for" : "then runs"}</td>
-              <td className="font-mono">{row.name}</td>
-              <td className="font-mono">
+              <td className="whitespace-nowrap pr-3 align-top">
+                {row.direction === "predecessor" ? "waits for" : "then runs"}
+              </td>
+              <td className="break-all pr-3 align-top font-mono">{row.name}</td>
+              <td className="pr-3 align-top font-mono">
                 <Peers nodes={row.peers_before} folder={folder} />
               </td>
-              <td className="font-mono">
+              <td className="pr-3 align-top font-mono">
                 <Peers nodes={row.peers_after} folder={folder} />
               </td>
-              <td className="font-mono">
+              <td className="align-top font-mono">
                 {row.details.map((d) => (
-                  <div key={d.name}>
+                  <div key={d.name} className="whitespace-nowrap">
                     {d.name} <span className="text-error">{d.before ?? "—"}</span> →{" "}
                     <span className="text-ok">{d.after ?? "—"}</span>
                   </div>
@@ -176,7 +178,16 @@ function RelationsTable({ rows, folder }: { rows: RelationChangeOut[]; folder: s
   );
 }
 
-function NodeDetail({ node }: { node: NodeChangeOut }) {
+/** `openable`: head is what the server has on disk, so the node page shows the same version. */
+function NodeDetail({
+  node,
+  head,
+  openable,
+}: {
+  node: NodeChangeOut;
+  head: string;
+  openable: boolean;
+}) {
   const folder = parseNode(node.node).folder;
   return (
     <div className="space-y-4" data-testid="node-detail">
@@ -185,11 +196,14 @@ function NodeDetail({ node }: { node: NodeChangeOut }) {
         <span className="text-xs text-muted">{node.kind}</span>
         <h2 className="font-mono text-base font-semibold">{node.node}</h2>
         {node.previous && <span className="font-mono text-xs text-muted">was {node.previous}</span>}
-        {node.change !== "removed" && (
-          <Link to={nodeRoute(node.node)} className="ml-auto text-xs text-accent hover:underline">
-            Open in the working tree →
-          </Link>
-        )}
+        {node.change !== "removed" &&
+          (openable ? (
+            <Link to={nodeRoute(node.node)} className="ml-auto text-xs text-accent hover:underline">
+              Open in the working tree →
+            </Link>
+          ) : (
+            <span className="ml-auto text-xs text-muted">check out {head} to open it</span>
+          ))}
       </header>
       <ValuesTable title="Attributes" rows={node.attributes} />
       <ValuesTable title="Variables" rows={node.variables} />
@@ -247,10 +261,14 @@ function ChangesBrowser({
   result,
   selected,
   onSelect,
+  head,
+  openable,
 }: {
   result: ComparisonOut;
   selected: string | null;
   onSelect: (node: string) => void;
+  head: string;
+  openable: boolean;
 }) {
   const [filter, setFilter] = useState<string | null>(null);
   const nodes = [...result.folders, ...result.jobs];
@@ -329,7 +347,11 @@ function ChangesBrowser({
         </ul>
       </div>
       <Card className="p-4">
-        {current ? <NodeDetail node={current} /> : <Empty>Select a change.</Empty>}
+        {current ? (
+          <NodeDetail node={current} head={head} openable={openable} />
+        ) : (
+          <Empty>Select a change.</Empty>
+        )}
       </Card>
     </div>
   );
@@ -464,6 +486,8 @@ export function ComparePage() {
                   result={result}
                   selected={params.get("node")}
                   onSelect={(node) => update({ node })}
+                  head={head}
+                  openable={head === WORKTREE || head === git.data.current}
                 />
               </TabPanel>
             )}
