@@ -8,7 +8,7 @@ whose other end lives outside this repository).
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 from controlm_chain_admin.core.links import (
@@ -37,6 +37,7 @@ class Finding:
     node: str  # "FOLDER/JOB", "FOLDER/" or "" when not tied to a node
     name: str  # condition or job name the finding is about
     message: str
+    link: str = ""  # id of the link the finding is about, "" when it is not about a link
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -45,6 +46,7 @@ class Finding:
             "node": self.node,
             "name": self.name,
             "message": self.message,
+            "link": self.link,
         }
 
 
@@ -95,7 +97,13 @@ def _first(*groups: tuple[NodeRef, ...]) -> str:
     return ""
 
 
-def _check_link(link: Link, known_names: set[str], out: list[Finding]) -> None:
+def _check_link(link: Link, known_names: set[str], found: list[Finding]) -> None:
+    out: list[Finding] = []
+    _check_link_findings(link, known_names, out)
+    found.extend(replace(f, link=link.id) for f in out)
+
+
+def _check_link_findings(link: Link, known_names: set[str], out: list[Finding]) -> None:
     parsed = parse_condition_name(link.name)
     producers = link.all_producers
     if parsed is None:

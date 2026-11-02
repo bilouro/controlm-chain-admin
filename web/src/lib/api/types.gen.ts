@@ -215,7 +215,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** Validate the repository */
+    /** Validate the repository, with fixes */
     get: operations["validate_repo_api_validate_get"];
     put?: never;
     post?: never;
@@ -373,6 +373,17 @@ export interface components {
     FindingOut: {
       /** Code */
       code: string;
+      /**
+       * Fixes
+       * @default []
+       */
+      fixes: components["schemas"]["FixOut"][];
+      /**
+       * Link
+       * @description id of the link it is about; empty when none
+       * @default
+       */
+      link: string;
       /** Message */
       message: string;
       /** Name */
@@ -381,6 +392,32 @@ export interface components {
       node: string;
       /** Severity */
       severity: string;
+    };
+    /** FixOut */
+    FixOut: {
+      /** Explanation */
+      explanation: string;
+      /**
+       * Kind
+       * @description the same for this fix of every finding, to fix many at once
+       */
+      kind: string;
+      /**
+       * Label
+       * @description what the fix does to this finding
+       */
+      label: string;
+      /**
+       * Op
+       * @description operation for POST /api/changes/preview (batch: several)
+       */
+      op: string;
+      /** Params */
+      params: {
+        [key: string]: unknown;
+      };
+      /** Title */
+      title: string;
     };
     /** FolderDetail */
     FolderDetail: {

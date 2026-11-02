@@ -2,39 +2,39 @@
   "base": {
     "name": "develop",
     "kind": "branch",
-    "sha": "2777cf14384e47971bf588151a4a8936965abfb4",
+    "sha": "962fc134e673cc40bf1789d38567d5a41febd216",
     "subject": "chore: constants",
-    "date": "2026-11-02T12:00:57Z"
+    "date": "2026-11-02T12:49:29Z"
   },
   "head": {
     "name": "feature/demo",
     "kind": "branch",
-    "sha": "745faaf1f0c934e9a9a5858fb630957b132583ab",
+    "sha": "86560c57d210361ad0b580f0faf972bd324778e3",
     "subject": "feat: quality check before P77_B",
-    "date": "2026-11-02T12:00:57Z"
+    "date": "2026-11-02T12:49:30Z"
   },
   "merge_base": null,
   "env": "uat",
   "commits": [
     {
-      "sha": "745faaf1f0c934e9a9a5858fb630957b132583ab",
+      "sha": "86560c57d210361ad0b580f0faf972bd324778e3",
       "subject": "feat: quality check before P77_B",
       "author": "Test",
-      "date": "2026-11-02T12:00:57Z",
+      "date": "2026-11-02T12:49:30Z",
       "merge": false
     },
     {
-      "sha": "8523d46b60a22755b81608c93ea5efc5d18f2fd6",
+      "sha": "7820495611aab24fa0dc2f6021c90b1a4970eea4",
       "subject": "refactor: rename P77_D and move the load job",
       "author": "Test",
-      "date": "2026-11-02T12:00:57Z",
+      "date": "2026-11-02T12:49:29Z",
       "merge": false
     },
     {
-      "sha": "072fa92d98d3f4bd64068281fd3d7a3fdcacaf9c",
+      "sha": "d7f90319a552749707b6bfe8fa803753a2f0ad9b",
       "subject": "feat: retries on P77_C",
       "author": "Test",
-      "date": "2026-11-02T12:00:57Z",
+      "date": "2026-11-02T12:49:29Z",
       "merge": false
     }
   ],
@@ -70,21 +70,27 @@
       "code": "stale-name",
       "node": "P77_CHAIN/P77_C",
       "name": "P77_OLDNAME-P77_DELTA_OK",
-      "message": "name embeds P77_OLDNAME -> P77_DELTA but the link is P77_C -> P77_DELTA"
+      "message": "name embeds P77_OLDNAME -> P77_DELTA but the link is P77_C -> P77_DELTA",
+      "link": "P77_OLDNAME-P77_D_OK",
+      "fixes": []
     },
     {
       "severity": "warning",
       "code": "unconsumed",
       "node": "P77_CHAIN/P77_DELTA",
       "name": "P77_DELTA_DONE",
-      "message": "nobody never waits for it"
+      "message": "nobody never waits for it",
+      "link": "P77_D-P77_NOBODY_OK",
+      "fixes": []
     },
     {
       "severity": "info",
       "code": "non-standard-name",
       "node": "P77_CHAIN/P77_DELTA",
       "name": "P77_DELTA_DONE",
-      "message": "name does not follow <PRODUCER>-<CONSUMER>_OK or <PRODUCER>-TO-<CONSUMER>"
+      "message": "name does not follow <PRODUCER>-<CONSUMER>_OK or <PRODUCER>-TO-<CONSUMER>",
+      "link": "P77_D-P77_NOBODY_OK",
+      "fixes": []
     }
   ],
   "filename": "deploy_uat_feature-demo_2026-11-02.xml",

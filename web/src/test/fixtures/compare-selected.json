@@ -2,16 +2,16 @@
   "base": {
     "name": "develop",
     "kind": "branch",
-    "sha": "2777cf14384e47971bf588151a4a8936965abfb4",
+    "sha": "962fc134e673cc40bf1789d38567d5a41febd216",
     "subject": "chore: constants",
-    "date": "2026-11-02T12:00:57Z"
+    "date": "2026-11-02T12:49:29Z"
   },
   "head": {
     "name": "feature/demo",
     "kind": "branch",
-    "sha": "745faaf1f0c934e9a9a5858fb630957b132583ab",
+    "sha": "86560c57d210361ad0b580f0faf972bd324778e3",
     "subject": "feat: quality check before P77_B",
-    "date": "2026-11-02T12:00:57Z"
+    "date": "2026-11-02T12:49:30Z"
   },
   "merge_base": null,
   "summary": {
@@ -43,24 +43,24 @@
   },
   "commits": [
     {
-      "sha": "745faaf1f0c934e9a9a5858fb630957b132583ab",
+      "sha": "86560c57d210361ad0b580f0faf972bd324778e3",
       "subject": "feat: quality check before P77_B",
       "author": "Test",
-      "date": "2026-11-02T12:00:57Z",
+      "date": "2026-11-02T12:49:30Z",
       "merge": false
     },
     {
-      "sha": "8523d46b60a22755b81608c93ea5efc5d18f2fd6",
+      "sha": "7820495611aab24fa0dc2f6021c90b1a4970eea4",
       "subject": "refactor: rename P77_D and move the load job",
       "author": "Test",
-      "date": "2026-11-02T12:00:57Z",
+      "date": "2026-11-02T12:49:29Z",
       "merge": false
     },
     {
-      "sha": "072fa92d98d3f4bd64068281fd3d7a3fdcacaf9c",
+      "sha": "d7f90319a552749707b6bfe8fa803753a2f0ad9b",
       "subject": "feat: retries on P77_C",
       "author": "Test",
-      "date": "2026-11-02T12:00:57Z",
+      "date": "2026-11-02T12:49:29Z",
       "merge": false
     }
   ],
@@ -151,7 +151,7 @@
       },
       "diff": "--- a/P77_INGEST_DAILY/\n+++ b/P77_INGEST_DAILY/\n@@ -31,6 +31,5 @@\n   ],\n   \"jobs\": [\n-    \"P77_INGEST_INIT\",\n-    \"P77_INGEST_LOAD\"\n+    \"P77_INGEST_INIT\"\n   ]\n }",
       "commits": [
-        "8523d46b60a22755b81608c93ea5efc5d18f2fd6"
+        "7820495611aab24fa0dc2f6021c90b1a4970eea4"
       ]
     },
     {
@@ -246,7 +246,7 @@
       },
       "diff": "--- a/P77_CHAIN/\n+++ b/P77_CHAIN/\n@@ -31,8 +31,9 @@\n     \"P77_B\",\n     \"P77_C\",\n-    \"P77_D\",\n+    \"P77_DELTA\",\n     \"P77_E\",\n     \"P77_F\",\n-    \"P77_F~2\"\n+    \"P77_F~2\",\n+    \"P77_INGEST_LOAD\"\n   ]\n }",
       "commits": [
-        "8523d46b60a22755b81608c93ea5efc5d18f2fd6"
+        "7820495611aab24fa0dc2f6021c90b1a4970eea4"
       ]
     }
   ],
@@ -330,7 +330,7 @@
       },
       "diff": "--- a/P77_CHAIN/P77_D\n+++ b/P77_CHAIN/P77_DELTA\n@@ -3,5 +3,5 @@\n   \"SUB_APPLICATION\": \"P77_BATCH\",\n   \"MEMNAME\": \"P77_D\",\n-  \"JOBNAME\": \"P77_D\",\n+  \"JOBNAME\": \"P77_DELTA\",\n   \"RUN_AS\": \"aup77proc\",\n   \"TASKTYPE\": \"Command\",\n",
       "commits": [
-        "8523d46b60a22755b81608c93ea5efc5d18f2fd6"
+        "7820495611aab24fa0dc2f6021c90b1a4970eea4"
       ]
     },
     {
@@ -448,7 +448,7 @@
       },
       "diff": "--- a/P77_INGEST_DAILY/P77_INGEST_LOAD\n+++ b/P77_CHAIN/P77_INGEST_LOAD\n@@ -9,5 +9,5 @@\n   \"NODEID\": \"UP77_BATCH\",\n   \"CMDLINE\": \"/opt/p77/bin/load.ksh -d %%ODATE\",\n-  \"PARENT_FOLDER\": \"P77_INGEST_DAILY\",\n+  \"PARENT_FOLDER\": \"P77_CHAIN\",\n   \"INCOND\": [\n     {\n",
       "commits": [
-        "8523d46b60a22755b81608c93ea5efc5d18f2fd6"
+        "7820495611aab24fa0dc2f6021c90b1a4970eea4"
       ]
     }
   ],
@@ -470,6 +470,6 @@
   "rules_changed": false,
   "metadata_files_changed": 2,
   "selected": [
-    "8523d46b60a22755b81608c93ea5efc5d18f2fd6"
+    "7820495611aab24fa0dc2f6021c90b1a4970eea4"
   ]
 }

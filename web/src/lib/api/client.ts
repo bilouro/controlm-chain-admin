@@ -12,6 +12,7 @@ export type GraphOut = Schemas["GraphOut"];
 export type EdgeOut = Schemas["EdgeOut"];
 export type ValidateOut = Schemas["ValidateOut"];
 export type FindingOut = Schemas["FindingOut"];
+export type FixOut = Schemas["FixOut"];
 export type RelationOut = Schemas["RelationOut"];
 export type PeerOut = Schemas["PeerOut"];
 export type TableOut = Schemas["TableOut"];

@@ -7,9 +7,9 @@ from typing import Any
 from fastapi import APIRouter, Depends
 
 from controlm_chain_admin.core.errors import ModelError
+from controlm_chain_admin.core.fixes import report_with_fixes
 from controlm_chain_admin.core.graph import load_links
 from controlm_chain_admin.core.repo import ChainRepo
-from controlm_chain_admin.core.validate import validate
 from controlm_chain_admin.web.deps import get_repo
 from controlm_chain_admin.web.schemas import ErrorOut, LinkOut, ValidateOut
 
@@ -19,9 +19,11 @@ NOT_FOUND: dict[int | str, dict[str, Any]] = {
 }
 
 
-@router.get("/validate", response_model=ValidateOut, summary="Validate the repository")
+@router.get(
+    "/validate", response_model=ValidateOut, summary="Validate the repository, with fixes"
+)
 def validate_repo(repo: ChainRepo = Depends(get_repo)) -> ValidateOut:
-    return ValidateOut.model_validate(validate(repo).to_json())
+    return ValidateOut.model_validate(report_with_fixes(repo))
 
 
 @router.get(

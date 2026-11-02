@@ -12,84 +12,263 @@
       "code": "dangling",
       "node": "P77_CHAIN/P77_E",
       "name": "P77_A-P77_E_OK",
-      "message": "P77_A exists in the repository but never emits this condition"
+      "message": "P77_A exists in the repository but never emits this condition",
+      "link": "P77_A-P77_E_OK",
+      "fixes": [
+        {
+          "kind": "emit",
+          "title": "Make the named producer emit it",
+          "label": "P77_CHAIN/P77_A emits P77_A-P77_E_OK",
+          "explanation": "Adds OUTCOND + P77_A-P77_E_OK to P77_CHAIN/P77_A, the job the condition name points to: the waiting job then runs after it.",
+          "op": "emit",
+          "params": {
+            "link": "P77_A-P77_E_OK",
+            "producer": "P77_CHAIN/P77_A"
+          }
+        },
+        {
+          "kind": "stop-waiting",
+          "title": "Stop waiting for it",
+          "label": "P77_CHAIN/P77_E stops waiting for P77_A-P77_E_OK",
+          "explanation": "Removes INCOND P77_A-P77_E_OK (and its cleanup, OUTCOND -) from the waiting job: it no longer waits for a condition nobody emits.",
+          "op": "unlink",
+          "params": {
+            "link": "P77_A-P77_E_OK",
+            "consumer": "P77_CHAIN/P77_E"
+          }
+        }
+      ]
     },
     {
       "severity": "warning",
       "code": "dangling-unknown",
       "node": "P77_CHAIN/P77_F",
       "name": "WEIRD_NAME",
-      "message": "waited for, never produced"
+      "message": "waited for, never produced",
+      "link": "WEIRD_NAME",
+      "fixes": [
+        {
+          "kind": "stop-waiting",
+          "title": "Stop waiting for it",
+          "label": "P77_CHAIN/P77_F stops waiting for WEIRD_NAME",
+          "explanation": "Removes INCOND WEIRD_NAME (and its cleanup, OUTCOND -) from the waiting job: it no longer waits for a condition nobody emits.",
+          "op": "unlink",
+          "params": {
+            "link": "WEIRD_NAME",
+            "consumer": "P77_CHAIN/P77_F"
+          }
+        }
+      ]
     },
     {
       "severity": "warning",
       "code": "duplicate-jobname",
       "node": "P77_CHAIN/",
       "name": "P77_F",
-      "message": "JOBNAME used by more than one job in the folder"
+      "message": "JOBNAME used by more than one job in the folder",
+      "link": "",
+      "fixes": [
+        {
+          "kind": "number-copies",
+          "title": "Number the repeated JOBNAMEs",
+          "label": "rename P77_CHAIN/P77_F~2 -> P77_F2",
+          "explanation": "Gives the second and later jobs called P77_F in the folder a numeric suffix (P77_F2, P77_F3…); the JOBNAME changes in Control-M too.",
+          "op": "rename-job",
+          "params": {
+            "node": "P77_CHAIN/P77_F~2",
+            "new_name": "P77_F2"
+          }
+        }
+      ]
     },
     {
       "severity": "warning",
       "code": "never-cleaned",
       "node": "P77_CHAIN/P77_C",
       "name": "P77_B-P77_C_OK",
-      "message": "waited for but never deleted by the consumer (no OUTCOND SIGN=\"-\")"
+      "message": "waited for but never deleted by the consumer (no OUTCOND SIGN=\"-\")",
+      "link": "P77_B-P77_C_OK",
+      "fixes": [
+        {
+          "kind": "add-cleanup",
+          "title": "Delete it after use",
+          "label": "P77_CHAIN/P77_C deletes P77_B-P77_C_OK once it ran",
+          "explanation": "Adds the cleanup OUTCOND - P77_B-P77_C_OK to P77_CHAIN/P77_C: the condition is removed after use, so it cannot release the next run by mistake.",
+          "op": "update-relation",
+          "params": {
+            "link": "P77_B-P77_C_OK",
+            "consumer": "P77_CHAIN/P77_C",
+            "cleanup": true
+          }
+        }
+      ]
     },
     {
       "severity": "warning",
       "code": "stale-name",
       "node": "P77_CHAIN/P77_C",
       "name": "P77_OLDNAME-P77_D_OK",
-      "message": "name embeds P77_OLDNAME -> P77_D but the link is P77_C -> P77_D"
+      "message": "name embeds P77_OLDNAME -> P77_D but the link is P77_C -> P77_D",
+      "link": "P77_OLDNAME-P77_D_OK",
+      "fixes": [
+        {
+          "kind": "standard-name",
+          "title": "Rename to the standard name",
+          "label": "rename P77_OLDNAME-P77_D_OK -> P77_C-P77_D_OK",
+          "explanation": "Renames the condition to <PRODUCER>-<CONSUMER>_OK from the jobs it really links, in every job that uses it.",
+          "op": "rename-link",
+          "params": {
+            "link": "P77_OLDNAME-P77_D_OK",
+            "name": "P77_C-P77_D_OK"
+          }
+        }
+      ]
     },
     {
       "severity": "warning",
       "code": "unconsumed",
       "node": "P77_CHAIN/P77_A",
       "name": "P77_A-P77_C_OK",
-      "message": "P77_C exists but never waits for it"
+      "message": "P77_C exists but never waits for it",
+      "link": "P77_A-P77_C_OK",
+      "fixes": [
+        {
+          "kind": "wait",
+          "title": "Make the named consumer wait for it",
+          "label": "P77_CHAIN/P77_C waits for P77_A-P77_C_OK",
+          "explanation": "Adds INCOND P77_A-P77_C_OK to P77_CHAIN/P77_C, the job the condition name points to, and the cleanup (OUTCOND -): it then runs after P77_CHAIN/P77_A.",
+          "op": "link",
+          "params": {
+            "consumer": "P77_CHAIN/P77_C",
+            "link": "P77_A-P77_C_OK"
+          }
+        },
+        {
+          "kind": "stop-emitting",
+          "title": "Stop emitting it",
+          "label": "P77_CHAIN/P77_A stops emitting P77_A-P77_C_OK",
+          "explanation": "Removes OUTCOND + P77_A-P77_C_OK from P77_CHAIN/P77_A: no job waits for it.",
+          "op": "stop-emitting",
+          "params": {
+            "link": "P77_A-P77_C_OK",
+            "producer": "P77_CHAIN/P77_A"
+          }
+        }
+      ]
     },
     {
       "severity": "info",
       "code": "dangling-external",
       "node": "P77_CHAIN/P77_E",
       "name": "P77_GHOST-P77_E_OK",
-      "message": "producer P77_GHOST is not in this repository"
+      "message": "producer P77_GHOST is not in this repository",
+      "link": "P77_GHOST-P77_E_OK",
+      "fixes": [
+        {
+          "kind": "stop-waiting",
+          "title": "Stop waiting for it",
+          "label": "P77_CHAIN/P77_E stops waiting for P77_GHOST-P77_E_OK",
+          "explanation": "Removes INCOND P77_GHOST-P77_E_OK (and its cleanup, OUTCOND -) from the waiting job: it no longer waits for a condition nobody emits. Only if the producer outside this repository no longer exists: otherwise the job would start without waiting for it.",
+          "op": "unlink",
+          "params": {
+            "link": "P77_GHOST-P77_E_OK",
+            "consumer": "P77_CHAIN/P77_E"
+          }
+        }
+      ]
     },
     {
       "severity": "info",
       "code": "dangling-external",
       "node": "P77_CHAIN/",
       "name": "P77_OTHER-P77_CHAIN_OK",
-      "message": "producer P77_OTHER is not in this repository"
+      "message": "producer P77_OTHER is not in this repository",
+      "link": "P77_OTHER-P77_CHAIN_OK",
+      "fixes": [
+        {
+          "kind": "stop-waiting",
+          "title": "Stop waiting for it",
+          "label": "P77_CHAIN/ stops waiting for P77_OTHER-P77_CHAIN_OK",
+          "explanation": "Removes INCOND P77_OTHER-P77_CHAIN_OK (and its cleanup, OUTCOND -) from the waiting job: it no longer waits for a condition nobody emits. Only if the producer outside this repository no longer exists: otherwise the job would start without waiting for it.",
+          "op": "unlink",
+          "params": {
+            "link": "P77_OTHER-P77_CHAIN_OK",
+            "consumer": "P77_CHAIN/"
+          }
+        }
+      ]
     },
     {
       "severity": "info",
       "code": "dangling-external",
       "node": "P77_INGEST_DAILY/",
       "name": "P77_PRICING-P77_INGEST_DAILY_OK",
-      "message": "producer P77_PRICING is not in this repository"
+      "message": "producer P77_PRICING is not in this repository",
+      "link": "P77_PRICING-P77_INGEST_DAILY_OK",
+      "fixes": [
+        {
+          "kind": "stop-waiting",
+          "title": "Stop waiting for it",
+          "label": "P77_INGEST_DAILY/ stops waiting for P77_PRICING-P77_INGEST_DAILY_OK",
+          "explanation": "Removes INCOND P77_PRICING-P77_INGEST_DAILY_OK (and its cleanup, OUTCOND -) from the waiting job: it no longer waits for a condition nobody emits. Only if the producer outside this repository no longer exists: otherwise the job would start without waiting for it.",
+          "op": "unlink",
+          "params": {
+            "link": "P77_PRICING-P77_INGEST_DAILY_OK",
+            "consumer": "P77_INGEST_DAILY/"
+          }
+        }
+      ]
     },
     {
       "severity": "info",
       "code": "non-standard-name",
       "node": "P77_CHAIN/P77_F",
       "name": "WEIRD_NAME",
-      "message": "name does not follow <PRODUCER>-<CONSUMER>_OK or <PRODUCER>-TO-<CONSUMER>"
+      "message": "name does not follow <PRODUCER>-<CONSUMER>_OK or <PRODUCER>-TO-<CONSUMER>",
+      "link": "WEIRD_NAME",
+      "fixes": []
     },
     {
       "severity": "info",
       "code": "unconsumed-external",
       "node": "P77_CHAIN/",
       "name": "P77_CHAIN-P77_NEXT_OK",
-      "message": "consumer P77_NEXT is not in this repository"
+      "message": "consumer P77_NEXT is not in this repository",
+      "link": "P77_CHAIN-P77_NEXT_OK",
+      "fixes": [
+        {
+          "kind": "stop-emitting",
+          "title": "Stop emitting it",
+          "label": "P77_CHAIN/ stops emitting P77_CHAIN-P77_NEXT_OK",
+          "explanation": "Removes OUTCOND + P77_CHAIN-P77_NEXT_OK from P77_CHAIN/: no job waits for it. Only if no job outside this repository waits for it.",
+          "op": "stop-emitting",
+          "params": {
+            "link": "P77_CHAIN-P77_NEXT_OK",
+            "producer": "P77_CHAIN/"
+          }
+        }
+      ]
     },
     {
       "severity": "info",
       "code": "unconsumed-external",
       "node": "P77_CHAIN/P77_D",
       "name": "P77_D-P77_NOBODY_OK",
-      "message": "consumer P77_NOBODY is not in this repository"
+      "message": "consumer P77_NOBODY is not in this repository",
+      "link": "P77_D-P77_NOBODY_OK",
+      "fixes": [
+        {
+          "kind": "stop-emitting",
+          "title": "Stop emitting it",
+          "label": "P77_CHAIN/P77_D stops emitting P77_D-P77_NOBODY_OK",
+          "explanation": "Removes OUTCOND + P77_D-P77_NOBODY_OK from P77_CHAIN/P77_D: no job waits for it. Only if no job outside this repository waits for it.",
+          "op": "stop-emitting",
+          "params": {
+            "link": "P77_D-P77_NOBODY_OK",
+            "producer": "P77_CHAIN/P77_D"
+          }
+        }
+      ]
     }
   ]
 }

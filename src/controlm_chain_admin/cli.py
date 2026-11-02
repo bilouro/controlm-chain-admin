@@ -19,6 +19,7 @@ from typing import Any
 from controlm_chain_admin import __version__
 from controlm_chain_admin.core import compare as compare_mod
 from controlm_chain_admin.core import constants as constants_mod
+from controlm_chain_admin.core import fixes as fixes_mod
 from controlm_chain_admin.core import graph as graph_mod
 from controlm_chain_admin.core import inspect as inspect_mod
 from controlm_chain_admin.core import ops
@@ -264,6 +265,19 @@ def build_parser() -> argparse.ArgumentParser:
     )
     pkg.add_argument("--format", choices=("text", "json"), default="text")
     pkg.set_defaults(func=cmd_package)
+
+    res = commands.add_parser(
+        "resolve",
+        help="fix validation findings: list the fixes per code, or preview/apply CODE=KIND",
+    )
+    res.add_argument(
+        "choices",
+        nargs="*",
+        metavar="CODE=KIND",
+        help="the fix kind to use for every finding of a code, e.g. never-cleaned=add-cleanup",
+    )
+    _refactor_options(res)
+    res.set_defaults(func=cmd_resolve)
 
     _add_refactorings(commands)
 
@@ -707,6 +721,45 @@ def _add_refactorings(commands: Any) -> None:
             r, a.target, a.literal, a.variable, attribute=a.attribute
         ),
     )
+
+
+def cmd_resolve(args: argparse.Namespace) -> int:
+    repo = load_repo(args.repo)
+    findings = validate(repo).findings
+    fixes = fixes_mod.fixes_for(repo, findings)
+    if not args.choices:
+        codes: dict[str, list[tuple[fixes_mod.Fix, ...]]] = {}
+        for finding, offered in zip(findings, fixes, strict=True):
+            codes.setdefault(finding.code, []).append(offered)
+        for code, groups in codes.items():
+            kinds: dict[str, tuple[str, int]] = {}
+            for offered in groups:
+                for fix in offered:
+                    title, count = kinds.get(fix.kind, (fix.title, 0))
+                    single = sum(1 for f in offered if f.kind == fix.kind) == 1
+                    kinds[fix.kind] = (title, count + (1 if single else 0))
+            head = f"{code} ({_plural(len(groups), 'finding')})"
+            print(head + ("" if kinds else ": no fix"))
+            for kind, (title, count) in kinds.items():
+                print(f"  {kind}: {title} ({count})")
+        return EXIT_OK
+    choice: dict[str, str] = {}
+    for item in args.choices:
+        code, sep, kind = item.partition("=")
+        if not sep or not code or not kind:
+            print(f"ctmchain: error: expected CODE=KIND, got {item!r}", file=sys.stderr)
+            return EXIT_USAGE
+        choice[code] = kind
+    changes, skipped = fixes_mod.by_kind(findings, fixes, choice)
+    if not changes:
+        print("Nothing to change.")
+        status = EXIT_OK
+    else:
+        args.build = lambda r, _a: refactor_mod.run_operation(r, "batch", {"changes": changes})
+        status = cmd_refactor(args)
+    for finding in skipped:
+        print(f"skipped: {finding.code} {finding.name} (no single {choice[finding.code]} fix)")
+    return status
 
 
 def cmd_refactor(args: argparse.Namespace) -> int:

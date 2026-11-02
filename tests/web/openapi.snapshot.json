@@ -349,6 +349,20 @@
             "title": "Code",
             "type": "string"
           },
+          "fixes": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/FixOut"
+            },
+            "title": "Fixes",
+            "type": "array"
+          },
+          "link": {
+            "default": "",
+            "description": "id of the link it is about; empty when none",
+            "title": "Link",
+            "type": "string"
+          },
           "message": {
             "title": "Message",
             "type": "string"
@@ -374,6 +388,48 @@
           "message"
         ],
         "title": "FindingOut",
+        "type": "object"
+      },
+      "FixOut": {
+        "properties": {
+          "explanation": {
+            "title": "Explanation",
+            "type": "string"
+          },
+          "kind": {
+            "description": "the same for this fix of every finding, to fix many at once",
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "description": "what the fix does to this finding",
+            "title": "Label",
+            "type": "string"
+          },
+          "op": {
+            "description": "operation for POST /api/changes/preview (batch: several)",
+            "title": "Op",
+            "type": "string"
+          },
+          "params": {
+            "additionalProperties": true,
+            "title": "Params",
+            "type": "object"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "title",
+          "label",
+          "explanation",
+          "op",
+          "params"
+        ],
+        "title": "FixOut",
         "type": "object"
       },
       "FolderDetail": {
@@ -2526,7 +2582,7 @@
             "description": "Successful Response"
           }
         },
-        "summary": "Validate the repository",
+        "summary": "Validate the repository, with fixes",
         "tags": [
           "validate"
         ]

@@ -20,11 +20,13 @@ import shutil
 import tempfile
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
 from controlm_chain_admin.core.errors import (
+    ChainError,
     ChangeConflict,
     DuplicateName,
     InvalidChange,
@@ -118,7 +120,13 @@ class ApplyResult:
     deleted: int
 
 
+#: Inside :func:`batch`, the sandbox every operation edits in place (no copy, no diff per step).
+_IN_PLACE: ContextVar[Path | None] = ContextVar("ctmchain_in_place", default=None)
+
+
 def _tracked(root: Path) -> dict[str, str]:
+    if _IN_PLACE.get() == root:
+        return {}  # in a batch: the diff is computed once, at the end
     files: dict[str, str] = {}
     for name in _TRACKED_FILES:
         path = root / name
@@ -136,6 +144,10 @@ def _tracked(root: Path) -> dict[str, str]:
 
 @contextmanager
 def _sandbox(files: Mapping[str, str]) -> Iterator[ChainRepo]:
+    in_place = _IN_PLACE.get()
+    if in_place is not None:
+        yield load_repo(in_place)
+        return
     with tempfile.TemporaryDirectory(prefix="ctmchain-") as tmp:
         root = Path(tmp)
         for relative, text in files.items():
@@ -154,6 +166,11 @@ def _finish(
     names: Mapping[str, str] | None = None,
 ) -> ChangeSet:
     """Recompute links.json in the sandbox and diff it against the original files."""
+    if _IN_PLACE.get() is not None:  # a step of a batch: keep new names, diff at the end
+        if names:
+            resolved = {**read_names(box), **names}
+            write_names(box, build_links(collect_conditions(box), resolved))
+        return ChangeSet(summary, (), tuple(warnings))
     resolved = {**read_names(box), **(names or {})}
     write_names(box, build_links(collect_conditions(box), resolved))
     after = _tracked(box.root)
@@ -1006,6 +1023,83 @@ def rename_link(repo: ChainRepo, link_id: str, name: str) -> ChangeSet:
         return _finish(original, box, summary, _name_warnings(repo, name), {link_id: name})
 
 
+def emit_condition(repo: ChainRepo, link_id: str, producer: str) -> ChangeSet:
+    """``producer`` starts emitting ``link_id`` (OUTCOND ``+``) for the jobs that wait for it."""
+    repo = load_repo(repo.root)
+    target_link = _require_link(load_links(repo), link_id)
+    source = _require_node(repo, producer)
+    if source in target_link.all_producers:
+        raise InvalidChange(f"{source} already emits {link_id}")
+    if source in target_link.consumers:
+        raise InvalidChange("a node cannot wait for itself")
+    odate = target_link.odates[0] if target_link.odates else "ODAT"
+    original = _tracked(repo.root)
+    with _sandbox(original) as box:
+        data = dict(read_json(_node_file(box, source)))
+        outs = [*data.get("OUTCOND", []), {LINK_KEY: link_id, "ODATE": odate, "SIGN": "+"}]
+        _write_node(box, source, data, {"OUTCOND": outs})
+        return _finish(original, box, f"{source} now emits {link_id}", [])
+
+
+def stop_emitting(repo: ChainRepo, link_id: str, producer: str) -> ChangeSet:
+    """``producer`` stops emitting ``link_id`` (its OUTCOND ``+`` goes)."""
+    repo = load_repo(repo.root)
+    target_link = _require_link(load_links(repo), link_id)
+    source = _require_node(repo, producer)
+    if source not in target_link.producers:
+        raise InvalidChange(f"{source} does not emit {link_id} (OUTCOND +)")
+    warnings = [f"{c} still waits for {link_id}" for c in target_link.consumers]
+    original = _tracked(repo.root)
+    with _sandbox(original) as box:
+        data = dict(read_json(_node_file(box, source)))
+        outs = [
+            e for e in data.get("OUTCOND", [])
+            if not (e.get(LINK_KEY) == link_id and e.get("SIGN") == "+")
+        ]  # fmt: skip
+        _write_node(box, source, data, {"OUTCOND": outs})
+        return _finish(original, box, f"{source} no longer emits {link_id}", warnings)
+
+
+_BATCH_SUMMARIES = 5
+
+
+def batch(repo: ChainRepo, changes: Sequence[Mapping[str, Any]]) -> ChangeSet:
+    """Several operations as one change set, each computed on the result of the previous ones.
+
+    A repeated operation is run once; a failing one is named (``change n of m``).
+    """
+    unique: dict[str, Mapping[str, Any]] = {}
+    for item in changes:
+        unique.setdefault(json.dumps(item, sort_keys=True), item)
+    items = list(unique.values())
+    if not items:
+        raise InvalidChange("nothing to change")
+    repo = load_repo(repo.root)
+    original = _tracked(repo.root)
+    with _sandbox(original) as box:
+        summaries: list[str] = []
+        warnings: list[str] = []
+        token = _IN_PLACE.set(box.root)
+        try:
+            for number, item in enumerate(items, 1):
+                op = str(item.get("op", ""))
+                if op == "batch":
+                    raise InvalidChange("a batch cannot contain another batch")
+                try:
+                    change = run_operation(box, op, dict(item.get("params", {})))
+                except ChainError as exc:
+                    raise InvalidChange(f"change {number} of {len(items)} ({op}): {exc}") from exc
+                summaries.append(change.summary)
+                warnings.extend(change.warnings)
+        finally:
+            _IN_PLACE.reset(token)
+        shown = "; ".join(summaries[:_BATCH_SUMMARIES])
+        if len(summaries) > _BATCH_SUMMARIES:
+            shown += f"; and {len(summaries) - _BATCH_SUMMARIES} more"
+        plural = "" if len(items) == 1 else "s"
+        return _finish(original, box, f"{len(items)} change{plural}: {shown}", warnings)
+
+
 # ---------------------------------------------------------------- registry (used by the web API)
 
 OPERATIONS: dict[str, Callable[..., ChangeSet]] = {
@@ -1018,6 +1112,9 @@ OPERATIONS: dict[str, Callable[..., ChangeSet]] = {
         repo, link, consumer, **kw
     ),
     "rename-link": lambda repo, link, name: rename_link(repo, link, name),
+    "emit": lambda repo, link, producer: emit_condition(repo, link, producer),
+    "stop-emitting": lambda repo, link, producer: stop_emitting(repo, link, producer),
+    "batch": lambda repo, changes: batch(repo, changes),
     "rename-job": rename_job,
     "rename-folder": rename_folder,
     "rename-subapp": rename_subapp,

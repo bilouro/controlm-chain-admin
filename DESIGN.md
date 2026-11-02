@@ -264,6 +264,20 @@ element exists only on one side. It runs as a dry-run report first.
 - `validate`: everything listed for the import report, plus unresolved constants/tokens per
   environment, overrides pointing to missing jobs, stale overrides (`base_hash`), links whose
   endpoints do not exist.
+- `resolve [CODE=KIND...]` (implemented 2026-11-02): fixes for validation findings. Each finding
+  gets its fixes as data (an operation of the change-set registry with its parameters, a kind
+  shared by every finding, a label with the names, an explanation): `dangling` → the job the name
+  points to emits it (`emit`) or the consumer stops waiting (`stop-waiting`); `dangling-unknown`
+  and `dangling-external` → stop waiting (external: only if the producer is gone); `unconsumed`
+  → the job the name points to waits for it (`wait`) or the producer stops emitting
+  (`stop-emitting`); `unconsumed-external` → stop emitting; `never-cleaned` → the consumer
+  deletes it after use (`add-cleanup`); `stale-name` and `non-standard-name` → the standard name
+  when it is unambiguous (`standard-name`; a folder-prefixed name is not offered, it would still
+  be stale); `duplicate-jobname` → number the copies (`number-copies`, the JOBNAME changes in
+  Control-M). Without arguments it lists the kinds per code; `CODE=KIND` previews one change for
+  every finding of the code with exactly one fix of that kind, `--apply` writes it. Several fixes
+  run as one `batch` operation: each step runs in place in one sandbox, the diff is computed
+  once (94 fixes on the real chain: ~12 s).
 - `diff A B`: plain `git diff` of the base is the first-class review tool. For XML↔XML semantic
   comparison the tool depends on `xmldiffreport` (key-aligned, N-way, Markdown/HTML report).
 - `show --envs <node>`: the node resolved in every environment, side by side, differences
@@ -449,6 +463,14 @@ Server-side concerns (not in the core):
   `GET /api/package/xml?…` (cached per pair of commits and options; the working tree is never
   cached).
 
+- **Validation (resolving, implemented 2026-11-02).** The findings table uses the whole width
+  (condition or job, node and message stacked in one column, no horizontal scrolling), filters
+  by severity and by type of problem, and every finding starts selected. *Resolve* on a row
+  opens its fixes under it: one button per fix with its explanation, each opening the usual
+  preview. *Resolve selected* groups the selection by type of problem and asks for one fix per
+  type (or *leave as is*), showing how many findings it applies to; the result is one `batch`
+  change, reviewed and applied like any other edit (session token).
+
 ## 12. CLI reference (`ctmchain`)
 
 Every writing command previews its change-set and writes only with `--apply` (import/export
@@ -489,6 +511,7 @@ the first import.
 
 Quality
 - `validate [--env <env>] [--strict]` — graph, naming, overlay and resolution checks; exit code = highest severity.
+- `resolve [CODE=KIND...] [--apply] [--stat]` — implemented: fixes for the findings (see §8); without arguments, the fix kinds per code.
 
 Inspection
 - `ls folders|jobs|envs|constants [--filter <glob>]` — listings.

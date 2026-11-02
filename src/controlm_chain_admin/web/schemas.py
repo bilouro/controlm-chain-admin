@@ -122,12 +122,23 @@ class JobDetail(BaseModel):
     successors: list[RelationOut] = []
 
 
+class FixOut(BaseModel):
+    kind: str = Field(description="the same for this fix of every finding, to fix many at once")
+    title: str
+    label: str = Field(description="what the fix does to this finding")
+    explanation: str
+    op: str = Field(description="operation for POST /api/changes/preview (batch: several)")
+    params: dict[str, Any]
+
+
 class FindingOut(BaseModel):
     severity: str
     code: str
     node: str
     name: str
     message: str
+    link: str = Field("", description="id of the link it is about; empty when none")
+    fixes: list[FixOut] = []
 
 
 class ValidateOut(BaseModel):

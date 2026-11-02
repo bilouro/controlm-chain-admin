@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
+from tests.web.conftest import TOKEN
+
 ERROR_KEYS = {"error", "message", "detail"}
 
 
@@ -88,6 +90,40 @@ def test_validate_report(client: TestClient) -> None:
     assert body["counts"]["error"] == 1
     assert {f["code"] for f in body["findings"]} >= {"dangling", "stale-name", "never-cleaned"}
     assert body["links"] == 12 and body["nodes"] == 11
+
+
+def test_validate_findings_carry_their_link_and_fixes(client: TestClient) -> None:
+    findings = client.get("/api/validate").json()["findings"]
+
+    cleaned = next(f for f in findings if f["code"] == "never-cleaned")
+    assert cleaned["link"] == "P77_B-P77_C_OK"
+    (fix,) = cleaned["fixes"]
+    assert fix["kind"] == "add-cleanup" and fix["op"] == "update-relation"
+    assert fix["params"] == {
+        "link": "P77_B-P77_C_OK",
+        "consumer": "P77_CHAIN/P77_C",
+        "cleanup": True,
+    }
+    assert fix["title"] == "Delete it after use" and fix["explanation"]
+
+
+def test_a_batch_of_fixes_is_previewed_as_one_change(client: TestClient) -> None:
+    findings = client.get("/api/validate").json()["findings"]
+    changes = [
+        {"op": fix["op"], "params": fix["params"]}
+        for f in findings
+        for fix in f["fixes"]
+        if fix["kind"] in ("add-cleanup", "standard-name")
+    ]
+
+    response = client.post(
+        "/api/changes/preview",
+        json={"op": "batch", "params": {"changes": changes}},
+        headers={"X-Ctmchain-Token": TOKEN},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["summary"].startswith("2 changes:")
 
 
 def test_link_by_name(client: TestClient) -> None:

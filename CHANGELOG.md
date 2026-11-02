@@ -53,6 +53,12 @@ All notable changes to this project are documented here. The format follows
   and constants resolved, original JOBNAMEs), with the reason of each folder, warnings for what
   an import cannot do and new validation findings (`GET /api/package`, `GET /api/package/xml`).
 - `export_document(..., folders=)` exports a subset of the folders; `validate(write_index=False)`.
+- Fixes for validation findings: `ctmchain resolve [CODE=KIND...]`, each finding of
+  `GET /api/validate` with its fixes and link id, new operations `emit`, `stop-emitting` and
+  `batch` (several changes previewed and applied as one). The *Validation* page selects every
+  finding by default, filters by type of problem, resolves one finding (a button per fix, each
+  explained) or the selection (one choice per type of problem, one reviewed change), and uses the
+  full width of the screen without horizontal scrolling.
 - Package skeleton, CI (lint, types, tests, web, build) and release workflows, community files.
 - `DESIGN.md` (architecture and data model) and `BACKLOG.md` (proof-of-concept plan and status).
 
