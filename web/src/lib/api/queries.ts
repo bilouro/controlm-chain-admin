@@ -6,6 +6,7 @@ import {
   type FolderDetail,
   type GitStateOut,
   type JobDetail,
+  type PackageOut,
   type RepoInfo,
   type TableOut,
   type ValidateOut,
@@ -18,8 +19,9 @@ export const queryKeys = {
   job: (folder: string, job: string) => ["job", folder, job] as const,
   validate: ["validate"] as const,
   git: ["git"] as const,
-  compare: (base: string, head: string, mergeBase: boolean) =>
-    ["compare", base, head, mergeBase] as const,
+  compare: (base: string, head: string, mergeBase: boolean, commits: string | null) =>
+    ["compare", base, head, mergeBase, commits] as const,
+  package: (query: string) => ["package", query] as const,
 };
 
 export function useRepo() {
@@ -59,12 +61,40 @@ export function useGit() {
   });
 }
 
-export function useCompare(base: string, head: string, mergeBase: boolean) {
+/** Query string of a comparison; `commits` null means every commit of head. */
+export function compareParams(
+  base: string,
+  head: string,
+  mergeBase: boolean,
+  commits: string[] | null,
+): URLSearchParams {
   const params = new URLSearchParams({ base, head, merge_base: String(mergeBase) });
+  if (commits !== null) params.set("commits", commits.join(","));
+  return params;
+}
+
+export function useCompare(
+  base: string,
+  head: string,
+  mergeBase: boolean,
+  commits: string[] | null = null,
+) {
+  const params = compareParams(base, head, mergeBase, commits);
   return useQuery({
-    queryKey: queryKeys.compare(base, head, mergeBase),
+    queryKey: queryKeys.compare(base, head, mergeBase, commits?.join(",") ?? null),
     queryFn: () => api<ComparisonOut>(`/api/compare?${params.toString()}`),
     enabled: Boolean(base && head),
+    retry: false,
+  });
+}
+
+/** The import package of a comparison for one environment (`params` include `env`). */
+export function usePackage(params: URLSearchParams, enabled: boolean) {
+  const query = params.toString();
+  return useQuery({
+    queryKey: queryKeys.package(query),
+    queryFn: () => api<PackageOut>(`/api/package?${query}`),
+    enabled,
     retry: false,
   });
 }

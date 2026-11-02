@@ -12,7 +12,7 @@ import io
 import subprocess
 import tarfile
 import tempfile
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
@@ -49,9 +49,25 @@ class CommitInfo:
     subject: str
     author: str
     date: str
+    merge: bool = False
 
     def to_json(self) -> dict[str, Any]:
-        return {"sha": self.sha, "subject": self.subject, "author": self.author, "date": self.date}
+        return {
+            "sha": self.sha,
+            "subject": self.subject,
+            "author": self.author,
+            "date": self.date,
+            "merge": self.merge,
+        }
+
+
+@dataclass(frozen=True)
+class FileChange:
+    """One chain file changed by a commit: blob ids before and after (None: absent)."""
+
+    path: str  # relative to the chain repository root, POSIX
+    before: str | None
+    after: str | None
 
 
 @dataclass(frozen=True)
@@ -149,12 +165,109 @@ def merge_base(root: Path, a: str, b: str) -> str:
 
 def commits_between(root: Path, base: str, head: str) -> tuple[CommitInfo, ...]:
     """Commits reachable from ``head`` and not from ``base``, newest first."""
-    out = _git(root, "log", f"--format=%H{_SEP}%s{_SEP}%an{_SEP}%cI", f"{base}..{head}", "--")
+    out = _git(
+        root, "log", f"--format=%H{_SEP}%s{_SEP}%an{_SEP}%cI{_SEP}%P", f"{base}..{head}", "--"
+    )
     commits = []
     for line in out.splitlines():
-        sha, subject, author, date = line.split(_SEP)
-        commits.append(CommitInfo(sha, subject, author, date))
+        sha, subject, author, date, parents = line.split(_SEP)
+        commits.append(CommitInfo(sha, subject, author, date, len(parents.split()) > 1))
     return tuple(commits)
+
+
+def full_sha(root: Path, rev: str) -> str:
+    """The full sha of a commit given by any revision (short sha, branch...)."""
+    try:
+        return str(_git(root, "rev-parse", "--verify", "--quiet", f"{rev}^{{commit}}").strip())
+    except GitError as exc:
+        raise GitError(f"unknown commit {rev!r}") from exc
+
+
+def _tree(root: Path, rev: str) -> tuple[Path, str]:
+    """(top level, tree-ish of the chain directory at ``rev``) for commands run from the top."""
+    prefix = _prefix(root)
+    top = Path(str(_git(root, "rev-parse", "--show-toplevel")).strip())
+    return top, f"{rev}:{prefix}" if prefix else f"{rev}^{{tree}}"
+
+
+def _chain_file(path: str) -> bool:
+    return path.startswith(_SNAPSHOT_PREFIXES)
+
+
+def _blob(sha: str) -> str | None:
+    return None if set(sha) == {"0"} else sha
+
+
+def file_changes(root: Path, commit: str) -> tuple[FileChange, ...]:
+    """Chain files a commit changed against its first parent (renames as delete + add)."""
+    top, before = _tree(root, f"{commit}^1")
+    _, after = _tree(root, commit)
+    out = str(_git(top, "diff-tree", "-r", "-z", "--no-renames", before, after))
+    fields = out.split("\0")
+    changes = []
+    for meta, path in zip(fields[0::2], fields[1::2], strict=False):
+        parts = meta.split()
+        if len(parts) < 5 or not _chain_file(path):
+            continue
+        changes.append(FileChange(path, _blob(parts[2]), _blob(parts[3])))
+    return tuple(changes)
+
+
+def tree_blobs(root: Path, rev: str) -> dict[str, str]:
+    """Chain file path -> blob id at ``rev``."""
+    top, tree = _tree(root, rev)
+    out = str(_git(top, "ls-tree", "-r", "-z", tree))
+    blobs = {}
+    for entry in filter(None, out.split("\0")):
+        meta, _, path = entry.partition("\t")
+        parts = meta.split()
+        if len(parts) == 3 and parts[1] == "blob" and _chain_file(path):
+            blobs[path] = parts[2]
+    return blobs
+
+
+def read_blobs(root: Path, shas: Iterable[str]) -> dict[str, bytes]:
+    """Contents of blobs by id, read in one ``git cat-file --batch``."""
+    wanted = list(dict.fromkeys(shas))
+    if not wanted:
+        return {}
+    result = subprocess.run(
+        ["git", "-C", str(root), "cat-file", "--batch"],
+        input="\n".join(wanted).encode() + b"\n",
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise GitError(f"git cat-file: {result.stderr.decode().strip() or 'failed'}")
+    out, at, blobs = result.stdout, 0, {}
+    for sha in wanted:
+        end = out.index(b"\n", at)
+        header = out[at:end].split()
+        if len(header) != 3:
+            raise GitError(f"git cat-file: missing object {sha}")
+        size = int(header[2])
+        blobs[sha] = out[end + 1 : end + 1 + size]
+        at = end + 1 + size + 1
+    return blobs
+
+
+def merge_text(current: bytes, base: bytes, other: bytes) -> bytes | None:
+    """Three-way merge of one file (``git merge-file``); None when the changes overlap."""
+    with tempfile.TemporaryDirectory(prefix="ctmchain-merge-") as tmp:
+        paths = []
+        for name, data in (("current", current), ("base", base), ("other", other)):
+            path = Path(tmp) / name
+            path.write_bytes(data)
+            paths.append(str(path))
+        try:
+            result = subprocess.run(
+                ["git", "merge-file", "-p", *paths], capture_output=True, check=False
+            )
+        except FileNotFoundError as exc:
+            raise GitError("git is not installed or not on PATH") from exc
+    if result.returncode < 0 or result.returncode > 127:
+        raise GitError(f"git merge-file: {result.stderr.decode().strip() or 'failed'}")
+    return result.stdout if result.returncode == 0 else None
 
 
 def _prefix(root: Path) -> str:
@@ -163,9 +276,16 @@ def _prefix(root: Path) -> str:
 
 
 @contextmanager
-def snapshot(root: Path, ref: str) -> Iterator[Path]:
-    """A directory with the repository's files at ``ref`` (the repository itself for WORKTREE)."""
+def snapshot(
+    root: Path, ref: str, overlay: Mapping[str, bytes | None] | None = None
+) -> Iterator[Path]:
+    """A directory with the repository's files at ``ref`` (the repository itself for WORKTREE).
+
+    ``overlay`` replaces files of the snapshot (path -> content, None deletes the file).
+    """
     if ref == WORKTREE:
+        if overlay:
+            raise GitError("the working tree cannot be overlaid")
         yield root
         return
     info = resolve(root, ref)
@@ -189,4 +309,11 @@ def snapshot(root: Path, ref: str) -> Iterator[Path]:
                 path = target.joinpath(*name.parts)
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_bytes(source.read())
+        for relative, content in (overlay or {}).items():
+            path = target.joinpath(*PurePosixPath(relative).parts)
+            if content is None:
+                path.unlink(missing_ok=True)
+            else:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(content)
         yield target

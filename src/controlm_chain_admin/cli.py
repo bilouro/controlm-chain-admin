@@ -22,6 +22,7 @@ from controlm_chain_admin.core import constants as constants_mod
 from controlm_chain_admin.core import graph as graph_mod
 from controlm_chain_admin.core import inspect as inspect_mod
 from controlm_chain_admin.core import ops
+from controlm_chain_admin.core import package as package_mod
 from controlm_chain_admin.core import refactor as refactor_mod
 from controlm_chain_admin.core.errors import ChainError, NotAChainRepo
 from controlm_chain_admin.core.history import WORKTREE
@@ -217,11 +218,52 @@ def build_parser() -> argparse.ArgumentParser:
         help="compare the two tips directly; by default the base side is the merge base, "
         "so only the changes made on head are shown, as in a pull request",
     )
+    _commit_option(cmp_)
     cmp_.add_argument(
         "--repo", type=Path, default=Path("."), help="repository directory (default: .)"
     )
     cmp_.add_argument("--format", choices=("text", "md", "json"), default="text")
     cmp_.set_defaults(func=cmd_compare)
+
+    pkg = commands.add_parser(
+        "package",
+        help="the Control-M import file with every folder changed between two git refs",
+    )
+    pkg.add_argument("base", help="base ref, e.g. develop")
+    pkg.add_argument("head", nargs="?", default="HEAD", help="head ref (default: HEAD)")
+    pkg.add_argument("--env", required=True, help="target environment, e.g. uat")
+    pkg.add_argument(
+        "--worktree", action="store_true", help="package the uncommitted working tree"
+    )
+    pkg.add_argument(
+        "--no-merge-base",
+        action="store_true",
+        help="compare the two tips directly instead of from the merge base",
+    )
+    _commit_option(pkg)
+    pkg.add_argument(
+        "--jobnames",
+        choices=("original", "deduped"),
+        default="original",
+        help="JOBNAMEs as in Control-M (default) or as stored after deduplication",
+    )
+    pkg.add_argument(
+        "--names",
+        choices=("original", "standard"),
+        default="original",
+        help="condition names: as imported (default) or derived from the endpoints",
+    )
+    pkg.add_argument(
+        "-o", "--output", type=Path, help="XML file to write (default: a name like deploy_uat_...)"
+    )
+    pkg.add_argument(
+        "--dry-run", action="store_true", help="list the folders and why, write nothing"
+    )
+    pkg.add_argument(
+        "--repo", type=Path, default=Path("."), help="repository directory (default: .)"
+    )
+    pkg.add_argument("--format", choices=("text", "json"), default="text")
+    pkg.set_defaults(func=cmd_package)
 
     _add_refactorings(commands)
 
@@ -472,10 +514,24 @@ def cmd_links(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _commit_option(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--commit",
+        dest="commits",
+        action="append",
+        metavar="SHA",
+        help="only this commit of head (repeat it); the others are left out, cherry-pick style",
+    )
+
+
 def cmd_compare(args: argparse.Namespace) -> int:
     head = WORKTREE if args.worktree else args.head
     result = compare_mod.compare(
-        load_repo(args.repo).root, args.base, head, use_merge_base=not args.no_merge_base
+        load_repo(args.repo).root,
+        args.base,
+        head,
+        use_merge_base=not args.no_merge_base,
+        commits=args.commits,
     )
     if args.format == "json":
         print(json.dumps(result.to_json(), indent=2, ensure_ascii=False))
@@ -483,6 +539,56 @@ def cmd_compare(args: argparse.Namespace) -> int:
         print(compare_mod.render_markdown(result), end="")
     else:
         print(compare_mod.render_text(result), end="")
+    return EXIT_OK
+
+
+def _commit_count(selected: Sequence[str] | None, commits: Sequence[Any]) -> str:
+    total = sum(1 for c in commits if not c.merge)
+    if selected is None:
+        return _plural(len(commits), "commit")
+    return f"{len(selected)} of {_plural(total, 'commit')}"
+
+
+def cmd_package(args: argparse.Namespace) -> int:
+    head = WORKTREE if args.worktree else args.head
+    package = package_mod.build_package(
+        load_repo(args.repo).root,
+        args.base,
+        head,
+        env=args.env,
+        commits=args.commits,
+        use_merge_base=not args.no_merge_base,
+        names=args.names,
+        jobnames=args.jobnames,
+    )
+    output = args.output or Path(package.filename)
+    if args.format == "json":
+        print(json.dumps(package.to_json(), indent=2, ensure_ascii=False))
+    else:
+        origin = f" (from merge base {package.merge_base[:7]})" if package.merge_base else ""
+        print(
+            f"Package {package.base.name}..{package.head.name} for {package.env}: "
+            f"{_plural(len(package.folders), 'folder')}, "
+            f"{_commit_count(package.selected, package.commits)}{origin}"
+        )
+        for folder in package.folders:
+            print(f"  {folder.name} ({_plural(folder.jobs, 'job')}): {'; '.join(folder.reasons)}")
+        for warning in package.warnings:
+            print(f"warning: {warning}")
+        for finding in package.findings:
+            print(
+                f"new finding: {finding.severity} {finding.code} {finding.node}: {finding.message}"
+            )
+    report = sys.stderr if args.format == "json" else sys.stdout
+    if package.xml is None:
+        print(
+            f"Nothing to package: no folder changed between {package.base.name} and "
+            f"{package.head.name}.",
+            file=report,
+        )
+    elif not args.dry_run:
+        output.write_bytes(package.xml)
+        print(f"Wrote {output} ({package.size} bytes)", file=report)
     return EXIT_OK
 
 

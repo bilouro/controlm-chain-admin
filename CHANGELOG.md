@@ -45,6 +45,14 @@ All notable changes to this project are documented here. The format follows
   text, Markdown or JSON output. The *Compare* web page shows the same comparison with ref
   pickers, summary cards, a change list grouped by folder and a before/after detail
   (`GET /api/git`, `GET /api/compare`).
+- `compare --commit <sha>` and commit checkboxes on the *Compare* page: compare only some commits
+  of the branch, applied on the base cherry-pick style; a selection that needs a left-out commit
+  names it; every change lists the commits that made it.
+- `ctmchain package <base> [<head>] --env <env>` and the *Generate XML* button: the Control-M
+  import file with every folder the comparison changed, whole, for one environment (letter rule
+  and constants resolved, original JOBNAMEs), with the reason of each folder, warnings for what
+  an import cannot do and new validation findings (`GET /api/package`, `GET /api/package/xml`).
+- `export_document(..., folders=)` exports a subset of the folders; `validate(write_index=False)`.
 - Package skeleton, CI (lint, types, tests, web, build) and release workflows, community files.
 - `DESIGN.md` (architecture and data model) and `BACKLOG.md` (proof-of-concept plan and status).
 

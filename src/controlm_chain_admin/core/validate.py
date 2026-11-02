@@ -11,7 +11,13 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
-from controlm_chain_admin.core.links import Link, NodeRef, folder_names, rebuild_links
+from controlm_chain_admin.core.links import (
+    Link,
+    NodeRef,
+    folder_names,
+    load_links,
+    rebuild_links,
+)
 from controlm_chain_admin.core.ops import DUPLICATE_SEPARATOR
 from controlm_chain_admin.core.repo import ChainRepo, read_json
 
@@ -178,9 +184,12 @@ def _check_link(link: Link, known_names: set[str], out: list[Finding]) -> None:
             )
 
 
-def validate(repo: ChainRepo) -> ValidateReport:
-    """Rebuild the links index and check the repository. Never raises on findings."""
-    links = rebuild_links(repo)
+def validate(repo: ChainRepo, *, write_index: bool = True) -> ValidateReport:
+    """Rebuild the links index (unless told not to) and check the repository.
+
+    Never raises on findings.
+    """
+    links = rebuild_links(repo) if write_index else load_links(repo)
     findings: list[Finding] = []
     known_names: set[str] = set()
     nodes = 0

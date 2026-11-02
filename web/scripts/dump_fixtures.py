@@ -112,7 +112,7 @@ def dump_compare() -> None:
         commit_all(repo.root, "feat: retries on P77_C")
         apply(repo, rename_job(repo, f"{c}/P77_D", "P77_DELTA"))
         apply(repo, move_job(repo, "P77_INGEST_DAILY/P77_INGEST_LOAD", c))
-        commit_all(repo.root, "refactor: rename P77_D and move the load job")
+        refactor = commit_all(repo.root, "refactor: rename P77_D and move the load job")
         apply(repo, insert_job(repo, f"{c}/P77_CHECK", after=f"{c}/P77_A", before=f"{c}/P77_B"))
         apply(repo, update_relation(repo, "P77_B-P77_C_OK", f"{c}/P77_C", and_or="O"))
         apply(repo, link_nodes(repo, f"{c}/P77_E", producer=f"{c}/P77_C"))
@@ -126,6 +126,10 @@ def dump_compare() -> None:
             for filename, path in {
                 "git.json": "/api/git",
                 "compare.json": "/api/compare?base=develop&head=feature/demo",
+                "compare-selected.json": (
+                    f"/api/compare?base=develop&head=feature/demo&commits={refactor}"
+                ),
+                "package.json": "/api/package?base=develop&head=feature/demo&env=uat",
             }.items():
                 response = client.get(path)
                 response.raise_for_status()

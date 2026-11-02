@@ -31,6 +31,7 @@ afterEach(() => {
   calls.preview.length = 0;
   calls.apply.length = 0;
   calls.compare.length = 0;
+  calls.package.length = 0;
   sessionStorage.clear();
 });
 afterAll(() => server.close());

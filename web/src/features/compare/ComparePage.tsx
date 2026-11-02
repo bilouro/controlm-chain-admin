@@ -1,15 +1,19 @@
 import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
-import type {
-  ComparisonOut,
-  GitStateOut,
-  NodeChangeOut,
-  RelationChangeOut,
-  ValueChangeOut,
+import {
+  ApiError,
+  type CommitOut,
+  type ComparisonOut,
+  type GitStateOut,
+  type NodeChangeOut,
+  type RelationChangeOut,
+  type ValueChangeOut,
 } from "@/lib/api/client";
-import { useCompare, useGit } from "@/lib/api/queries";
+import { compareParams, useCompare, useGit, useRepo } from "@/lib/api/queries";
 import { cn, nodeRoute, parseNode } from "@/lib/utils";
 import { DiffView } from "@/components/DiffView";
+import { CommitPicker } from "./CommitPicker";
+import { PackagePanel } from "./PackagePanel";
 import { defaultRefs, WORKTREE } from "./refs";
 import {
   Badge,
@@ -178,15 +182,34 @@ function RelationsTable({ rows, folder }: { rows: RelationChangeOut[]; folder: s
   );
 }
 
+function ChangedBy({ shas, commits }: { shas: string[]; commits: Map<string, CommitOut> }) {
+  if (shas.length === 0) return null;
+  return (
+    <section>
+      <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Changed by</h3>
+      <ul aria-label="Changed by" className="space-y-0.5 text-xs">
+        {shas.map((sha) => (
+          <li key={sha}>
+            <span className="font-mono text-muted">{sha.slice(0, 7)}</span>{" "}
+            {commits.get(sha)?.subject ?? ""}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 /** `openable`: head is what the server has on disk, so the node page shows the same version. */
 function NodeDetail({
   node,
   head,
   openable,
+  commits,
 }: {
   node: NodeChangeOut;
   head: string;
   openable: boolean;
+  commits: Map<string, CommitOut>;
 }) {
   const folder = parseNode(node.node).folder;
   return (
@@ -205,6 +228,7 @@ function NodeDetail({
             <span className="ml-auto text-xs text-muted">check out {head} to open it</span>
           ))}
       </header>
+      <ChangedBy shas={node.commits ?? []} commits={commits} />
       <ValuesTable title="Attributes" rows={node.attributes} />
       <ValuesTable title="Variables" rows={node.variables} />
       <RelationsTable rows={node.relations} folder={folder} />
@@ -275,6 +299,7 @@ function ChangesBrowser({
   const groups = useMemo(() => groupByFolder(result, filter), [result, filter]);
   const visible = groups.flatMap((g) => (g.folderChange ? [g.folderChange, ...g.jobs] : g.jobs));
   const current = visible.find((n) => n.node === selected) ?? visible[0] ?? null;
+  const commits = useMemo(() => new Map(result.commits.map((c) => [c.sha, c])), [result]);
   if (nodes.length === 0) return <Empty>No folder or job changed.</Empty>;
   return (
     <div className="grid gap-4 lg:grid-cols-[22rem_1fr]">
@@ -348,7 +373,7 @@ function ChangesBrowser({
       </div>
       <Card className="p-4">
         {current ? (
-          <NodeDetail node={current} head={head} openable={openable} />
+          <NodeDetail node={current} head={head} openable={openable} commits={commits} />
         ) : (
           <Empty>Select a change.</Empty>
         )}
@@ -384,15 +409,57 @@ function SummaryCards({ result }: { result: ComparisonOut }) {
   );
 }
 
+/** A selection that needs commits it left out: say which, and offer to add them. */
+function SelectionConflict({
+  error,
+  onInclude,
+  onSelectAll,
+}: {
+  error: ApiError;
+  onInclude: (missing: string[]) => void;
+  onSelectAll: () => void;
+}) {
+  const detail = (error.detail ?? {}) as { missing?: string[] };
+  const missing = detail.missing ?? [];
+  return (
+    <div role="alert" className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm">
+      <p>
+        <strong>The selected commits do not apply on their own.</strong> {error.message}
+      </p>
+      <div className="mt-2 flex gap-2">
+        {missing.length > 0 && (
+          <Button size="sm" onClick={() => onInclude(missing)}>
+            {missing.length === 1 ? "Include the missing commit" : "Include the missing commits"}
+          </Button>
+        )}
+        <Button size="sm" variant="ghost" onClick={onSelectAll}>
+          Select every commit
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function parseSelection(value: string | null): string[] | null {
+  return value === null ? null : value.split(",").filter(Boolean);
+}
+
 export function ComparePage() {
   const git = useGit();
+  const repo = useRepo();
   const [params, setParams] = useSearchParams();
   const defaults = git.data ? defaultRefs(git.data) : { base: "", head: "" };
   const base = params.get("base") ?? defaults.base;
   const head = params.get("head") ?? defaults.head;
   const mergeBase = params.get("mb") !== "0";
   const tab = params.get("tab") ?? "nodes";
-  const comparison = useCompare(base, head, mergeBase);
+  const selection = head === WORKTREE ? null : parseSelection(params.get("commits"));
+  const comparison = useCompare(base, head, mergeBase, selection);
+  const everything = useCompare(base, head, mergeBase, null); // the commits to choose from
+  const environments = repo.data?.environments ?? [];
+  const [chosenEnv, setChosenEnv] = useState<string | null>(null);
+  const env = chosenEnv ?? (environments.includes("uat") ? "uat" : (environments[0] ?? ""));
+  const [isPackageOpen, setIsPackageOpen] = useState(false);
 
   const update = (changes: Record<string, string | null>) => {
     const next = new URLSearchParams(params);
@@ -404,6 +471,16 @@ export function ComparePage() {
     }
     setParams(next, { replace: true });
   };
+  const select = (commits: string[] | null) =>
+    update({ commits: commits === null ? null : commits.join(","), node: null });
+  const commitList = everything.data?.commits ?? comparison.data?.commits ?? [];
+  const order = commitList.map((c) => c.sha);
+  const include = (missing: string[]) => {
+    const wanted = new Set([...(selection ?? []), ...missing]);
+    select(order.filter((sha) => wanted.has(sha)));
+  };
+  const packageParams = compareParams(base, head, mergeBase, selection);
+  packageParams.set("env", env);
 
   if (git.isPending) return <Loading what="git refs" />;
   if (git.isError) return <ErrorBox error={git.error} />;
@@ -413,7 +490,6 @@ export function ComparePage() {
         { id: "nodes", label: `Folders & jobs (${result.folders.length + result.jobs.length})` },
         { id: "links", label: `Conditions (${result.links.length})` },
         { id: "constants", label: `Constants (${result.constants.length})` },
-        { id: "commits", label: `Commits (${result.commits.length})` },
       ]
     : [];
 
@@ -450,12 +526,69 @@ export function ComparePage() {
           />
           only what head changed (from the merge base)
         </label>
+        <span className="ml-auto flex items-end gap-2">
+          <label className="text-xs text-muted">
+            Environment
+            <SelectInput
+              aria-label="Environment"
+              value={env}
+              onChange={(e) => setChosenEnv(e.target.value)}
+              className="block"
+            >
+              {environments.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </SelectInput>
+          </label>
+          <Button
+            onClick={() => setIsPackageOpen(true)}
+            disabled={!result || !env}
+            title="The Control-M import file with every folder these changes touch, whole"
+          >
+            Generate XML
+          </Button>
+        </span>
       </header>
 
+      {commitList.length > 0 || everything.data ? (
+        <CommitPicker
+          commits={commitList}
+          selected={selection}
+          disabledReason={
+            head === WORKTREE
+              ? "uncommitted changes cannot be selected; pick a branch as head"
+              : null
+          }
+          onChange={select}
+        />
+      ) : null}
+
+      {isPackageOpen && result && (
+        <PackagePanel params={packageParams} onClose={() => setIsPackageOpen(false)} />
+      )}
+
       {comparison.isPending && <Loading what="comparison" />}
-      {comparison.isError && <ErrorBox error={comparison.error} />}
+      {comparison.isError &&
+        (comparison.error instanceof ApiError && comparison.error.code === "SelectionConflict" ? (
+          <SelectionConflict
+            error={comparison.error}
+            onInclude={include}
+            onSelectAll={() => select(null)}
+          />
+        ) : (
+          <ErrorBox error={comparison.error} />
+        ))}
       {result && (
         <>
+          {result.selected && (
+            <p className="rounded-md border border-accent/40 bg-accent-soft px-3 py-1.5 text-sm">
+              Showing the changes of {result.selected.length} of{" "}
+              {result.commits.filter((c) => !c.merge).length} commits, applied on the base in their
+              order; the XML holds these changes only.
+            </p>
+          )}
           <p className="text-sm text-muted">
             {result.base.name} <span className="font-mono">{result.base.sha?.slice(0, 7)}</span> →{" "}
             {result.head.name}{" "}
@@ -544,27 +677,6 @@ export function ComparePage() {
                       ))}
                     </tbody>
                   </table>
-                )}
-              </TabPanel>
-            )}
-            {tab === "commits" && (
-              <TabPanel id="commits">
-                {result.commits.length === 0 ? (
-                  <Empty>No commits between these refs.</Empty>
-                ) : (
-                  <ul className="divide-y divide-border text-sm" aria-label="Commits">
-                    {result.commits.map((commit) => (
-                      <li key={commit.sha} className="flex gap-3 py-1.5">
-                        <span className="font-mono text-xs text-muted">
-                          {commit.sha.slice(0, 7)}
-                        </span>
-                        <span>{commit.subject}</span>
-                        <span className="ml-auto text-xs text-muted">
-                          {commit.author} · {commit.date.slice(0, 10)}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
                 )}
               </TabPanel>
             )}

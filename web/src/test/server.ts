@@ -10,6 +10,8 @@ import validate from "./fixtures/validate.json";
 import preview from "./fixtures/preview.json";
 import gitState from "./fixtures/git.json";
 import comparison from "./fixtures/compare.json";
+import comparisonSelected from "./fixtures/compare-selected.json";
+import packagePreview from "./fixtures/package.json";
 import type { FolderDetail, JobDetail } from "@/lib/api/client";
 
 // Fixtures are dumped from the real API running on the synthetic repository (web/scripts/dump_fixtures.py).
@@ -25,10 +27,16 @@ const jobByPath: Record<string, JobDetail> = {
 };
 
 /** Bodies of the editing requests and query strings of the comparisons the UI sent, for assertions. */
-export const calls: { preview: unknown[]; apply: unknown[]; compare: URLSearchParams[] } = {
+export const calls: {
+  preview: unknown[];
+  apply: unknown[];
+  compare: URLSearchParams[];
+  package: URLSearchParams[];
+} = {
   preview: [],
   apply: [],
   compare: [],
+  package: [],
 };
 
 function notFound(message: string) {
@@ -55,8 +63,13 @@ export const handlers = [
   http.get("/api/validate", () => HttpResponse.json(validate)),
   http.get("/api/git", () => HttpResponse.json(gitState)),
   http.get("/api/compare", ({ request }) => {
-    calls.compare.push(new URL(request.url).searchParams);
-    return HttpResponse.json(comparison);
+    const params = new URL(request.url).searchParams;
+    calls.compare.push(params);
+    return HttpResponse.json(params.has("commits") ? comparisonSelected : comparison);
+  }),
+  http.get("/api/package", ({ request }) => {
+    calls.package.push(new URL(request.url).searchParams);
+    return HttpResponse.json(packagePreview);
   }),
   http.post("/api/changes/preview", async ({ request }) => {
     const denied = unauthorized(request);

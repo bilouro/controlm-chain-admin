@@ -30,30 +30,42 @@ export type ValueChangeOut = Schemas["ValueChangeOut"];
 export type LinkChangeOut = Schemas["LinkChangeOut"];
 export type ConstantChangeOut = Schemas["ConstantChangeOut"];
 export type CommitOut = Schemas["CommitOut"];
+export type PackageOut = Schemas["PackageOut"];
+export type PackageFolderOut = Schemas["PackageFolderOut"];
 
 export const TOKEN_HEADER = "X-Ctmchain-Token";
 
 export class ApiError extends Error {
   readonly status: number;
+  /** The typed core error, e.g. "SelectionConflict"; null when the body had none. */
+  readonly code: string | null;
+  /** Structured details some errors carry (the missing commits of a selection...). */
+  readonly detail: unknown;
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, code: string | null = null, detail: unknown = null) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.code = code;
+    this.detail = detail;
   }
 }
 
 async function parse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     let message = `HTTP ${response.status}`;
+    let code: string | null = null;
+    let detail: unknown = null;
     try {
       const body = (await response.json()) as Record<string, unknown>;
       const text = body.message ?? body.detail;
       if (typeof text === "string") message = text;
+      if (typeof body.error === "string") code = body.error;
+      detail = body.detail ?? null;
     } catch {
       // not JSON: keep the status line
     }
-    throw new ApiError(response.status, message);
+    throw new ApiError(response.status, message, code, detail);
   }
   return (await response.json()) as T;
 }

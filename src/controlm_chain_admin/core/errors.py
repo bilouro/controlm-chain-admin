@@ -61,3 +61,23 @@ class InvalidChange(ModelError):
 
 class GitError(ChainError):
     """A git command failed (not a git repository, unknown ref...)."""
+
+
+class SelectionConflict(GitError):
+    """A selected commit does not apply without commits that were left out of the selection."""
+
+    def __init__(
+        self, message: str, commit: str, paths: tuple[str, ...], missing: tuple[str, ...]
+    ) -> None:
+        super().__init__(message)
+        self.commit = commit
+        self.paths = paths
+        self.missing = missing  # left-out commits that touched the same files before it
+
+    @property
+    def detail(self) -> dict[str, object]:
+        return {"commit": self.commit, "paths": list(self.paths), "missing": list(self.missing)}
+
+
+class NothingToPackage(ChainError):
+    """No folder changed, so there is no import file to write."""

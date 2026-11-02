@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import re
 import shutil
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from dataclasses import dataclass, field, replace
 from typing import Any
 
@@ -461,11 +461,15 @@ def _export_names(repo: ChainRepo, names: str) -> tuple[dict[str, str], int]:
 
 
 def load_document(
-    repo: ChainRepo, names: str = "original", jobnames: str = "deduped"
+    repo: ChainRepo,
+    names: str = "original",
+    jobnames: str = "deduped",
+    folders: Collection[str] | None = None,
 ) -> tuple[XmlDocument, int]:
     """The repository as one neutral document (metadata merged, link references resolved).
 
-    Returns the document and the number of links renamed by the name policy.
+    ``folders`` keeps only those folders, in export order. Returns the document and the number
+    of links renamed by the name policy.
     """
     repo = load_repo(repo.root)
     if not repo.export_meta_file.exists():
@@ -476,11 +480,12 @@ def load_document(
         raise ModelError(
             f"unknown jobnames policy {jobnames!r}; use one of {', '.join(JOBNAME_POLICIES)}"
         )
-    folders = tuple(
+    elements = tuple(
         _from_link_refs(_read_folder(repo, name, jobnames), resolved, f"folder {name}")
         for name in meta.get("folder_order", [])
+        if folders is None or name in folders
     )
-    root = XmlElement(str(meta["root_tag"]), tuple(dict(meta["root_attrs"]).items()), folders)
+    root = XmlElement(str(meta["root_tag"]), tuple(dict(meta["root_attrs"]).items()), elements)
     declaration = XmlDeclaration(**meta["declaration"])
     return XmlDocument(root, declaration, tuple(meta.get("prolog_comments", []))), renamed
 
@@ -492,11 +497,15 @@ def export_document(
     allow_unresolved: bool = False,
     names: str = "original",
     jobnames: str = "deduped",
+    folders: Collection[str] | None = None,
 ) -> tuple[bytes, ExportReport]:
-    """Export for ``env`` under a name policy; unresolved constants raise unless allowed."""
+    """Export for ``env`` under a name policy; unresolved constants raise unless allowed.
+
+    ``folders`` exports only those folders (an import package of whole folders).
+    """
     repo = load_repo(repo.root)
     letter = _letter(repo, env, "export")
-    document, renamed = load_document(repo, names, jobnames)
+    document, renamed = load_document(repo, names, jobnames, folders)
     constants = ExportConstantsReport(0, ())
     if env is not None and repo.config.constants:
         document, constants = apply_export(

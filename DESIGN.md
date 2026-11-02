@@ -283,6 +283,27 @@ element exists only on one side. It runs as a dry-run report first.
   `PARENT_FOLDER`, the folder's job list) are not reported twice. Volatile metadata alone is only
   counted (`metadata_files_changed`). Output: text, Markdown (for a pull request description) or
   JSON; the web UI shows the same structure.
+  `--commit <sha>` (repeatable) compares only some commits of the branch (implemented
+  2026-11-02): they are applied on the base side in their order, cherry-pick style, file by file
+  and in memory (a change is taken as it is when the file is as the commit found it, merged three
+  ways with `git merge-file` when a left-out commit changed other lines, refused when they
+  overlap or the file is missing). A refusal names the commit and the left-out commits that
+  touched the same files before it (`SelectionConflict`). Merge commits cannot be selected and
+  are skipped. Every change lists the commits that touched its files.
+- `package <base> [<head>] --env <env>` (implemented 2026-11-02): the Control-M import file with
+  every folder the comparison changed, whole (Control-M imports folders, not jobs). A folder is
+  packaged when a job in it was added, removed, edited, renamed or moved in or out, when its own
+  attributes or job order changed, when a condition one of its nodes uses was renamed, or when a
+  constant it uses got another value in the target environment. A job whose only change is seen
+  from the other end of a relation (its own file is unchanged) does not pull its folder in; nor
+  does volatile metadata. The file is the regular export of those folders for the environment:
+  letter rule and constants resolved, original JOBNAMEs (`--jobnames original` by default),
+  unresolved constants refuse the package. Each folder comes with its reasons; warnings cover
+  what an import cannot do (a removed or renamed folder stays in Control-M, a folder left
+  without jobs is emptied), uncommitted changes, `chain.json` rule changes, and packaged folders
+  that the base changed after the branch started (the package would undo them: merge first).
+  Validation findings the head side has and the base has not are listed. The same `--commit`
+  selection applies.
 
 ## 9. Refactorings (change-set with preview)
 
@@ -417,10 +438,16 @@ Server-side concerns (not in the core):
   detail of the selected node shows the previous identity, an attributes table and a variables
   table (name, before, after), the predecessor and successor changes with peers before and after
   and the `+`/`−`, AND_OR and ODATE details, and the JSON diff, with a link to open the node.
-  Other tabs list the conditions, the constants per environment and the commits. Read-only, no
-  token needed: `GET /api/git` (refs, current branch, dirty flag) and
-  `GET /api/compare?base=&head=&merge_base=` (cached per pair of commits; the working tree is
-  never cached).
+  Other tabs list the conditions and the constants per environment. Above them, the commits of
+  head have a checkbox each, all checked by default: unchecking some compares only the others
+  (`commits=` in the URL and the API), the detail of a node lists the commits that changed it,
+  and a selection that needs a left-out commit says which one, with a button to include it.
+  *Generate XML* with an environment picker (uat by default) opens the package preview: folders,
+  jobs per folder, reasons, warnings and new validation findings, then the download. Read-only,
+  no token needed: `GET /api/git` (refs, current branch, dirty flag),
+  `GET /api/compare?base=&head=&merge_base=&commits=`, `GET /api/package?…&env=` and
+  `GET /api/package/xml?…` (cached per pair of commits and options; the working tree is never
+  cached).
 
 ## 12. CLI reference (`ctmchain`)
 
@@ -470,7 +497,8 @@ Inspection
 - `links <node> | links --name <condition>` — edges of a node, or who produces/consumes/deletes a name.
 
 Comparison
-- `compare <base> [<head>] [--worktree] [--no-merge-base] [--format text|md|json]` — implemented: semantic comparison of two git refs of the repository (see §8). `head` defaults to `HEAD`; `--worktree` compares `base` with the uncommitted files.
+- `compare <base> [<head>] [--worktree] [--no-merge-base] [--commit <sha>...] [--format text|md|json]` — implemented: semantic comparison of two git refs of the repository (see §8). `head` defaults to `HEAD`; `--worktree` compares `base` with the uncommitted files; `--commit` keeps only those commits of head.
+- `package <base> [<head>] --env <env> [--commit <sha>...] [--worktree] [--no-merge-base] [--jobnames original|deduped] [--names original|standard] [-o <file>] [--dry-run] [--format text|json]` — implemented: the Control-M import file with every changed folder, whole, and why (see §8). Default file name `deploy_<env>_<head>[_<n>-of-<m>]_<date>.xml`.
 - `diff <A> <B>` — planned: A and B may be repo directories, `env:<name>` resolved views or XML files; XML↔XML goes through `xmldiffreport`.
 
 Refactorings

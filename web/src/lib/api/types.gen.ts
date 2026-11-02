@@ -140,6 +140,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/package": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Folders of the import package, and why */
+    get: operations["package_preview_api_package_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/package/xml": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Download the import package */
+    get: operations["package_xml_api_package_xml_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/repo": {
     parameters: {
       query?: never;
@@ -263,6 +297,12 @@ export interface components {
       author: string;
       /** Date */
       date: string;
+      /**
+       * Merge
+       * @description merge commits cannot be selected
+       * @default false
+       */
+      merge: boolean;
       /** Sha */
       sha: string;
       /** Subject */
@@ -288,6 +328,11 @@ export interface components {
       metadata_files_changed: number;
       /** Rules Changed */
       rules_changed: boolean;
+      /**
+       * Selected
+       * @description commits compared, newest first; null when every commit is
+       */
+      selected?: string[] | null;
       /** Summary */
       summary: {
         [key: string]: unknown;
@@ -559,6 +604,12 @@ export interface components {
        * @description added | removed | modified | renamed | moved
        */
       change: string;
+      /**
+       * Commits
+       * @description compared commits that changed it, newest first
+       * @default []
+       */
+      commits: string[];
       /** Diff */
       diff: string;
       /** Groups */
@@ -577,6 +628,44 @@ export interface components {
       relations: components["schemas"]["RelationChangeOut"][];
       /** Variables */
       variables: components["schemas"]["ValueChangeOut"][];
+    };
+    /** PackageFolderOut */
+    PackageFolderOut: {
+      /** Jobs */
+      jobs: number;
+      /** Name */
+      name: string;
+      /** Reasons */
+      reasons: string[];
+    };
+    /** PackageOut */
+    PackageOut: {
+      base: components["schemas"]["RefOut"];
+      /** Commits */
+      commits: components["schemas"]["CommitOut"][];
+      /** Env */
+      env: string;
+      /** Filename */
+      filename: string;
+      /**
+       * Findings
+       * @description validation findings the base side has not
+       */
+      findings: components["schemas"]["FindingOut"][];
+      /** Folders */
+      folders: components["schemas"]["PackageFolderOut"][];
+      head: components["schemas"]["RefOut"];
+      /** Merge Base */
+      merge_base?: string | null;
+      /** Selected */
+      selected?: string[] | null;
+      /**
+       * Size
+       * @description bytes of the XML file; 0 when nothing changed
+       */
+      size: number;
+      /** Warnings */
+      warnings: string[];
     };
     /** PeerOut */
     PeerOut: {
@@ -862,6 +951,8 @@ export interface operations {
         head?: string;
         /** @description compare from the merge base (pull-request style) */
         merge_base?: boolean;
+        /** @description comma-separated shas of the head commits to compare, applied on the base cherry-pick style; omitted: every commit; empty: none */
+        commits?: string | null;
       };
       header?: never;
       path?: never;
@@ -878,7 +969,16 @@ export interface operations {
           "application/json": components["schemas"]["ComparisonOut"];
         };
       };
-      /** @description Not a git repository, or unknown ref */
+      /** @description A selected commit needs one that was left out */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description Not a git repository, or unknown ref or commit */
       422: {
         headers: {
           [name: string]: unknown;
@@ -981,7 +1081,16 @@ export interface operations {
           "application/json": components["schemas"]["GitStateOut"];
         };
       };
-      /** @description Not a git repository, or unknown ref */
+      /** @description A selected commit needs one that was left out */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description Not a git repository, or unknown ref or commit */
       422: {
         headers: {
           [name: string]: unknown;
@@ -1069,6 +1178,130 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  package_preview_api_package_get: {
+    parameters: {
+      query: {
+        /** @description base ref, e.g. develop */
+        base: string;
+        /** @description head ref, or WORKTREE for uncommitted changes */
+        head?: string;
+        /** @description target environment, e.g. uat */
+        env: string;
+        /** @description compare from the merge base (pull-request style) */
+        merge_base?: boolean;
+        /** @description comma-separated shas of the head commits to compare, applied on the base cherry-pick style; omitted: every commit; empty: none */
+        commits?: string | null;
+        /** @description original (as in Control-M) | deduped */
+        jobnames?: string;
+        /** @description condition names: original | standard */
+        names?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PackageOut"];
+        };
+      };
+      /** @description Unknown environment */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description A selected commit needs one that was left out */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description Unknown ref or commit, a constant without a value, or nothing to package */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+    };
+  };
+  package_xml_api_package_xml_get: {
+    parameters: {
+      query: {
+        /** @description base ref, e.g. develop */
+        base: string;
+        /** @description head ref, or WORKTREE for uncommitted changes */
+        head?: string;
+        /** @description target environment, e.g. uat */
+        env: string;
+        /** @description compare from the merge base (pull-request style) */
+        merge_base?: boolean;
+        /** @description comma-separated shas of the head commits to compare, applied on the base cherry-pick style; omitted: every commit; empty: none */
+        commits?: string | null;
+        /** @description original (as in Control-M) | deduped */
+        jobnames?: string;
+        /** @description condition names: original | standard */
+        names?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The XML file to import */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/xml": unknown;
+        };
+      };
+      /** @description Unknown environment */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description A selected commit needs one that was left out */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description Unknown ref or commit, a constant without a value, or nothing to package */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
         };
       };
     };

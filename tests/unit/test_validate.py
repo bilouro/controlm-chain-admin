@@ -71,6 +71,16 @@ def test_every_anomaly_is_found_exactly_once_with_its_severity(tmp_path: Path) -
     assert report.count("error") == 1
 
 
+def test_validate_can_leave_the_derived_index_alone(tmp_path: Path) -> None:
+    repo = _import(tmp_path, ANOMALY_EXPORT)
+    for index in repo.folders_dir.rglob("index.json"):
+        index.unlink()
+
+    report = validate(repo, write_index=False)
+
+    assert report.findings and not list(repo.folders_dir.rglob("index.json"))
+
+
 def test_clean_chain_yields_only_external_information(tmp_path: Path) -> None:
     repo = _import(tmp_path, SAMPLE_EXPORT)
 

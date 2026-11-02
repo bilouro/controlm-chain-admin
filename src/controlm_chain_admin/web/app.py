@@ -17,7 +17,16 @@ from starlette.types import Scope
 
 from controlm_chain_admin import __version__
 from controlm_chain_admin.web import errors
-from controlm_chain_admin.web.routers import changes, folders, history, jobs, repo, table, validate
+from controlm_chain_admin.web.routers import (
+    changes,
+    folders,
+    history,
+    jobs,
+    package,
+    repo,
+    table,
+    validate,
+)
 from controlm_chain_admin.web.settings import Settings
 
 STATIC_DIR = Path(__file__).with_name("static")
@@ -62,6 +71,10 @@ TAGS = [
     {"name": "table", "description": "Folders and jobs with predecessors and successors."},
     {"name": "changes", "description": "Preview and apply edits (needs the session token)."},
     {"name": "history", "description": "Git refs and the comparison of two refs."},
+    {
+        "name": "package",
+        "description": "The Control-M import file with every folder a comparison changed.",
+    },
 ]
 
 
@@ -77,6 +90,7 @@ def create_app(settings: Settings, *, static_dir: Path = STATIC_DIR) -> FastAPI:
     app.state.token = settings.token or secrets.token_urlsafe(18)
     app.state.write_lock = threading.Lock()
     app.state.compare_cache = OrderedDict()
+    app.state.package_cache = OrderedDict()
     app.add_middleware(
         TrustedHostMiddleware, allowed_hosts=sorted({*settings.allowed_hosts, settings.host})
     )
@@ -89,6 +103,7 @@ def create_app(settings: Settings, *, static_dir: Path = STATIC_DIR) -> FastAPI:
         validate.router,
         changes.router,
         history.router,
+        package.router,
     ):
         app.include_router(router)
 

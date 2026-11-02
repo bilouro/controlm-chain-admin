@@ -132,6 +132,12 @@
             "title": "Date",
             "type": "string"
           },
+          "merge": {
+            "default": false,
+            "description": "merge commits cannot be selected",
+            "title": "Merge",
+            "type": "boolean"
+          },
           "sha": {
             "title": "Sha",
             "type": "string"
@@ -211,6 +217,21 @@
           "rules_changed": {
             "title": "Rules Changed",
             "type": "boolean"
+          },
+          "selected": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "commits compared, newest first; null when every commit is",
+            "title": "Selected"
           },
           "summary": {
             "additionalProperties": true,
@@ -943,6 +964,15 @@
             "title": "Change",
             "type": "string"
           },
+          "commits": {
+            "default": [],
+            "description": "compared commits that changed it, newest first",
+            "items": {
+              "type": "string"
+            },
+            "title": "Commits",
+            "type": "array"
+          },
           "diff": {
             "title": "Diff",
             "type": "string"
@@ -1015,6 +1045,122 @@
           "diff"
         ],
         "title": "NodeChangeOut",
+        "type": "object"
+      },
+      "PackageFolderOut": {
+        "properties": {
+          "jobs": {
+            "title": "Jobs",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "jobs",
+          "reasons"
+        ],
+        "title": "PackageFolderOut",
+        "type": "object"
+      },
+      "PackageOut": {
+        "properties": {
+          "base": {
+            "$ref": "#/components/schemas/RefOut"
+          },
+          "commits": {
+            "items": {
+              "$ref": "#/components/schemas/CommitOut"
+            },
+            "title": "Commits",
+            "type": "array"
+          },
+          "env": {
+            "title": "Env",
+            "type": "string"
+          },
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "findings": {
+            "description": "validation findings the base side has not",
+            "items": {
+              "$ref": "#/components/schemas/FindingOut"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "folders": {
+            "items": {
+              "$ref": "#/components/schemas/PackageFolderOut"
+            },
+            "title": "Folders",
+            "type": "array"
+          },
+          "head": {
+            "$ref": "#/components/schemas/RefOut"
+          },
+          "merge_base": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Merge Base"
+          },
+          "selected": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected"
+          },
+          "size": {
+            "description": "bytes of the XML file; 0 when nothing changed",
+            "title": "Size",
+            "type": "integer"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "base",
+          "head",
+          "env",
+          "commits",
+          "folders",
+          "warnings",
+          "findings",
+          "filename",
+          "size"
+        ],
+        "title": "PackageOut",
         "type": "object"
       },
       "PeerOut": {
@@ -1713,6 +1859,24 @@
               "title": "Merge Base",
               "type": "boolean"
             }
+          },
+          {
+            "description": "comma-separated shas of the head commits to compare, applied on the base cherry-pick style; omitted: every commit; empty: none",
+            "in": "query",
+            "name": "commits",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "comma-separated shas of the head commits to compare, applied on the base cherry-pick style; omitted: every commit; empty: none",
+              "title": "Commits"
+            }
           }
         ],
         "responses": {
@@ -1726,6 +1890,16 @@
             },
             "description": "Successful Response"
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "A selected commit needs one that was left out"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -1734,7 +1908,7 @@
                 }
               }
             },
-            "description": "Not a git repository, or unknown ref"
+            "description": "Not a git repository, or unknown ref or commit"
           }
         },
         "summary": "Compare two refs",
@@ -1877,6 +2051,16 @@
             },
             "description": "Successful Response"
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "A selected commit needs one that was left out"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -1885,7 +2069,7 @@
                 }
               }
             },
-            "description": "Not a git repository, or unknown ref"
+            "description": "Not a git repository, or unknown ref or commit"
           }
         },
         "summary": "Branches, tags and HEAD",
@@ -2007,6 +2191,284 @@
         ]
       }
     },
+    "/api/package": {
+      "get": {
+        "operationId": "package_preview_api_package_get",
+        "parameters": [
+          {
+            "description": "base ref, e.g. develop",
+            "in": "query",
+            "name": "base",
+            "required": true,
+            "schema": {
+              "description": "base ref, e.g. develop",
+              "title": "Base",
+              "type": "string"
+            }
+          },
+          {
+            "description": "head ref, or WORKTREE for uncommitted changes",
+            "in": "query",
+            "name": "head",
+            "required": false,
+            "schema": {
+              "default": "WORKTREE",
+              "description": "head ref, or WORKTREE for uncommitted changes",
+              "title": "Head",
+              "type": "string"
+            }
+          },
+          {
+            "description": "target environment, e.g. uat",
+            "in": "query",
+            "name": "env",
+            "required": true,
+            "schema": {
+              "description": "target environment, e.g. uat",
+              "title": "Env",
+              "type": "string"
+            }
+          },
+          {
+            "description": "compare from the merge base (pull-request style)",
+            "in": "query",
+            "name": "merge_base",
+            "required": false,
+            "schema": {
+              "default": true,
+              "description": "compare from the merge base (pull-request style)",
+              "title": "Merge Base",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "comma-separated shas of the head commits to compare, applied on the base cherry-pick style; omitted: every commit; empty: none",
+            "in": "query",
+            "name": "commits",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "comma-separated shas of the head commits to compare, applied on the base cherry-pick style; omitted: every commit; empty: none",
+              "title": "Commits"
+            }
+          },
+          {
+            "description": "original (as in Control-M) | deduped",
+            "in": "query",
+            "name": "jobnames",
+            "required": false,
+            "schema": {
+              "default": "original",
+              "description": "original (as in Control-M) | deduped",
+              "title": "Jobnames",
+              "type": "string"
+            }
+          },
+          {
+            "description": "condition names: original | standard",
+            "in": "query",
+            "name": "names",
+            "required": false,
+            "schema": {
+              "default": "original",
+              "description": "condition names: original | standard",
+              "title": "Names",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PackageOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unknown environment"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "A selected commit needs one that was left out"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unknown ref or commit, a constant without a value, or nothing to package"
+          }
+        },
+        "summary": "Folders of the import package, and why",
+        "tags": [
+          "package"
+        ]
+      }
+    },
+    "/api/package/xml": {
+      "get": {
+        "operationId": "package_xml_api_package_xml_get",
+        "parameters": [
+          {
+            "description": "base ref, e.g. develop",
+            "in": "query",
+            "name": "base",
+            "required": true,
+            "schema": {
+              "description": "base ref, e.g. develop",
+              "title": "Base",
+              "type": "string"
+            }
+          },
+          {
+            "description": "head ref, or WORKTREE for uncommitted changes",
+            "in": "query",
+            "name": "head",
+            "required": false,
+            "schema": {
+              "default": "WORKTREE",
+              "description": "head ref, or WORKTREE for uncommitted changes",
+              "title": "Head",
+              "type": "string"
+            }
+          },
+          {
+            "description": "target environment, e.g. uat",
+            "in": "query",
+            "name": "env",
+            "required": true,
+            "schema": {
+              "description": "target environment, e.g. uat",
+              "title": "Env",
+              "type": "string"
+            }
+          },
+          {
+            "description": "compare from the merge base (pull-request style)",
+            "in": "query",
+            "name": "merge_base",
+            "required": false,
+            "schema": {
+              "default": true,
+              "description": "compare from the merge base (pull-request style)",
+              "title": "Merge Base",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "comma-separated shas of the head commits to compare, applied on the base cherry-pick style; omitted: every commit; empty: none",
+            "in": "query",
+            "name": "commits",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "comma-separated shas of the head commits to compare, applied on the base cherry-pick style; omitted: every commit; empty: none",
+              "title": "Commits"
+            }
+          },
+          {
+            "description": "original (as in Control-M) | deduped",
+            "in": "query",
+            "name": "jobnames",
+            "required": false,
+            "schema": {
+              "default": "original",
+              "description": "original (as in Control-M) | deduped",
+              "title": "Jobnames",
+              "type": "string"
+            }
+          },
+          {
+            "description": "condition names: original | standard",
+            "in": "query",
+            "name": "names",
+            "required": false,
+            "schema": {
+              "default": "original",
+              "description": "condition names: original | standard",
+              "title": "Names",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/xml": {}
+            },
+            "description": "The XML file to import"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unknown environment"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "A selected commit needs one that was left out"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unknown ref or commit, a constant without a value, or nothing to package"
+          }
+        },
+        "summary": "Download the import package",
+        "tags": [
+          "package"
+        ]
+      }
+    },
     "/api/repo": {
       "get": {
         "operationId": "repo_info_api_repo_get",
@@ -2099,6 +2561,10 @@
     {
       "description": "Git refs and the comparison of two refs.",
       "name": "history"
+    },
+    {
+      "description": "The Control-M import file with every folder a comparison changed.",
+      "name": "package"
     }
   ]
 }

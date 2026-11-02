@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from collections import OrderedDict
-from typing import Any
+from collections.abc import Callable, Hashable
+from typing import Any, TypeVar
 
 from fastapi import APIRouter, Depends, Query, Request
 
@@ -15,9 +16,47 @@ from controlm_chain_admin.web.schemas import ComparisonOut, ErrorOut, GitStateOu
 
 router = APIRouter(prefix="/api", tags=["history"])
 ERRORS: dict[int | str, dict[str, Any]] = {
-    422: {"model": ErrorOut, "description": "Not a git repository, or unknown ref"}
+    409: {"model": ErrorOut, "description": "A selected commit needs one that was left out"},
+    422: {"model": ErrorOut, "description": "Not a git repository, or unknown ref or commit"},
 }
 _CACHE_SIZE = 8
+T = TypeVar("T")
+
+COMMITS = Query(
+    None,
+    description="comma-separated shas of the head commits to compare, applied on the base "
+    "cherry-pick style; omitted: every commit; empty: none",
+)
+
+
+def parse_commits(commits: str | None) -> list[str] | None:
+    if commits is None:
+        return None
+    return [c.strip() for c in commits.split(",") if c.strip()]
+
+
+def cached(
+    request: Request,
+    name: str,
+    repo: ChainRepo,
+    refs: tuple[str, str],
+    options: tuple[Hashable, ...],
+    build: Callable[[], T],
+) -> T:
+    """``build()`` memoised by the shas of the refs; the working tree is never cached."""
+    cache: OrderedDict[tuple[Hashable, ...], Any] = getattr(request.app.state, name)
+    head_sha = resolve(repo.root, refs[1]).sha
+    if head_sha is None:
+        return build()
+    key = (str(resolve(repo.root, refs[0]).sha), head_sha, *options)
+    if key in cache:
+        cache.move_to_end(key)
+        return cache[key]  # type: ignore[no-any-return]
+    value = build()
+    cache[key] = value
+    while len(cache) > _CACHE_SIZE:
+        cache.popitem(last=False)
+    return value
 
 
 @router.get("/git", response_model=GitStateOut, responses=ERRORS, summary="Branches, tags and HEAD")
@@ -32,18 +71,17 @@ def compare_refs(
     base: str = Query(description="base ref, e.g. develop"),
     head: str = Query("WORKTREE", description="head ref, or WORKTREE for uncommitted changes"),
     merge_base: bool = Query(True, description="compare from the merge base (pull-request style)"),
+    commits: str | None = COMMITS,
 ) -> ComparisonOut:
-    cache: OrderedDict[tuple[str, str, bool], dict[str, Any]] = request.app.state.compare_cache
-    key = None
-    head_sha = resolve(repo.root, head).sha  # None for the working tree: never cached
-    if head_sha is not None:
-        key = (str(resolve(repo.root, base).sha), head_sha, merge_base)
-        if key in cache:
-            cache.move_to_end(key)
-            return ComparisonOut.model_validate(cache[key])
-    data = compare(repo.root, base, head, use_merge_base=merge_base).to_json()
-    if key is not None:
-        cache[key] = data
-        while len(cache) > _CACHE_SIZE:
-            cache.popitem(last=False)
+    selection = parse_commits(commits)
+    data = cached(
+        request,
+        "compare_cache",
+        repo,
+        (base, head),
+        (merge_base, None if selection is None else tuple(selection)),
+        lambda: compare(
+            repo.root, base, head, use_merge_base=merge_base, commits=selection
+        ).to_json(),
+    )
     return ComparisonOut.model_validate(data)

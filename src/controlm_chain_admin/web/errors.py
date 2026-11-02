@@ -16,8 +16,11 @@ from controlm_chain_admin.core.errors import (
     InvalidChange,
     ModelError,
     NotAChainRepo,
+    NothingToPackage,
     OrderConflict,
+    SelectionConflict,
     UnknownEnvironment,
+    UnresolvedConstant,
     UnsafeName,
     XmlFormatError,
 )
@@ -27,6 +30,7 @@ log = logging.getLogger("ctmchain.web")
 _STATUS: tuple[tuple[type[ChainError], int], ...] = (
     (InvalidChange, 422),  # before ModelError, its base class
     (ChangeConflict, 409),
+    (SelectionConflict, 409),  # before GitError, its base class
     (GitError, 422),
     (ModelError, 404),
     (UnknownEnvironment, 404),
@@ -36,6 +40,8 @@ _STATUS: tuple[tuple[type[ChainError], int], ...] = (
     (UnsafeName, 422),
     (EnvironmentRequired, 422),
     (XmlFormatError, 422),
+    (UnresolvedConstant, 422),
+    (NothingToPackage, 422),
 )
 
 
@@ -53,7 +59,10 @@ def _body(error: str, message: str, detail: object = None) -> dict[str, object]:
 def register(app: FastAPI) -> None:
     @app.exception_handler(ChainError)
     async def chain_error(_: Request, exc: ChainError) -> JSONResponse:
-        return JSONResponse(status_code=status_for(exc), content=_body(type(exc).__name__, str(exc)))
+        detail = getattr(exc, "detail", None)
+        return JSONResponse(
+            status_code=status_for(exc), content=_body(type(exc).__name__, str(exc), detail)
+        )
 
     @app.exception_handler(Exception)
     async def unexpected(_: Request, exc: Exception) -> JSONResponse:

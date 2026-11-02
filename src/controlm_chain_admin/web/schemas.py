@@ -223,6 +223,7 @@ class CommitOut(BaseModel):
     subject: str
     author: str
     date: str
+    merge: bool = Field(False, description="merge commits cannot be selected")
 
 
 class ValueChangeOut(BaseModel):
@@ -255,6 +256,7 @@ class NodeChangeOut(BaseModel):
     before: dict[str, Any] | None = None
     after: dict[str, Any] | None = None
     diff: str
+    commits: list[str] = Field([], description="compared commits that changed it, newest first")
 
 
 class LinkChangeOut(BaseModel):
@@ -283,3 +285,26 @@ class ComparisonOut(BaseModel):
     constants: list[ConstantChangeOut]
     rules_changed: bool
     metadata_files_changed: int
+    selected: list[str] | None = Field(
+        None, description="commits compared, newest first; null when every commit is"
+    )
+
+
+class PackageFolderOut(BaseModel):
+    name: str
+    jobs: int
+    reasons: list[str]
+
+
+class PackageOut(BaseModel):
+    base: RefOut
+    head: RefOut
+    merge_base: str | None = None
+    env: str
+    commits: list[CommitOut]
+    selected: list[str] | None = None
+    folders: list[PackageFolderOut]
+    warnings: list[str]
+    findings: list[FindingOut] = Field(description="validation findings the base side has not")
+    filename: str
+    size: int = Field(description="bytes of the XML file; 0 when nothing changed")

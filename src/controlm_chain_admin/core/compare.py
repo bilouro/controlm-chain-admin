@@ -5,7 +5,8 @@ folders and jobs added, removed, modified, renamed or moved; attribute and varia
 and after; predecessors and successors with their AND_OR, ODATE and cleanup (``-``) details;
 conditions renamed, added or removed; constant values per environment; and the commits involved.
 By default the base side is the merge base of the two refs, like a pull request, so only what the
-head branch changed is shown.
+head branch changed is shown. A selection of the head's commits compares only their changes (see
+:mod:`controlm_chain_admin.core.selection`).
 """
 
 from __future__ import annotations
@@ -13,21 +14,15 @@ from __future__ import annotations
 import difflib
 import json
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
-from controlm_chain_admin.core.history import (
-    CommitInfo,
-    RefInfo,
-    commits_between,
-    merge_base,
-    resolve,
-    snapshot,
-)
+from controlm_chain_admin.core.history import CommitInfo, RefInfo
 from controlm_chain_admin.core.links import LINK_KEY, folder_names, load_links
 from controlm_chain_admin.core.relations import NodeRelations, Relation, all_relations
 from controlm_chain_admin.core.repo import CHAIN_FILE, EnvConfig, load_repo, read_json
+from controlm_chain_admin.core.selection import Sides, open_sides
 
 _NAME_KEYS = ("JOBNAME", "MEMNAME", "PARENT_FOLDER", "FOLDER_NAME")
 _RELATION_GROUPS = ("INCOND", "OUTCOND")
@@ -84,6 +79,7 @@ class NodeChange:
     before: dict[str, Any] | None = None
     after: dict[str, Any] | None = None
     diff: str = ""
+    commits: tuple[str, ...] = ()  # shas of the compared commits that changed it, newest first
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -100,6 +96,7 @@ class NodeChange:
             "before": self.before,
             "after": self.after,
             "diff": self.diff,
+            "commits": list(self.commits),
         }
 
 
@@ -142,6 +139,7 @@ class Comparison:
     constants: tuple[ConstantChange, ...]
     rules_changed: bool
     metadata_files_changed: int
+    selected: tuple[str, ...] | None = None  # commits compared when not all of them
 
     def summary(self) -> dict[str, Any]:
         def count(
@@ -172,6 +170,7 @@ class Comparison:
             "constants": [c.to_json() for c in self.constants],
             "rules_changed": self.rules_changed,
             "metadata_files_changed": self.metadata_files_changed,
+            "selected": None if self.selected is None else list(self.selected),
         }
 
 
@@ -559,22 +558,64 @@ def diff_snapshots(base_root: Path, head_root: Path) -> tuple[Any, ...]:
     )
 
 
-def compare(root: Path, base: str, head: str, *, use_merge_base: bool = True) -> Comparison:
-    """Compare the chain repository at ``base`` and ``head`` (refs, shas or ``WORKTREE``)."""
-    base_info, head_info = resolve(root, base), resolve(root, head)
-    head_commit = head_info.sha or resolve(root, "HEAD").sha or "HEAD"
-    merge: str | None = None
-    if use_merge_base and base_info.sha:
-        candidate = merge_base(root, base_info.sha, head_commit)
-        if candidate != base_info.sha:
-            merge = candidate
-    compared = merge or base_info.sha or base  # base may be WORKTREE
-    commits = commits_between(root, compared, head_commit) if base_info.sha else ()
-    with snapshot(root, compared) as base_root, snapshot(root, head) as head_root:
-        folders, jobs, links, constants, rules, meta = diff_snapshots(base_root, head_root)
+def _job_path(identity: str) -> str:
+    folder, _, job = identity.partition("/")
+    return f"folders/{folder}/jobs/{job}.json"
+
+
+def _attribute(nodes: Sequence[NodeChange], sides: Sides) -> tuple[NodeChange, ...]:
+    """Each change with the commits that touched its files (a job: its file, else its peers')."""
+    touched: dict[str, list[str]] = {}
+    for sha in sides.applied:
+        for change in sides.changes.get(sha, ()):
+            touched.setdefault(change.path, []).append(sha)
+
+    def commits_of(paths: Sequence[str], prefixes: tuple[str, ...] = ()) -> tuple[str, ...]:
+        found = {sha for path in paths for sha in touched.get(path, ())}
+        for path, shas in touched.items():
+            if prefixes and path.startswith(prefixes):
+                found.update(shas)
+        return tuple(sha for sha in sides.applied if sha in found)
+
+    result = []
+    for node in nodes:
+        names = [n for n in (node.node, node.previous) if n]
+        if node.kind == "folder":
+            shas = commits_of((), tuple(f"folders/{n[:-1]}/" for n in names))
+        else:
+            shas = commits_of([_job_path(n) for n in names])
+            if not shas and node.relations:
+                peers = {p for r in node.relations for p in (*r.peers_before, *r.peers_after)}
+                shas = commits_of([_job_path(p) for p in sorted(peers) if not p.endswith("/")])
+        result.append(replace(node, commits=shas))
+    return tuple(result)
+
+
+def compare(
+    root: Path,
+    base: str,
+    head: str,
+    *,
+    use_merge_base: bool = True,
+    commits: Sequence[str] | None = None,
+) -> Comparison:
+    """Compare the chain repository at ``base`` and ``head`` (refs, shas or ``WORKTREE``).
+
+    ``commits`` limits the head side to those commits of the branch (any subset, any order),
+    applied on the base side; every commit of the branch is still listed, to choose from.
+    """
+    with open_sides(root, base, head, use_merge_base=use_merge_base, commits=commits) as sides:
+        return comparison(sides)
+
+
+def comparison(sides: Sides) -> Comparison:
+    """The :class:`Comparison` of two opened sides."""
+    folders, jobs, links, constants, rules, meta = diff_snapshots(sides.base_root, sides.head_root)
     return Comparison(
-        base_info, head_info, merge, commits, folders, jobs, links, constants, rules, meta
-    )
+        sides.base, sides.head, sides.merge_base, sides.commits,
+        _attribute(folders, sides), _attribute(jobs, sides),
+        links, constants, rules, meta, sides.selected,
+    )  # fmt: skip
 
 
 # ---------------------------------------------------------------- renderings
@@ -626,8 +667,15 @@ def _node_lines(node: NodeChange) -> list[str]:
     return lines
 
 
+def _commits_label(result: Comparison) -> str:
+    if result.selected is None:
+        return f"{len(result.commits)} commits"
+    total = sum(1 for c in result.commits if not c.merge)
+    return f"{len(result.selected)} of {total} commits"
+
+
 def _headline(result: Comparison) -> str:
-    line = f"Compare {result.base.name}..{result.head.name}: {len(result.commits)} commits"
+    line = f"Compare {result.base.name}..{result.head.name}: {_commits_label(result)}"
     if result.merge_base:
         line += f" (from merge base {result.merge_base[:7]})"
     return line
@@ -635,7 +683,12 @@ def _headline(result: Comparison) -> str:
 
 def render_text(result: Comparison) -> str:
     lines = [_headline(result)]
-    lines += [f"  {c.sha[:7]} {c.subject} — {c.author}" for c in result.commits]
+    left_out = set() if result.selected is None else {c.sha for c in result.commits}
+    left_out -= set(result.selected or ())
+    lines += [
+        f"  {c.sha[:7]} {c.subject} — {c.author}" + (" (left out)" if c.sha in left_out else "")
+        for c in result.commits
+    ]
     nodes = (*result.folders, *result.jobs)
     if not (nodes or result.links or result.constants):
         lines.append(f"No changes between {result.base.name} and {result.head.name}.")
@@ -665,7 +718,7 @@ def render_markdown(result: Comparison) -> str:
     """A summary suitable for a pull request description."""
     lines = [f"## Chain changes: {result.base.name}..{result.head.name}", ""]
     origin = f" · from merge base `{result.merge_base[:7]}`" if result.merge_base else ""
-    lines += [f"{len(result.commits)} commit(s){origin}", ""]
+    lines += [f"{_commits_label(result)}{origin}", ""]
     nodes = (*result.folders, *result.jobs)
     if nodes:
         lines += ["| change | kind | node | details |", "|---|---|---|---|"]

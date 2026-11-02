@@ -56,6 +56,7 @@ ctmchain export --env uat -o uat.xml --repo ./my-chains             # byte-ident
 ctmchain export --env prod -o prod.xml --repo ./my-chains           # same chain, prod letters
 ctmchain serve --repo ./my-chains                                   # local web UI
 ctmchain compare develop feature/new-check --repo ./my-chains       # what the branch changed
+ctmchain package develop feature/new-check --env uat --repo ./my-chains   # import file, changed folders
 ```
 
 Refactorings preview a change set and write only with `--apply`:

@@ -177,6 +177,10 @@ or addresses anywhere in this public repository.
 5. **Branch comparison — DONE (2026-11-02)**, asked by the author: `ctmchain compare` and the
    *Compare* web page (feature branch against develop, from the merge base; how each changed node
    was and how it is now).
+6. **Import package — DONE (2026-11-02)**, asked by the author: `ctmchain package` and the
+   *Generate XML* button of the Compare page; every changed folder, whole, for one environment,
+   with its reasons and warnings; the comparison and the package can keep only some commits of
+   the branch (any subset, applied cherry-pick style; a missing dependency is named).
 
 Later, unordered: overrides and `envs` variants; second-environment import with learning; `diff`
 of environments and XML files with `xmldiffreport`; mapping editor; git bar (commit from the UI);

@@ -1,0 +1,475 @@
+{
+  "base": {
+    "name": "develop",
+    "kind": "branch",
+    "sha": "2777cf14384e47971bf588151a4a8936965abfb4",
+    "subject": "chore: constants",
+    "date": "2026-11-02T12:00:57Z"
+  },
+  "head": {
+    "name": "feature/demo",
+    "kind": "branch",
+    "sha": "745faaf1f0c934e9a9a5858fb630957b132583ab",
+    "subject": "feat: quality check before P77_B",
+    "date": "2026-11-02T12:00:57Z"
+  },
+  "merge_base": null,
+  "summary": {
+    "folders": {
+      "added": 0,
+      "removed": 0,
+      "modified": 2,
+      "renamed": 0
+    },
+    "jobs": {
+      "added": 0,
+      "removed": 0,
+      "modified": 0,
+      "renamed": 1,
+      "moved": 1
+    },
+    "links": {
+      "added": 0,
+      "removed": 0,
+      "renamed": 2
+    },
+    "relations": {
+      "added": 0,
+      "removed": 0,
+      "modified": 0
+    },
+    "constants": 0,
+    "commits": 3
+  },
+  "commits": [
+    {
+      "sha": "745faaf1f0c934e9a9a5858fb630957b132583ab",
+      "subject": "feat: quality check before P77_B",
+      "author": "Test",
+      "date": "2026-11-02T12:00:57Z",
+      "merge": false
+    },
+    {
+      "sha": "8523d46b60a22755b81608c93ea5efc5d18f2fd6",
+      "subject": "refactor: rename P77_D and move the load job",
+      "author": "Test",
+      "date": "2026-11-02T12:00:57Z",
+      "merge": false
+    },
+    {
+      "sha": "072fa92d98d3f4bd64068281fd3d7a3fdcacaf9c",
+      "subject": "feat: retries on P77_C",
+      "author": "Test",
+      "date": "2026-11-02T12:00:57Z",
+      "merge": false
+    }
+  ],
+  "folders": [
+    {
+      "node": "P77_INGEST_DAILY/",
+      "kind": "folder",
+      "change": "modified",
+      "previous": null,
+      "attributes": [],
+      "variables": [],
+      "relations": [],
+      "groups": [],
+      "jobs_added": [],
+      "jobs_removed": [
+        "P77_INGEST_DAILY/P77_INGEST_LOAD"
+      ],
+      "before": {
+        "tag": "SMART_FOLDER",
+        "APPLICATION": "P77_RISK_ENGINE",
+        "SUB_APPLICATION": "P77_BATCH",
+        "JOBNAME": "P77_INGEST_DAILY",
+        "DESCRIPTION": "Daily ingest & load",
+        "CREATED_BY": "user01",
+        "RUN_AS": "aup77proc",
+        "TASKTYPE": "SMART Table",
+        "FOLDER_NAME": "P77_INGEST_DAILY",
+        "TYPE": "2",
+        "VARIABLE": [
+          {
+            "NAME": "%%GEIENV",
+            "VALUE": "u"
+          }
+        ],
+        "INCOND": [
+          {
+            "link": "P77_PRICING-P77_INGEST_DAILY_OK",
+            "ODATE": "ODAT",
+            "AND_OR": "A"
+          }
+        ],
+        "OUTCOND": [
+          {
+            "link": "P77_PRICING-P77_INGEST_DAILY_OK",
+            "ODATE": "ODAT",
+            "SIGN": "-"
+          }
+        ],
+        "jobs": [
+          "P77_INGEST_INIT",
+          "P77_INGEST_LOAD"
+        ]
+      },
+      "after": {
+        "tag": "SMART_FOLDER",
+        "APPLICATION": "P77_RISK_ENGINE",
+        "SUB_APPLICATION": "P77_BATCH",
+        "JOBNAME": "P77_INGEST_DAILY",
+        "DESCRIPTION": "Daily ingest & load",
+        "CREATED_BY": "user01",
+        "RUN_AS": "aup77proc",
+        "TASKTYPE": "SMART Table",
+        "FOLDER_NAME": "P77_INGEST_DAILY",
+        "TYPE": "2",
+        "VARIABLE": [
+          {
+            "NAME": "%%GEIENV",
+            "VALUE": "u"
+          }
+        ],
+        "INCOND": [
+          {
+            "link": "P77_PRICING-P77_INGEST_DAILY_OK",
+            "ODATE": "ODAT",
+            "AND_OR": "A"
+          }
+        ],
+        "OUTCOND": [
+          {
+            "link": "P77_PRICING-P77_INGEST_DAILY_OK",
+            "ODATE": "ODAT",
+            "SIGN": "-"
+          }
+        ],
+        "jobs": [
+          "P77_INGEST_INIT"
+        ]
+      },
+      "diff": "--- a/P77_INGEST_DAILY/\n+++ b/P77_INGEST_DAILY/\n@@ -31,6 +31,5 @@\n   ],\n   \"jobs\": [\n-    \"P77_INGEST_INIT\",\n-    \"P77_INGEST_LOAD\"\n+    \"P77_INGEST_INIT\"\n   ]\n }",
+      "commits": [
+        "8523d46b60a22755b81608c93ea5efc5d18f2fd6"
+      ]
+    },
+    {
+      "node": "P77_CHAIN/",
+      "kind": "folder",
+      "change": "modified",
+      "previous": null,
+      "attributes": [],
+      "variables": [],
+      "relations": [],
+      "groups": [],
+      "jobs_added": [
+        "P77_CHAIN/P77_INGEST_LOAD"
+      ],
+      "jobs_removed": [],
+      "before": {
+        "tag": "SMART_FOLDER",
+        "APPLICATION": "P77_RISK_ENGINE",
+        "SUB_APPLICATION": "P77_BATCH",
+        "JOBNAME": "P77_CHAIN",
+        "RUN_AS": "aup77proc",
+        "TASKTYPE": "SMART Table",
+        "FOLDER_NAME": "P77_CHAIN",
+        "TYPE": "2",
+        "INCOND": [
+          {
+            "link": "P77_OTHER-P77_CHAIN_OK",
+            "ODATE": "ODAT",
+            "AND_OR": "A"
+          }
+        ],
+        "OUTCOND": [
+          {
+            "link": "P77_OTHER-P77_CHAIN_OK",
+            "ODATE": "ODAT",
+            "SIGN": "-"
+          },
+          {
+            "link": "P77_CHAIN-P77_NEXT_OK",
+            "ODATE": "ODAT",
+            "SIGN": "+"
+          }
+        ],
+        "jobs": [
+          "P77_A",
+          "P77_B",
+          "P77_C",
+          "P77_D",
+          "P77_E",
+          "P77_F",
+          "P77_F~2"
+        ]
+      },
+      "after": {
+        "tag": "SMART_FOLDER",
+        "APPLICATION": "P77_RISK_ENGINE",
+        "SUB_APPLICATION": "P77_BATCH",
+        "JOBNAME": "P77_CHAIN",
+        "RUN_AS": "aup77proc",
+        "TASKTYPE": "SMART Table",
+        "FOLDER_NAME": "P77_CHAIN",
+        "TYPE": "2",
+        "INCOND": [
+          {
+            "link": "P77_OTHER-P77_CHAIN_OK",
+            "ODATE": "ODAT",
+            "AND_OR": "A"
+          }
+        ],
+        "OUTCOND": [
+          {
+            "link": "P77_OTHER-P77_CHAIN_OK",
+            "ODATE": "ODAT",
+            "SIGN": "-"
+          },
+          {
+            "link": "P77_CHAIN-P77_NEXT_OK",
+            "ODATE": "ODAT",
+            "SIGN": "+"
+          }
+        ],
+        "jobs": [
+          "P77_A",
+          "P77_B",
+          "P77_C",
+          "P77_DELTA",
+          "P77_E",
+          "P77_F",
+          "P77_F~2",
+          "P77_INGEST_LOAD"
+        ]
+      },
+      "diff": "--- a/P77_CHAIN/\n+++ b/P77_CHAIN/\n@@ -31,8 +31,9 @@\n     \"P77_B\",\n     \"P77_C\",\n-    \"P77_D\",\n+    \"P77_DELTA\",\n     \"P77_E\",\n     \"P77_F\",\n-    \"P77_F~2\"\n+    \"P77_F~2\",\n+    \"P77_INGEST_LOAD\"\n   ]\n }",
+      "commits": [
+        "8523d46b60a22755b81608c93ea5efc5d18f2fd6"
+      ]
+    }
+  ],
+  "jobs": [
+    {
+      "node": "P77_CHAIN/P77_DELTA",
+      "kind": "job",
+      "change": "renamed",
+      "previous": "P77_CHAIN/P77_D",
+      "attributes": [
+        {
+          "name": "JOBNAME",
+          "before": "P77_D",
+          "after": "P77_DELTA"
+        }
+      ],
+      "variables": [],
+      "relations": [],
+      "groups": [],
+      "jobs_added": [],
+      "jobs_removed": [],
+      "before": {
+        "APPLICATION": "P77_RISK_ENGINE",
+        "SUB_APPLICATION": "P77_BATCH",
+        "MEMNAME": "P77_D",
+        "JOBNAME": "P77_D",
+        "RUN_AS": "aup77proc",
+        "TASKTYPE": "Command",
+        "NODEID": "UP77_BATCH",
+        "CMDLINE": "/opt/p77/bin/d.ksh",
+        "PARENT_FOLDER": "P77_CHAIN",
+        "INCOND": [
+          {
+            "link": "P77_OLDNAME-P77_D_OK",
+            "ODATE": "ODAT",
+            "AND_OR": "A"
+          }
+        ],
+        "OUTCOND": [
+          {
+            "link": "P77_OLDNAME-P77_D_OK",
+            "ODATE": "ODAT",
+            "SIGN": "-"
+          },
+          {
+            "link": "P77_D-P77_NOBODY_OK",
+            "ODATE": "ODAT",
+            "SIGN": "+"
+          }
+        ]
+      },
+      "after": {
+        "APPLICATION": "P77_RISK_ENGINE",
+        "SUB_APPLICATION": "P77_BATCH",
+        "MEMNAME": "P77_D",
+        "JOBNAME": "P77_DELTA",
+        "RUN_AS": "aup77proc",
+        "TASKTYPE": "Command",
+        "NODEID": "UP77_BATCH",
+        "CMDLINE": "/opt/p77/bin/d.ksh",
+        "PARENT_FOLDER": "P77_CHAIN",
+        "INCOND": [
+          {
+            "link": "P77_OLDNAME-P77_D_OK",
+            "ODATE": "ODAT",
+            "AND_OR": "A"
+          }
+        ],
+        "OUTCOND": [
+          {
+            "link": "P77_OLDNAME-P77_D_OK",
+            "ODATE": "ODAT",
+            "SIGN": "-"
+          },
+          {
+            "link": "P77_D-P77_NOBODY_OK",
+            "ODATE": "ODAT",
+            "SIGN": "+"
+          }
+        ]
+      },
+      "diff": "--- a/P77_CHAIN/P77_D\n+++ b/P77_CHAIN/P77_DELTA\n@@ -3,5 +3,5 @@\n   \"SUB_APPLICATION\": \"P77_BATCH\",\n   \"MEMNAME\": \"P77_D\",\n-  \"JOBNAME\": \"P77_D\",\n+  \"JOBNAME\": \"P77_DELTA\",\n   \"RUN_AS\": \"aup77proc\",\n   \"TASKTYPE\": \"Command\",\n",
+      "commits": [
+        "8523d46b60a22755b81608c93ea5efc5d18f2fd6"
+      ]
+    },
+    {
+      "node": "P77_CHAIN/P77_INGEST_LOAD",
+      "kind": "job",
+      "change": "moved",
+      "previous": "P77_INGEST_DAILY/P77_INGEST_LOAD",
+      "attributes": [
+        {
+          "name": "PARENT_FOLDER",
+          "before": "P77_INGEST_DAILY",
+          "after": "P77_CHAIN"
+        }
+      ],
+      "variables": [],
+      "relations": [],
+      "groups": [],
+      "jobs_added": [],
+      "jobs_removed": [],
+      "before": {
+        "APPLICATION": "P77_RISK_ENGINE",
+        "SUB_APPLICATION": "P77_BATCH",
+        "MEMNAME": "P77_INGEST_LOAD",
+        "JOBNAME": "P77_INGEST_LOAD",
+        "DESCRIPTION": "Load positions",
+        "RUN_AS": "aup77proc",
+        "TASKTYPE": "Command",
+        "NODEID": "UP77_BATCH",
+        "CMDLINE": "/opt/p77/bin/load.ksh -d %%ODATE",
+        "PARENT_FOLDER": "P77_INGEST_DAILY",
+        "INCOND": [
+          {
+            "link": "P77_INGEST_INIT-P77_INGEST_LOAD_OK",
+            "ODATE": "ODAT",
+            "AND_OR": "A"
+          }
+        ],
+        "OUTCOND": [
+          {
+            "link": "P77_INGEST_INIT-P77_INGEST_LOAD_OK",
+            "ODATE": "ODAT",
+            "SIGN": "-"
+          }
+        ],
+        "ON": [
+          {
+            "STMT": "*",
+            "CODE": "NOTOK",
+            "children": [
+              {
+                "tag": "DOSHOUT",
+                "URGENCY": "R",
+                "MESSAGE": "Alert",
+                "DEST": "EM"
+              },
+              {
+                "tag": "DOMAIL",
+                "URGENCY": "R",
+                "DEST": "ops@example.com",
+                "SUBJECT": "[P77][UAT] Load failed",
+                "MESSAGE": "Job %%JOBNAME failed",
+                "ATTACH_SYSOUT": "Y"
+              }
+            ]
+          }
+        ]
+      },
+      "after": {
+        "APPLICATION": "P77_RISK_ENGINE",
+        "SUB_APPLICATION": "P77_BATCH",
+        "MEMNAME": "P77_INGEST_LOAD",
+        "JOBNAME": "P77_INGEST_LOAD",
+        "DESCRIPTION": "Load positions",
+        "RUN_AS": "aup77proc",
+        "TASKTYPE": "Command",
+        "NODEID": "UP77_BATCH",
+        "CMDLINE": "/opt/p77/bin/load.ksh -d %%ODATE",
+        "PARENT_FOLDER": "P77_CHAIN",
+        "INCOND": [
+          {
+            "link": "P77_INGEST_INIT-P77_INGEST_LOAD_OK",
+            "ODATE": "ODAT",
+            "AND_OR": "A"
+          }
+        ],
+        "OUTCOND": [
+          {
+            "link": "P77_INGEST_INIT-P77_INGEST_LOAD_OK",
+            "ODATE": "ODAT",
+            "SIGN": "-"
+          }
+        ],
+        "ON": [
+          {
+            "STMT": "*",
+            "CODE": "NOTOK",
+            "children": [
+              {
+                "tag": "DOSHOUT",
+                "URGENCY": "R",
+                "MESSAGE": "Alert",
+                "DEST": "EM"
+              },
+              {
+                "tag": "DOMAIL",
+                "URGENCY": "R",
+                "DEST": "ops@example.com",
+                "SUBJECT": "[P77][UAT] Load failed",
+                "MESSAGE": "Job %%JOBNAME failed",
+                "ATTACH_SYSOUT": "Y"
+              }
+            ]
+          }
+        ]
+      },
+      "diff": "--- a/P77_INGEST_DAILY/P77_INGEST_LOAD\n+++ b/P77_CHAIN/P77_INGEST_LOAD\n@@ -9,5 +9,5 @@\n   \"NODEID\": \"UP77_BATCH\",\n   \"CMDLINE\": \"/opt/p77/bin/load.ksh -d %%ODATE\",\n-  \"PARENT_FOLDER\": \"P77_INGEST_DAILY\",\n+  \"PARENT_FOLDER\": \"P77_CHAIN\",\n   \"INCOND\": [\n     {\n",
+      "commits": [
+        "8523d46b60a22755b81608c93ea5efc5d18f2fd6"
+      ]
+    }
+  ],
+  "links": [
+    {
+      "link": "P77_D-P77_NOBODY_OK",
+      "change": "renamed",
+      "before": "P77_D-P77_NOBODY_OK",
+      "after": "P77_DELTA-P77_NOBODY_OK"
+    },
+    {
+      "link": "P77_OLDNAME-P77_D_OK",
+      "change": "renamed",
+      "before": "P77_OLDNAME-P77_D_OK",
+      "after": "P77_OLDNAME-P77_DELTA_OK"
+    }
+  ],
+  "constants": [],
+  "rules_changed": false,
+  "metadata_files_changed": 2,
+  "selected": [
+    "8523d46b60a22755b81608c93ea5efc5d18f2fd6"
+  ]
+}

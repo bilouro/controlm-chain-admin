@@ -6,10 +6,12 @@ import type { GitStateOut } from "@/lib/api/client";
 import { renderAt } from "@/test/render";
 import { calls, server } from "@/test/server";
 import gitState from "@/test/fixtures/git.json";
+import comparison from "@/test/fixtures/compare.json";
 import { ComparePage } from "./ComparePage";
 import { defaultRefs } from "./refs";
 
 const lastCompare = () => calls.compare[calls.compare.length - 1];
+const [newest = "", middle = "", oldest = ""] = comparison.commits.map((c) => c.sha);
 
 describe("defaultRefs", () => {
   const git = gitState as GitStateOut;
@@ -109,7 +111,7 @@ describe("ComparePage", () => {
     expect(screen.getByText("was P77_INGEST_DAILY/P77_INGEST_LOAD")).toBeInTheDocument();
   });
 
-  it("lists renamed conditions, constants per environment and the commits", async () => {
+  it("lists renamed conditions and constants per environment", async () => {
     const user = userEvent.setup();
     renderAt(<ComparePage />, { path: "/compare" });
     await screen.findByRole("button", { name: "P77_C modified" });
@@ -123,11 +125,6 @@ describe("ComparePage", () => {
     const constants = screen.getByRole("table", { name: "Constant changes" });
     expect(constants).toHaveTextContent("prod");
     expect(constants).toHaveTextContent("PP77_BATCH_V2");
-
-    await user.click(screen.getByRole("tab", { name: "Commits (3)" }));
-    expect(screen.getByRole("list", { name: "Commits" })).toHaveTextContent(
-      "feat: retries on P77_C",
-    );
   });
 
   it("unchecking the merge base compares the two tips directly", async () => {
@@ -163,5 +160,126 @@ describe("ComparePage", () => {
     renderAt(<ComparePage />, { path: "/compare" });
 
     expect(await screen.findByRole("alert")).toHaveTextContent("not a git repository");
+  });
+
+  it("lists the commits, all selected, and compares only the ones left checked", async () => {
+    const user = userEvent.setup();
+    renderAt(<ComparePage />, { path: "/compare" });
+    const commits = await screen.findByRole("group", { name: "Commits" });
+    const boxes = within(commits).getAllByRole("checkbox");
+    expect(boxes).toHaveLength(3);
+    boxes.forEach((box) => expect(box).toBeChecked());
+    expect(commits).toHaveTextContent("3 of 3 selected");
+
+    await user.click(within(commits).getByRole("checkbox", { name: /feat: retries on P77_C/ }));
+
+    await waitFor(() => expect(lastCompare()?.get("commits")).toBe(`${newest},${middle}`));
+  });
+
+  it("shows only the changes of the selected commits and which commit made each one", async () => {
+    const user = userEvent.setup();
+    renderAt(<ComparePage />, { path: `/compare?commits=${middle}` });
+
+    expect(await screen.findByText(/Showing the changes of 1 of 3 commits/)).toBeInTheDocument();
+    const list = screen.getByRole("list", { name: "Changed folders and jobs" });
+    expect(within(list).queryByRole("button", { name: "P77_C modified" })).not.toBeInTheDocument();
+    await user.click(within(list).getByRole("button", { name: "P77_DELTA renamed" }));
+    expect(screen.getByRole("list", { name: "Changed by" })).toHaveTextContent(
+      "refactor: rename P77_D and move the load job",
+    );
+
+    await user.click(screen.getByRole("button", { name: "All" }));
+    await waitFor(() => expect(lastCompare()?.has("commits")).toBe(false));
+  });
+
+  it("names the left-out commit a selection needs and can add it", async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get("/api/compare", ({ request }) => {
+        const params = new URL(request.url).searchParams;
+        calls.compare.push(params);
+        if (params.get("commits") === newest) {
+          return HttpResponse.json(
+            {
+              error: "SelectionConflict",
+              message: `commit ${newest.slice(0, 7)} does not apply without ${oldest.slice(0, 7)}`,
+              detail: {
+                commit: newest,
+                paths: ["folders/P77_CHAIN/jobs/P77_C.json"],
+                missing: [oldest],
+              },
+            },
+            { status: 409 },
+          );
+        }
+        return HttpResponse.json(comparison);
+      }),
+    );
+    renderAt(<ComparePage />, { path: `/compare?commits=${newest}` });
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("does not apply without");
+    expect(screen.getByRole("group", { name: "Commits" })).toBeInTheDocument();
+    await user.click(within(alert).getByRole("button", { name: "Include the missing commit" }));
+
+    await waitFor(() => expect(lastCompare()?.get("commits")).toBe(`${newest},${oldest}`));
+  });
+
+  it("the working tree has no commits to select", async () => {
+    renderAt(<ComparePage />, { path: "/compare?head=WORKTREE" });
+    const commits = await screen.findByRole("group", { name: "Commits" });
+
+    within(commits)
+      .getAllByRole("checkbox")
+      .forEach((box) => expect(box).toBeDisabled());
+  });
+
+  it("generates the import XML of the changed folders for an environment", async () => {
+    const user = userEvent.setup();
+    renderAt(<ComparePage />, { path: `/compare?commits=${middle}` });
+    await screen.findByText(/Showing the changes/);
+
+    expect(await screen.findByLabelText("Environment")).toHaveValue("uat");
+    await user.selectOptions(screen.getByLabelText("Environment"), "prod");
+    await user.click(screen.getByRole("button", { name: "Generate XML" }));
+
+    const panel = await screen.findByRole("region", { name: "Import package" });
+    await within(panel).findByText("P77_INGEST_DAILY");
+    expect(panel).toHaveTextContent("job P77_INGEST_LOAD moved to P77_CHAIN");
+    expect(panel).toHaveTextContent("2 folders");
+    const sent = calls.package[calls.package.length - 1];
+    expect(sent?.get("env")).toBe("prod");
+    expect(sent?.get("commits")).toBe(middle);
+    const download = within(panel).getByRole("link", { name: /Download/ });
+    expect(download).toHaveAttribute("download", "deploy_uat_feature-demo_2026-11-02.xml");
+    expect(download.getAttribute("href")).toMatch(/^\/api\/package\/xml\?/);
+    expect(download.getAttribute("href")).toContain("env=prod");
+
+    await user.click(within(panel).getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("region", { name: "Import package" })).not.toBeInTheDocument();
+  });
+
+  it("explains why a package cannot be built", async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get("/api/package", () =>
+        HttpResponse.json(
+          {
+            error: "UnresolvedConstant",
+            message: "no value in this environment for constants: node.batch",
+            detail: null,
+          },
+          { status: 422 },
+        ),
+      ),
+    );
+    renderAt(<ComparePage />, { path: "/compare" });
+    await screen.findByRole("button", { name: "P77_C modified" });
+
+    await user.click(screen.getByRole("button", { name: "Generate XML" }));
+
+    const panel = await screen.findByRole("region", { name: "Import package" });
+    expect(await within(panel).findByRole("alert")).toHaveTextContent("node.batch");
+    expect(within(panel).queryByRole("link", { name: /Download/ })).not.toBeInTheDocument();
   });
 });

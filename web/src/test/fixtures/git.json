@@ -1,28 +1,28 @@
 {
   "current": "feature/demo",
-  "head": "a63a29f5614e410b256774195a14d9d1646bd188",
+  "head": "745faaf1f0c934e9a9a5858fb630957b132583ab",
   "dirty": false,
   "refs": [
     {
-      "name": "feature/demo",
-      "kind": "branch",
-      "sha": "a63a29f5614e410b256774195a14d9d1646bd188",
-      "subject": "feat: quality check before P77_B",
-      "date": "2026-11-02T01:19:17Z"
-    },
-    {
       "name": "develop",
       "kind": "branch",
-      "sha": "e15378a0a7c8e5257c387b658cc5be3dc790daf4",
+      "sha": "2777cf14384e47971bf588151a4a8936965abfb4",
       "subject": "chore: constants",
-      "date": "2026-11-02T01:19:16Z"
+      "date": "2026-11-02T12:00:57Z"
+    },
+    {
+      "name": "feature/demo",
+      "kind": "branch",
+      "sha": "745faaf1f0c934e9a9a5858fb630957b132583ab",
+      "subject": "feat: quality check before P77_B",
+      "date": "2026-11-02T12:00:57Z"
     },
     {
       "name": "main",
       "kind": "branch",
-      "sha": "e15378a0a7c8e5257c387b658cc5be3dc790daf4",
+      "sha": "2777cf14384e47971bf588151a4a8936965abfb4",
       "subject": "chore: constants",
-      "date": "2026-11-02T01:19:16Z"
+      "date": "2026-11-02T12:00:57Z"
     }
   ]
 }
