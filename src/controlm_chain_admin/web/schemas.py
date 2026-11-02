@@ -99,6 +99,13 @@ class RelationOut(BaseModel):
     external: bool
 
 
+class ExceptionOut(BaseModel):
+    attributes: dict[str, str | None] = Field(
+        description="attribute -> value used in that environment; null: left out there"
+    )
+    variables: dict[str, str]
+
+
 class FolderDetail(BaseModel):
     folder: dict[str, Any] = Field(description="folder.json plus its volatile metadata under 'meta'")
     jobs: list[JobSummary]
@@ -107,6 +114,9 @@ class FolderDetail(BaseModel):
     groups: dict[str, dict[str, str]] = {}
     predecessors: list[RelationOut] = []
     successors: list[RelationOut] = []
+    exceptions: dict[str, ExceptionOut] = Field(
+        {}, description="what each environment uses instead of the base, by environment"
+    )
 
 
 class JobDetail(BaseModel):
@@ -120,6 +130,9 @@ class JobDetail(BaseModel):
     raw: dict[str, Any]
     predecessors: list[RelationOut] = []
     successors: list[RelationOut] = []
+    exceptions: dict[str, ExceptionOut] = Field(
+        {}, description="what each environment uses instead of the base, by environment"
+    )
 
 
 class EffectOut(BaseModel):

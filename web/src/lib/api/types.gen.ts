@@ -718,6 +718,20 @@ export interface components {
       /** Message */
       message: string;
     };
+    /** ExceptionOut */
+    ExceptionOut: {
+      /**
+       * Attributes
+       * @description attribute -> value used in that environment; null: left out there
+       */
+      attributes: {
+        [key: string]: string | null;
+      };
+      /** Variables */
+      variables: {
+        [key: string]: string;
+      };
+    };
     /** FindingOut */
     FindingOut: {
       /** Code */
@@ -776,6 +790,14 @@ export interface components {
     };
     /** FolderDetail */
     FolderDetail: {
+      /**
+       * Exceptions
+       * @description what each environment uses instead of the base, by environment
+       * @default {}
+       */
+      exceptions: {
+        [key: string]: components["schemas"]["ExceptionOut"];
+      };
       /**
        * Folder
        * @description folder.json plus its volatile metadata under 'meta'
@@ -956,6 +978,14 @@ export interface components {
     };
     /** JobDetail */
     JobDetail: {
+      /**
+       * Exceptions
+       * @description what each environment uses instead of the base, by environment
+       * @default {}
+       */
+      exceptions: {
+        [key: string]: components["schemas"]["ExceptionOut"];
+      };
       /** Folder */
       folder: string;
       /** Groups */

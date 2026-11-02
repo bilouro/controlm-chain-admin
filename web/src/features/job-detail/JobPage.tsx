@@ -9,6 +9,8 @@ import { RawJsonEditor } from "@/features/editing/RawJsonEditor";
 import { RelationsEditor } from "@/features/editing/RelationsEditor";
 import { VariablesEditor, type Variable } from "@/features/editing/VariablesEditor";
 import { Badge, Card, ErrorBox, Kv, Loading, TabPanel, Tabs, type TabItem } from "@/components/ui";
+import { exceptionCount } from "@/features/exceptions/exception-count";
+import { ExceptionsPanel } from "@/features/exceptions/ExceptionsPanel";
 
 type OnBlock = Record<string, unknown> & { children?: Array<Record<string, unknown>> };
 
@@ -61,6 +63,12 @@ export function JobPage() {
       label: `Predecessors & successors (${data.predecessors?.length ?? 0}/${data.successors?.length ?? 0})`,
     },
     { id: "on", label: "ON blocks" },
+    {
+      id: "environments",
+      label: exceptionCount(data.exceptions)
+        ? `Environments (${exceptionCount(data.exceptions)})`
+        : "Environments",
+    },
     { id: "metadata", label: "Metadata" },
     { id: "raw", label: "Raw JSON" },
   ];
@@ -137,6 +145,11 @@ export function JobPage() {
         {active === "on" && (
           <TabPanel id="on">
             <OnBlocks blocks={data.on as OnBlock[]} />
+          </TabPanel>
+        )}
+        {active === "environments" && (
+          <TabPanel id="environments">
+            <ExceptionsPanel node={node} exceptions={data.exceptions ?? {}} />
           </TabPanel>
         )}
         {active === "metadata" && (

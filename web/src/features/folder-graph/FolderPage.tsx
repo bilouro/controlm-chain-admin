@@ -25,6 +25,8 @@ import {
   Th,
   type TabItem,
 } from "@/components/ui";
+import { exceptionCount } from "@/features/exceptions/exception-count";
+import { ExceptionsPanel } from "@/features/exceptions/ExceptionsPanel";
 import { FolderGraph } from "./FolderGraph";
 import { edgeId } from "./flow";
 
@@ -87,6 +89,12 @@ export function FolderPage() {
     ...groupTabs,
     { id: "variables", label: "Variables" },
     { id: "relations", label: `Predecessors & successors (${preds.length}/${succs.length})` },
+    {
+      id: "environments",
+      label: exceptionCount(data.exceptions)
+        ? `Environments (${exceptionCount(data.exceptions)})`
+        : "Environments",
+    },
     { id: "raw", label: "Raw JSON" },
   ];
   const active = tabs.some((t) => t.id === params.get("tab"))
@@ -244,6 +252,11 @@ export function FolderPage() {
         {active === "relations" && (
           <TabPanel id="relations">
             <RelationsEditor node={node} folder={folder} predecessors={preds} successors={succs} />
+          </TabPanel>
+        )}
+        {active === "environments" && (
+          <TabPanel id="environments">
+            <ExceptionsPanel node={node} exceptions={data.exceptions ?? {}} />
           </TabPanel>
         )}
         {active === "raw" && (

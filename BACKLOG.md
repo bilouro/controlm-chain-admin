@@ -198,8 +198,8 @@ or addresses anywhere in this public repository.
     Done too: the dev data repository migrated on `release/environments` (`leading_only`,
     `JOBS_IN_GROUP` volatile, `node.bat1`/`node.bat2`, bench and prod values of users,
     machines and `%%GEIENV`), `env learn --only`, validations of dirty names with fixes.
-    Next, agreed: exceptions for `TASKTYPE`/`CMDLINE` in the UI, folders that exist in some
-    environments only; the prod baseline into the trunk is done at the company with real
+    Exceptions in the UI (*Environments* tab of jobs and folders) done too.
+    Next, agreed: folders that exist in some environments only; the prod baseline into the trunk is done at the company with real
     exports (these are anonymised).
 
 Later, unordered: `envs` variants of sub-elements; second-environment import with learning; `diff`

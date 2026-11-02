@@ -101,3 +101,13 @@ def apply_override(data: Mapping[str, Any], override: Override | None) -> dict[s
                 variables.append({"NAME": name, "VALUE": value})
         out[VARIABLE_TAG] = variables
     return out
+
+
+def node_exceptions(repo: ChainRepo, node: str) -> dict[str, Override]:
+    """The exceptions of one node (``FOLDER/JOB`` or ``FOLDER/``), by environment."""
+    found = {}
+    for env in repo.config.environments:
+        override = load_overrides(repo, env).get(node)
+        if override is not None and not override.empty:
+            found[env] = override
+    return found

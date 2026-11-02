@@ -99,6 +99,9 @@ All notable changes to this project are documented here. The format follows
   environment's letter), `foreign-resource` (a resource of another environment, an error),
   `letter-for-p` (a letter in place of the P of the application prefix, in a condition or a
   MEMNAME) and `replaced-first-letter` (`PALES` for `SALES`).
+- The *Environments* tab of the job and folder pages: the exceptions of each environment
+  (e.g. `TASKTYPE` Dummy or another `CMDLINE` in one environment), remove one, add one; job
+  and folder details carry their `exceptions`.
 - Package skeleton, CI (lint, types, tests, web, build) and release workflows, community files.
 - `DESIGN.md` (architecture and data model) and `BACKLOG.md` (proof-of-concept plan and status).
 

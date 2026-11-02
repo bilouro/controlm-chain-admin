@@ -24,6 +24,7 @@ describe("JobPage", () => {
       "Variables",
       "Predecessors & successors (1/1)",
       "ON blocks",
+      "Environments",
       "Metadata",
       "Raw JSON",
     ]);

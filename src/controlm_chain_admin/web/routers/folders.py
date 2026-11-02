@@ -11,10 +11,12 @@ from controlm_chain_admin.core.errors import ModelError
 from controlm_chain_admin.core.graph import folder_graph
 from controlm_chain_admin.core.inspect import show_node
 from controlm_chain_admin.core.links import INDEX_FILE, folder_names, rebuild_links
+from controlm_chain_admin.core.overrides import node_exceptions
 from controlm_chain_admin.core.relations import all_relations
 from controlm_chain_admin.core.repo import ChainRepo, read_json
 from controlm_chain_admin.web.deps import get_repo
 from controlm_chain_admin.web.schemas import (
+    ExceptionOut,
     ErrorOut,
     FolderDetail,
     FolderList,
@@ -91,4 +93,8 @@ def folder_detail(name: str, repo: ChainRepo = Depends(get_repo)) -> FolderDetai
         ),
         predecessors=[RelationOut.model_validate(r.to_json()) for r in relations.predecessors],
         successors=[RelationOut.model_validate(r.to_json()) for r in relations.successors],
+        exceptions={
+            env: ExceptionOut(attributes=o.attributes, variables=o.variables)
+            for env, o in node_exceptions(repo, f"{name}/").items()
+        },
     )

@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 
+from controlm_chain_admin.core.overrides import Override, write_overrides
+from controlm_chain_admin.core.repo import load_repo
 from tests.web.conftest import TOKEN
 
 ERROR_KEYS = {"error", "message", "detail"}
@@ -139,3 +143,25 @@ def test_spa_root_is_served_or_explains_how_to_build_it(client: TestClient) -> N
 
     assert response.status_code == 200
     assert "ctmchain" in response.text
+
+
+def test_job_and_folder_details_list_their_exceptions(client: TestClient, repo_root: Path) -> None:
+    repo = load_repo(repo_root)
+    load = Override(attributes={"TASKTYPE": "Dummy", "CMDLINE": None})
+    folder_override = Override(variables={"%%GEIENV": "x"})
+    write_overrides(
+        repo, "prod", {"P77_INGEST_DAILY/P77_INGEST_LOAD": load, "P77_INGEST_DAILY/": folder_override}
+    )
+    write_overrides(
+        repo, "bench", {"P77_INGEST_DAILY/P77_INGEST_LOAD": Override(attributes={"MAXWAIT": "3"})}
+    )
+
+    job = client.get("/api/jobs/P77_INGEST_DAILY/P77_INGEST_LOAD").json()
+    folder = client.get("/api/folders/P77_INGEST_DAILY").json()
+
+    assert job["exceptions"] == {
+        "bench": {"attributes": {"MAXWAIT": "3"}, "variables": {}},
+        "prod": {"attributes": {"CMDLINE": None, "TASKTYPE": "Dummy"}, "variables": {}},
+    }
+    assert folder["exceptions"] == {"prod": {"attributes": {}, "variables": {"%%GEIENV": "x"}}}
+    assert client.get("/api/jobs/P77_INGEST_DAILY/P77_INGEST_INIT").json()["exceptions"] == {}

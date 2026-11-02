@@ -586,6 +586,38 @@
         "title": "ErrorOut",
         "type": "object"
       },
+      "ExceptionOut": {
+        "properties": {
+          "attributes": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "description": "attribute -> value used in that environment; null: left out there",
+            "title": "Attributes",
+            "type": "object"
+          },
+          "variables": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Variables",
+            "type": "object"
+          }
+        },
+        "required": [
+          "attributes",
+          "variables"
+        ],
+        "title": "ExceptionOut",
+        "type": "object"
+      },
       "FindingOut": {
         "properties": {
           "code": {
@@ -686,6 +718,15 @@
       },
       "FolderDetail": {
         "properties": {
+          "exceptions": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ExceptionOut"
+            },
+            "default": {},
+            "description": "what each environment uses instead of the base, by environment",
+            "title": "Exceptions",
+            "type": "object"
+          },
           "folder": {
             "additionalProperties": true,
             "description": "folder.json plus its volatile metadata under 'meta'",
@@ -1129,6 +1170,15 @@
       },
       "JobDetail": {
         "properties": {
+          "exceptions": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ExceptionOut"
+            },
+            "default": {},
+            "description": "what each environment uses instead of the base, by environment",
+            "title": "Exceptions",
+            "type": "object"
+          },
           "folder": {
             "title": "Folder",
             "type": "string"

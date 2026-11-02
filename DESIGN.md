@@ -561,6 +561,11 @@ Server-side concerns (not in the core):
   the default checked: values to learn, jobs that differ from a constant, differences,
   children, jobs not in the export. Unresolved values block the review. *Review change* sends
   the `receive` change with the choices that differ from the defaults to the usual review.
+- **Exceptions (implemented 2026-11-02).** The job and folder pages have an *Environments*
+  tab: the exceptions of each environment (attribute or variable, the value used there, or
+  *left out*), *Remove*, and a form for a new one (environment, attribute or `%%variable`,
+  value or *leave it out*), reviewed as the `set-exception` change. `GET /api/jobs/...` and
+  `GET /api/folders/...` carry `exceptions` by environment.
 - **Releases (implemented 2026-11-02).** The header shows the checked-out branch (*read-only*
   on the trunk) and opens the *Releases* dialog: the current branch and its uncommitted files
   (*Stash changes*, *Discard changes…* with a confirmation), *Update from main* and *Close
