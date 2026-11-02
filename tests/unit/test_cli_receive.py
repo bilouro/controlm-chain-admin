@@ -72,3 +72,27 @@ def test_env_learn_writes_only_the_values(
     prod = load_repo(root).load_env("prod").constants
     assert prod["user.proc"] == "app77proc" and prod["var.geienv"] == "x"
     assert not (root / "envs/prod/overrides.json").exists()
+
+
+def test_env_learn_can_take_some_constants_only(
+    root: Path, export: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    git(root, "switch", "-q", "-c", "release/march")
+
+    args = [
+        "env",
+        "learn",
+        str(export),
+        "--repo",
+        str(root),
+        "--apply",
+        "--stat",
+        "--only",
+        "var.",
+    ]
+    assert main(args) == 0
+
+    out = capsys.readouterr().out
+    assert "var.geienv: ? -> x" in out and "user.proc" not in out
+    prod = load_repo(root).load_env("prod").constants
+    assert prod["var.geienv"] == "x" and prod.get("user.proc") is None

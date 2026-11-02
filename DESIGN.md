@@ -604,7 +604,7 @@ Quality
 - `validate [--env <env>] [--strict]` — graph, naming, overlay and resolution checks; exit code = highest severity.
 - `resolve [CODE=KIND...] [--apply] [--stat]` — implemented: fixes for the findings (see §8); without arguments, the fix kinds per code.
 - `receive <xml> [--env ENV] [--choose ID=OPTION ...] [--apply] [--stat] [--format text|json]` — implemented: an export of one environment (some folders or all) taken into the checked-out release (§5): the decisions with their defaults, then the change set.
-- `env learn <xml> [--env ENV] [--apply]` — implemented: only the values of the constants in that environment.
+- `env learn <xml> [--env ENV] [--only PREFIX ...] [--apply]` — implemented: only the values of the constants in that environment (`--only user.` keeps some constants, e.g. when the export is anonymised).
 - `set-exception <env> <node> [--set ATTR=VALUE] [--unset ATTR] [--var %%NAME=VALUE] [--drop NAME]` — implemented: an exception of one environment for one job or folder (§5), previewed, `--apply` writes `envs/<env>/overrides.json`.
 - `rename-constant <old> <new>` — implemented: placeholders, `chain.json`, environment values and exceptions follow.
 - `release status|start <name>|switch <branch>|installed <env>|update|close` — implemented: the release flow of §8 (`--stash` to stash uncommitted files first, `installed --release --commit` to tag another commit). Stash, discard, push and pull are plain git on the command line.

@@ -213,6 +213,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     envl.add_argument("xml", type=Path, help="an export of that environment")
     envl.add_argument("--env", help="the environment (default: told by the letter of the names)")
+    envl.add_argument(
+        "--only",
+        action="append",
+        default=[],
+        metavar="PREFIX",
+        help="only the constants whose name starts with it, e.g. user. (repeatable)",
+    )
     _refactor_options(envl)
     envl.set_defaults(func=cmd_env_learn)
     envp.set_defaults(func=cmd_env_help)
@@ -560,13 +567,16 @@ def cmd_receive(args: argparse.Namespace) -> int:
 def cmd_env_learn(args: argparse.Namespace) -> int:
     repo = load_repo(args.repo)
     intake = intake_mod.analyze(repo, args.xml.read_bytes(), args.env)
-    values = {
-        d.constant: d.incoming
+    wanted = [
+        d
         for d in intake.decisions
-        if d.kind in ("learn", "set-value") and d.constant
-    }
+        if d.kind in ("learn", "set-value")
+        and d.constant
+        and (not args.only or d.constant.startswith(tuple(args.only)))
+    ]
+    values = {d.constant: d.incoming for d in wanted if d.constant}
     print(f"{intake.env} export: {'; '.join(intake.evidence)}")
-    for decision in intake.decisions:
+    for decision in wanted:
         if decision.kind in ("learn", "set-value"):
             before = decision.expected if decision.kind == "set-value" else None
             print(
