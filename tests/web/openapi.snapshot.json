@@ -322,6 +322,53 @@
         "title": "EdgeOut",
         "type": "object"
       },
+      "EffectOut": {
+        "properties": {
+          "action": {
+            "description": "add | remove | change",
+            "title": "Action",
+            "type": "string"
+          },
+          "after": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "After"
+          },
+          "before": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Before"
+          },
+          "element": {
+            "description": "e.g. OUTCOND A-B_OK SIGN=\"+\", INCOND A-B_OK, JOBNAME",
+            "title": "Element",
+            "type": "string"
+          },
+          "node": {
+            "title": "Node",
+            "type": "string"
+          }
+        },
+        "required": [
+          "node",
+          "action",
+          "element"
+        ],
+        "title": "EffectOut",
+        "type": "object"
+      },
       "ErrorOut": {
         "properties": {
           "detail": {
@@ -392,6 +439,15 @@
       },
       "FixOut": {
         "properties": {
+          "effects": {
+            "default": [],
+            "description": "what the jobs will look like after it",
+            "items": {
+              "$ref": "#/components/schemas/EffectOut"
+            },
+            "title": "Effects",
+            "type": "array"
+          },
           "explanation": {
             "title": "Explanation",
             "type": "string"

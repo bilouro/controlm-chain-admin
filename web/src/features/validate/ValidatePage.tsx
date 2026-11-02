@@ -180,8 +180,8 @@ export function ValidatePage() {
                   <Fragment key={key}>
                     <tr
                       className={cn(
-                        "border-b border-border/60 align-top",
-                        isOpen && "bg-accent-soft/40",
+                        "border-b border-border/60 align-top transition-colors hover:bg-surface-2",
+                        isOpen && "bg-accent-soft/40 hover:bg-accent-soft/60",
                       )}
                     >
                       <td className="px-3 py-2">

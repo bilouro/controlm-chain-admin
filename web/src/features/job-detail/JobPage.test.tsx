@@ -47,7 +47,7 @@ describe("JobPage", () => {
       op: "set-attributes",
       params: { node: "P77_CHAIN/P77_B", changes: { CMDLINE: "/opt/p77/bin/b2.ksh" } },
     });
-    await user.click(screen.getByRole("button", { name: "Apply" }));
+    await user.click(screen.getByRole("button", { name: "Apply change" }));
     expect(await screen.findByRole("status")).toHaveTextContent("Applied: 1 written, 0 deleted.");
     expect(calls.apply[0]).toMatchObject({
       op: "set-attributes",

@@ -1,10 +1,12 @@
 import { useState } from "react";
 import type { ChangeRequest, FindingOut, FixOut } from "@/lib/api/client";
+import type { ProposeDetails } from "@/features/changes/changes-context";
+import { EffectsTable } from "@/components/EffectsTable";
 import { Button, Card } from "@/components/ui";
 
 type Props = {
   findings: FindingOut[];
-  onPropose: (request: ChangeRequest) => void;
+  onPropose: (request: ChangeRequest, details?: ProposeDetails) => void;
   onClose: () => void;
 };
 
@@ -39,16 +41,16 @@ export function ResolvePanel({ findings, onPropose, onClose }: Props) {
   for (const finding of findings) {
     groups.set(finding.code, [...(groups.get(finding.code) ?? []), finding]);
   }
-  const changes = findings.flatMap((finding) => {
+  const chosen = findings.flatMap((finding) => {
     const matching = finding.fixes.filter((f) => f.kind === choice[finding.code]);
-    return matching.length === 1 && matching[0]
-      ? [{ op: matching[0].op, params: matching[0].params }]
-      : [];
+    return matching.length === 1 && matching[0] ? [matching[0]] : [];
   });
+  const changes = chosen.map((fix) => ({ op: fix.op, params: fix.params }));
   const handlePreview = () => {
     const [only] = changes;
-    if (changes.length === 1 && only) onPropose(only);
-    else onPropose({ op: "batch", params: { changes } });
+    const details = { effects: chosen.flatMap((fix) => fix.effects ?? []) };
+    if (changes.length === 1 && only) onPropose(only, details);
+    else onPropose({ op: "batch", params: { changes } }, details);
   };
 
   return (
@@ -59,7 +61,7 @@ export function ResolvePanel({ findings, onPropose, onClose }: Props) {
             Resolve {plural(findings.length, "selected finding")}
           </h2>
           <span className="text-xs text-muted">
-            choose a fix per type of problem; all of them go into one change you review first
+            1 choose a fix per type of problem · 2 review the change · 3 apply it
           </span>
           <span className="ml-auto flex gap-2">
             <Button disabled={changes.length === 0} onClick={handlePreview}>
@@ -84,27 +86,41 @@ export function ResolvePanel({ findings, onPropose, onClose }: Props) {
                   <p className="text-xs text-muted">No automatic fix: edit the jobs by hand.</p>
                 ) : (
                   <div className="space-y-2">
-                    {offered.map((option) => (
-                      <label key={option.kind} className="flex cursor-pointer gap-2 text-sm">
-                        <input
-                          type="radio"
-                          name={name}
-                          checked={selected === option.kind}
-                          onChange={() => setChoice({ ...choice, [code]: option.kind })}
-                          className="mt-1"
-                        />
-                        <span>
-                          <span className="font-medium">{option.title}</span>{" "}
-                          <span className="text-xs text-muted">
-                            ({option.count} of {group.length})
-                          </span>
-                          <span className="block text-xs text-muted">
-                            {group.length > 1 ? "For example: " : ""}
-                            {option.example.explanation}
-                          </span>
-                        </span>
-                      </label>
-                    ))}
+                    {offered.map((option) => {
+                      const id = `${name}-${option.kind}`;
+                      return (
+                        <div key={option.kind} className="flex gap-2 text-sm">
+                          <input
+                            id={id}
+                            type="radio"
+                            name={name}
+                            checked={selected === option.kind}
+                            onChange={() => setChoice({ ...choice, [code]: option.kind })}
+                            aria-describedby={`${id}-why`}
+                            className="mt-1"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <label htmlFor={id} className="cursor-pointer">
+                              <span className="font-medium">{option.title}</span>{" "}
+                              <span className="text-xs text-muted">
+                                ({option.count} of {group.length})
+                              </span>
+                            </label>
+                            <p id={`${id}-why`} className="text-xs text-muted">
+                              {group.length > 1 ? "For example: " : ""}
+                              {option.example.explanation}
+                            </p>
+                            <div className="mt-1">
+                              <EffectsTable
+                                effects={option.example.effects ?? []}
+                                label={`Effects of ${option.example.label}`}
+                                limit={6}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                     <label className="flex cursor-pointer gap-2 text-sm">
                       <input
                         type="radio"

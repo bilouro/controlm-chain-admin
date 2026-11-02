@@ -41,3 +41,15 @@ def test_serve_check_fails_cleanly_without_a_repository(
 
     assert code == 3
     assert "chain.json" in capsys.readouterr().err
+
+
+def test_serve_keeps_the_token_given_in_the_environment(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = _repo(tmp_path)
+    capsys.readouterr()
+    monkeypatch.setenv("CTMCHAIN_TOKEN", "kept-across-restarts")
+
+    assert main(["serve", "--repo", str(root), "--no-browser", "--check"]) == 0
+
+    assert "?token=kept-across-restarts" in capsys.readouterr().out

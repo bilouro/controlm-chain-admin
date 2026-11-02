@@ -27,6 +27,30 @@ _EXTERNAL = ("dangling-external", "unconsumed-external")
 
 
 @dataclass(frozen=True)
+class Effect:
+    """One line of a job that a fix adds, removes or changes: what the job will look like."""
+
+    node: str
+    action: str  # add | remove | change
+    element: str  # e.g. 'OUTCOND A-B_OK SIGN="+"', "INCOND A-B_OK", "condition name", "JOBNAME"
+    before: str | None = None  # for a change
+    after: str | None = None
+
+    def to_json(self) -> dict[str, Any]:
+        return {
+            "node": self.node,
+            "action": self.action,
+            "element": self.element,
+            "before": self.before,
+            "after": self.after,
+        }
+
+
+def _emission(name: str, sign: str) -> str:
+    return f'OUTCOND {name} SIGN="{sign}"'
+
+
+@dataclass(frozen=True)
 class Fix:
     kind: str  # emit | stop-waiting | wait | stop-emitting | add-cleanup | standard-name | ...
     title: str  # the same for every finding of a kind, to choose a fix for many at once
@@ -34,6 +58,7 @@ class Fix:
     explanation: str
     op: str
     params: dict[str, Any] = field(default_factory=dict)
+    effects: tuple[Effect, ...] = ()
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -43,6 +68,7 @@ class Fix:
             "explanation": self.explanation,
             "op": self.op,
             "params": self.params,
+            "effects": [e.to_json() for e in self.effects],
         }
 
 
@@ -95,6 +121,7 @@ def _waiting(finding: Finding, link: Link, index: _Index) -> list[Fix]:
                     "points to: the waiting job then runs after it.",
                     "emit",
                     {"link": link.id, "producer": str(producer)},
+                    (Effect(str(producer), "add", _emission(link.name, "+")),),
                 )
             )
     if link.consumers:
@@ -110,6 +137,12 @@ def _waiting(finding: Finding, link: Link, index: _Index) -> list[Fix]:
                 " Only if the producer outside this repository no longer exists: otherwise the "
                 "job would start without waiting for it."
             )
+        effects: list[Effect] = []
+        for consumer in link.consumers:
+            effects.append(Effect(str(consumer), "remove", f"INCOND {link.name}"))
+            if consumer in link.deleters:
+                effects.append(Effect(str(consumer), "remove", _emission(link.name, "-")))
+        effects += [Effect(str(p), "remove", _emission(link.name, "+")) for p in link.producers]
         fixes.append(
             Fix(
                 "stop-waiting",
@@ -118,6 +151,7 @@ def _waiting(finding: Finding, link: Link, index: _Index) -> list[Fix]:
                 explanation,
                 op,
                 params,
+                tuple(effects),
             )
         )
     return fixes
@@ -140,6 +174,10 @@ def _emitting(finding: Finding, link: Link, index: _Index) -> list[Fix]:
                     f"to, and the cleanup (OUTCOND -): it then runs after {producers}.",
                     "link",
                     {"consumer": str(consumer), "link": link.id},
+                    (
+                        Effect(str(consumer), "add", f"INCOND {link.name}"),
+                        Effect(str(consumer), "add", _emission(link.name, "-")),
+                    ),
                 )
             )
     if link.producers:
@@ -157,9 +195,17 @@ def _emitting(finding: Finding, link: Link, index: _Index) -> list[Fix]:
                 explanation,
                 op,
                 params,
+                tuple(Effect(str(p), "remove", _emission(link.name, "+")) for p in link.producers),
             )
         )
     return fixes
+
+
+def _users(link: Link) -> list[NodeRef]:
+    """Every node with an element that refers to the link."""
+    nodes = {*link.all_producers, *link.consumers, *link.deleters}
+    nodes |= {n for n, _ in link.docond_delete}
+    return sorted(nodes, key=str)
 
 
 def _renaming(link: Link, index: _Index) -> list[Fix]:
@@ -180,6 +226,10 @@ def _renaming(link: Link, index: _Index) -> list[Fix]:
             "every job that uses it.",
             "rename-link",
             {"link": link.id, "name": standard},
+            tuple(
+                Effect(str(node), "change", "condition name", link.name, standard)
+                for node in _users(link)
+            ),
         )
     ]
 
@@ -212,6 +262,7 @@ def _numbering(finding: Finding, index: _Index) -> list[Fix]:
             f"({name}2, {name}3…); the JOBNAME changes in Control-M too.",
             op,
             params,
+            tuple(Effect(n, "change", "JOBNAME", name, new) for n, new in renames),
         )
     ]
 
@@ -237,6 +288,7 @@ def _fixes(finding: Finding, index: _Index) -> list[Fix]:
                 "after use, so it cannot release the next run by mistake.",
                 "update-relation",
                 {"link": link.id, "consumer": node, "cleanup": True},
+                (Effect(node, "add", _emission(link.name, "-")),),
             )
         ]
     if finding.code in ("stale-name", "non-standard-name"):

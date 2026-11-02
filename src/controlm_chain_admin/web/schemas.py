@@ -122,6 +122,14 @@ class JobDetail(BaseModel):
     successors: list[RelationOut] = []
 
 
+class EffectOut(BaseModel):
+    node: str
+    action: str = Field(description="add | remove | change")
+    element: str = Field(description='e.g. OUTCOND A-B_OK SIGN="+", INCOND A-B_OK, JOBNAME')
+    before: str | None = None
+    after: str | None = None
+
+
 class FixOut(BaseModel):
     kind: str = Field(description="the same for this fix of every finding, to fix many at once")
     title: str
@@ -129,6 +137,7 @@ class FixOut(BaseModel):
     explanation: str
     op: str = Field(description="operation for POST /api/changes/preview (batch: several)")
     params: dict[str, Any]
+    effects: list[EffectOut] = Field([], description="what the jobs will look like after it")
 
 
 class FindingOut(BaseModel):

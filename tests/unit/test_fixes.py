@@ -70,7 +70,9 @@ def test_every_fix_has_a_kind_a_title_and_an_explanation(tmp_path: Path) -> None
     assert all(fix.title and fix.explanation and fix.op for fix in fixes)
     external = next(f for f in fixes if f.label.endswith("stops waiting for P77_GHOST-P77_E_OK"))
     assert "outside this repository" in external.explanation
-    assert fixes[0].to_json().keys() == {"kind", "title", "label", "explanation", "op", "params"}
+    assert fixes[0].to_json().keys() == {
+        "kind", "title", "label", "explanation", "op", "params", "effects",
+    }  # fmt: skip
 
 
 CASES = [
@@ -164,3 +166,45 @@ def test_a_batch_sees_the_changes_made_before_it(tmp_path: Path) -> None:
     assert link.name == "P77_C_DONE" and link.and_or == ("O",)
     assert all(e.path != "folders/P77_CHAIN/index.json" for e in change.edits)
     assert (repo.root / "folders" / C / "index.json").is_file()  # apply rebuilt it
+
+
+def test_each_fix_says_what_it_adds_removes_or_changes_in_which_job(tmp_path: Path) -> None:
+    repo = chain_git_repo(tmp_path)
+    report = validate(repo)
+    fixes = {
+        (f.code, f.name, fix.kind): fix
+        for f, group in zip(report.findings, fixes_for(repo, report.findings), strict=True)
+        for fix in group
+    }
+
+    def effects(code: str, name: str, kind: str) -> list[tuple[str, str, str, str | None]]:
+        fix = fixes[(code, name, kind)]
+        return [(e.node, e.action, e.element, e.after) for e in fix.effects]
+
+    assert effects("dangling", "P77_A-P77_E_OK", "emit") == [
+        (f"{C}/P77_A", "add", 'OUTCOND P77_A-P77_E_OK SIGN="+"', None)
+    ]
+    assert effects("dangling", "P77_A-P77_E_OK", "stop-waiting") == [
+        (f"{C}/P77_E", "remove", "INCOND P77_A-P77_E_OK", None),
+        (f"{C}/P77_E", "remove", 'OUTCOND P77_A-P77_E_OK SIGN="-"', None),
+    ]
+    assert effects("unconsumed", "P77_A-P77_C_OK", "wait") == [
+        (f"{C}/P77_C", "add", "INCOND P77_A-P77_C_OK", None),
+        (f"{C}/P77_C", "add", 'OUTCOND P77_A-P77_C_OK SIGN="-"', None),
+    ]
+    assert effects("never-cleaned", "P77_B-P77_C_OK", "add-cleanup") == [
+        (f"{C}/P77_C", "add", 'OUTCOND P77_B-P77_C_OK SIGN="-"', None)
+    ]
+    renamed = fixes[("stale-name", "P77_OLDNAME-P77_D_OK", "standard-name")].effects
+    assert {(e.node, e.action, e.before, e.after) for e in renamed} == {
+        (f"{C}/P77_C", "change", "P77_OLDNAME-P77_D_OK", "P77_C-P77_D_OK"),
+        (f"{C}/P77_D", "change", "P77_OLDNAME-P77_D_OK", "P77_C-P77_D_OK"),
+    }
+    (jobname,) = fixes[("duplicate-jobname", "P77_F", "number-copies")].effects
+    assert (jobname.node, jobname.element, jobname.before, jobname.after) == (
+        f"{C}/P77_F~2",
+        "JOBNAME",
+        "P77_F",
+        "P77_F2",
+    )
+    assert renamed[0].to_json().keys() == {"node", "action", "element", "before", "after"}

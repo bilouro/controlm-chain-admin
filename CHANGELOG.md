@@ -59,6 +59,11 @@ All notable changes to this project are documented here. The format follows
   finding by default, filters by type of problem, resolves one finding (a button per fix, each
   explained) or the selection (one choice per type of problem, one reviewed change), and uses the
   full width of the screen without horizontal scrolling.
+- Every fix lists its effects (which job gets which element added, removed or changed, before
+  and after); the review dialog shows them above the diff as *What will change*, says that
+  nothing is written before *Apply change*, and asks for the editing URL or token when the tab
+  has none. `ctmchain serve` keeps `CTMCHAIN_TOKEN` when it is set, so open tabs survive a
+  restart.
 - Package skeleton, CI (lint, types, tests, web, build) and release workflows, community files.
 - `DESIGN.md` (architecture and data model) and `BACKLOG.md` (proof-of-concept plan and status).
 

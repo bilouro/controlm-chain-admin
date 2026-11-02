@@ -469,7 +469,11 @@ Server-side concerns (not in the core):
   opens its fixes under it: one button per fix with its explanation, each opening the usual
   preview. *Resolve selected* groups the selection by type of problem and asks for one fix per
   type (or *leave as is*), showing how many findings it applies to; the result is one `batch`
-  change, reviewed and applied like any other edit (session token).
+  change, reviewed and applied like any other edit (session token). Each fix carries its
+  effects (job, add/remove/change, element such as `OUTCOND A-B_OK SIGN="-"`, before and
+  after), shown under every option and in the review dialog as *What will change*; rows are
+  tinted on hover. Without a token in the tab, the review dialog asks for the URL printed by
+  `ctmchain serve` (`CTMCHAIN_TOKEN` keeps the same token across restarts).
 
 ## 12. CLI reference (`ctmchain`)
 

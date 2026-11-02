@@ -360,6 +360,25 @@ export interface components {
       /** To */
       to: string;
     };
+    /** EffectOut */
+    EffectOut: {
+      /**
+       * Action
+       * @description add | remove | change
+       */
+      action: string;
+      /** After */
+      after?: string | null;
+      /** Before */
+      before?: string | null;
+      /**
+       * Element
+       * @description e.g. OUTCOND A-B_OK SIGN="+", INCOND A-B_OK, JOBNAME
+       */
+      element: string;
+      /** Node */
+      node: string;
+    };
     /** ErrorOut */
     ErrorOut: {
       /** Detail */
@@ -395,6 +414,12 @@ export interface components {
     };
     /** FixOut */
     FixOut: {
+      /**
+       * Effects
+       * @description what the jobs will look like after it
+       * @default []
+       */
+      effects: components["schemas"]["EffectOut"][];
       /** Explanation */
       explanation: string;
       /**

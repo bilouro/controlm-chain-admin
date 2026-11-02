@@ -56,7 +56,7 @@ describe("ValidatePage", () => {
     expect(screen.queryByText("P77_A-P77_E_OK")).not.toBeInTheDocument();
   });
 
-  it("one finding with two fixes offers both, explained, and previews the chosen one", async () => {
+  it("one finding with two fixes offers both, explained, with what each changes", async () => {
     const user = userEvent.setup();
     renderAt(<ValidatePage />, { path: "/validate" });
     await user.click(
@@ -64,21 +64,28 @@ describe("ValidatePage", () => {
     );
 
     const options = screen.getByRole("region", { name: "Fixes for P77_A-P77_E_OK" });
+    expect(options).toHaveTextContent("1 Choose a fix");
     const emit = within(options).getByRole("button", {
-      name: "P77_CHAIN/P77_A emits P77_A-P77_E_OK",
+      name: "Preview this fix: P77_CHAIN/P77_A emits P77_A-P77_E_OK",
     });
     expect(emit).toHaveAccessibleDescription(/Adds OUTCOND \+ P77_A-P77_E_OK to P77_CHAIN\/P77_A/);
-    expect(
-      within(options).getByRole("button", {
-        name: "P77_CHAIN/P77_E stops waiting for P77_A-P77_E_OK",
-      }),
-    ).toBeInTheDocument();
+    const emitted = within(options).getByRole("table", {
+      name: "Effects of P77_CHAIN/P77_A emits P77_A-P77_E_OK",
+    });
+    expect(emitted).toHaveTextContent('adds OUTCOND P77_A-P77_E_OK SIGN="+"');
+    const unwaited = within(options).getByRole("table", {
+      name: "Effects of P77_CHAIN/P77_E stops waiting for P77_A-P77_E_OK",
+    });
+    expect(unwaited).toHaveTextContent("removes INCOND P77_A-P77_E_OK");
 
     await user.click(emit);
 
-    expect(await screen.findByRole("dialog", { name: "Review change" })).toBeInTheDocument();
+    const dialog = await screen.findByRole("dialog", { name: "Review change" });
     await waitFor(() => expect(lastPreview()?.op).toBe("emit"));
     expect(lastPreview()?.params).toEqual({ link: "P77_A-P77_E_OK", producer: "P77_CHAIN/P77_A" });
+    expect(within(dialog).getByRole("table", { name: "What will change" })).toHaveTextContent(
+      'adds OUTCOND P77_A-P77_E_OK SIGN="+"',
+    );
   });
 
   it("a finding without an automatic fix says so", async () => {
@@ -107,10 +114,15 @@ describe("ValidatePage", () => {
     const unconsumed = within(panel).getByRole("group", { name: /^unconsumed/ });
     expect(within(unconsumed).getByRole("radio", { name: /Leave as is/ })).toBeChecked();
     expect(within(unconsumed).getByText(/Removes OUTCOND \+ P77_A-P77_C_OK/)).toBeInTheDocument();
+    expect(within(cleaned).getByRole("table", { name: /^Effects of / })).toHaveTextContent(
+      'adds OUTCOND P77_B-P77_C_OK SIGN="-"',
+    );
 
     await user.click(within(panel).getByRole("button", { name: "Preview 2 changes" }));
 
-    expect(await screen.findByRole("dialog", { name: "Review change" })).toBeInTheDocument();
+    const dialog = await screen.findByRole("dialog", { name: "Review change" });
+    const effects = within(dialog).getByRole("table", { name: "What will change" });
+    expect(effects).toHaveTextContent("P77_OLDNAME-P77_D_OK → P77_C-P77_D_OK");
     await waitFor(() => expect(lastPreview()?.op).toBe("batch"));
     expect(lastPreview()?.params.changes?.map((c) => c.op)).toEqual([
       "update-relation",

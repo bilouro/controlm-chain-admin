@@ -1,11 +1,69 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { postApi, type ApplyOut, type ChangePreview, type ChangeRequest } from "@/lib/api/client";
+import {
+  ApiError,
+  postApi,
+  type ApplyOut,
+  type ChangePreview,
+  type ChangeRequest,
+} from "@/lib/api/client";
+import { setToken } from "@/lib/api/session";
 import { DiffView } from "@/components/DiffView";
-import { Button, ErrorBox, Loading } from "@/components/ui";
-import { ChangesContext } from "./changes-context";
+import { EffectsTable } from "@/components/EffectsTable";
+import { Button, ErrorBox, Loading, TextInput } from "@/components/ui";
+import { ChangesContext, type ProposeDetails } from "./changes-context";
 
-function ChangeDialog({ request, onClose }: { request: ChangeRequest; onClose: () => void }) {
+/** The token from the URL printed by `ctmchain serve`, or the token itself. */
+function tokenFrom(text: string): string {
+  const value = text.trim();
+  try {
+    return new URL(value).searchParams.get("token") ?? value;
+  } catch {
+    return value;
+  }
+}
+
+function TokenForm({ onToken }: { onToken: () => void }) {
+  const [value, setValue] = useState("");
+  const handleSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    if (!value.trim()) return;
+    setToken(tokenFrom(value));
+    onToken();
+  };
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-2 text-sm">
+      <label className="flex-1 text-xs text-muted">
+        Editing URL or token
+        <TextInput
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder="http://127.0.0.1:8765/?token=…"
+          className="block w-full"
+        />
+      </label>
+      <Button type="submit">Use this token</Button>
+    </form>
+  );
+}
+
+function ChangeDialog({
+  request,
+  details,
+  onClose,
+}: {
+  request: ChangeRequest;
+  details: ProposeDetails;
+  onClose: () => void;
+}) {
   const queryClient = useQueryClient();
   const dialog = useRef<HTMLDivElement>(null);
   const preview = useQuery({
@@ -32,6 +90,8 @@ function ChangeDialog({ request, onClose }: { request: ChangeRequest; onClose: (
 
   const data = preview.data;
   const nothing = data !== undefined && data.files.length === 0;
+  const needsToken = preview.error instanceof ApiError && preview.error.status === 401;
+  const effects = details.effects ?? [];
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 pt-16">
       <div
@@ -42,14 +102,26 @@ function ChangeDialog({ request, onClose }: { request: ChangeRequest; onClose: (
         tabIndex={-1}
         className="flex max-h-[85vh] w-full max-w-3xl flex-col gap-3 overflow-hidden rounded-lg border border-border bg-surface p-4 shadow-xl outline-none"
       >
-        <h2 id="change-title" className="text-base font-semibold">
-          Review change
-        </h2>
+        <div>
+          <h2 id="change-title" className="text-base font-semibold">
+            Review change
+          </h2>
+          <p className="text-xs text-muted">Nothing is written until you click Apply change.</p>
+        </div>
         {preview.isPending && <Loading what="preview" />}
         {preview.isError && <ErrorBox error={preview.error} />}
+        {needsToken && <TokenForm onToken={() => void preview.refetch()} />}
         {data && (
           <div className="flex min-h-0 flex-col gap-3 overflow-auto">
             <p className="text-sm">{data.summary}</p>
+            {effects.length > 0 && (
+              <section>
+                <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">
+                  What will change
+                </h3>
+                <EffectsTable effects={effects} label="What will change" limit={60} />
+              </section>
+            )}
             {data.warnings.length > 0 && (
               <ul className="space-y-1 rounded-md border border-warning/50 bg-warning/10 p-2 text-xs">
                 {data.warnings.map((warning) => (
@@ -88,7 +160,7 @@ function ChangeDialog({ request, onClose }: { request: ChangeRequest; onClose: (
               disabled={!data || nothing || apply.isPending}
               onClick={() => data && apply.mutate(data.fingerprint)}
             >
-              {apply.isPending ? "Applying…" : "Apply"}
+              {apply.isPending ? "Applying…" : "Apply change"}
             </Button>
           )}
         </div>
@@ -99,14 +171,27 @@ function ChangeDialog({ request, onClose }: { request: ChangeRequest; onClose: (
 
 /** Provides `propose()` and renders the review dialog of the pending change. */
 export function ChangeProvider({ children }: { children: ReactNode }) {
-  const [request, setRequest] = useState<ChangeRequest | null>(null);
-  const propose = useCallback((next: ChangeRequest) => setRequest(next), []);
-  const close = useCallback(() => setRequest(null), []);
+  const [pending, setPending] = useState<{
+    request: ChangeRequest;
+    details: ProposeDetails;
+  } | null>(null);
+  const propose = useCallback(
+    (request: ChangeRequest, details: ProposeDetails = {}) => setPending({ request, details }),
+    [],
+  );
+  const close = useCallback(() => setPending(null), []);
   const value = useMemo(() => ({ propose }), [propose]);
   return (
     <ChangesContext.Provider value={value}>
       {children}
-      {request && <ChangeDialog key={JSON.stringify(request)} request={request} onClose={close} />}
+      {pending && (
+        <ChangeDialog
+          key={JSON.stringify(pending.request)}
+          request={pending.request}
+          details={pending.details}
+          onClose={close}
+        />
+      )}
     </ChangesContext.Provider>
   );
 }

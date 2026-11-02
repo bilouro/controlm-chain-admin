@@ -24,7 +24,16 @@
           "params": {
             "link": "P77_A-P77_E_OK",
             "producer": "P77_CHAIN/P77_A"
-          }
+          },
+          "effects": [
+            {
+              "node": "P77_CHAIN/P77_A",
+              "action": "add",
+              "element": "OUTCOND P77_A-P77_E_OK SIGN=\"+\"",
+              "before": null,
+              "after": null
+            }
+          ]
         },
         {
           "kind": "stop-waiting",
@@ -35,7 +44,23 @@
           "params": {
             "link": "P77_A-P77_E_OK",
             "consumer": "P77_CHAIN/P77_E"
-          }
+          },
+          "effects": [
+            {
+              "node": "P77_CHAIN/P77_E",
+              "action": "remove",
+              "element": "INCOND P77_A-P77_E_OK",
+              "before": null,
+              "after": null
+            },
+            {
+              "node": "P77_CHAIN/P77_E",
+              "action": "remove",
+              "element": "OUTCOND P77_A-P77_E_OK SIGN=\"-\"",
+              "before": null,
+              "after": null
+            }
+          ]
         }
       ]
     },
@@ -56,7 +81,23 @@
           "params": {
             "link": "WEIRD_NAME",
             "consumer": "P77_CHAIN/P77_F"
-          }
+          },
+          "effects": [
+            {
+              "node": "P77_CHAIN/P77_F",
+              "action": "remove",
+              "element": "INCOND WEIRD_NAME",
+              "before": null,
+              "after": null
+            },
+            {
+              "node": "P77_CHAIN/P77_F",
+              "action": "remove",
+              "element": "OUTCOND WEIRD_NAME SIGN=\"-\"",
+              "before": null,
+              "after": null
+            }
+          ]
         }
       ]
     },
@@ -77,7 +118,16 @@
           "params": {
             "node": "P77_CHAIN/P77_F~2",
             "new_name": "P77_F2"
-          }
+          },
+          "effects": [
+            {
+              "node": "P77_CHAIN/P77_F~2",
+              "action": "change",
+              "element": "JOBNAME",
+              "before": "P77_F",
+              "after": "P77_F2"
+            }
+          ]
         }
       ]
     },
@@ -99,7 +149,16 @@
             "link": "P77_B-P77_C_OK",
             "consumer": "P77_CHAIN/P77_C",
             "cleanup": true
-          }
+          },
+          "effects": [
+            {
+              "node": "P77_CHAIN/P77_C",
+              "action": "add",
+              "element": "OUTCOND P77_B-P77_C_OK SIGN=\"-\"",
+              "before": null,
+              "after": null
+            }
+          ]
         }
       ]
     },
@@ -120,7 +179,23 @@
           "params": {
             "link": "P77_OLDNAME-P77_D_OK",
             "name": "P77_C-P77_D_OK"
-          }
+          },
+          "effects": [
+            {
+              "node": "P77_CHAIN/P77_C",
+              "action": "change",
+              "element": "condition name",
+              "before": "P77_OLDNAME-P77_D_OK",
+              "after": "P77_C-P77_D_OK"
+            },
+            {
+              "node": "P77_CHAIN/P77_D",
+              "action": "change",
+              "element": "condition name",
+              "before": "P77_OLDNAME-P77_D_OK",
+              "after": "P77_C-P77_D_OK"
+            }
+          ]
         }
       ]
     },
@@ -141,7 +216,23 @@
           "params": {
             "consumer": "P77_CHAIN/P77_C",
             "link": "P77_A-P77_C_OK"
-          }
+          },
+          "effects": [
+            {
+              "node": "P77_CHAIN/P77_C",
+              "action": "add",
+              "element": "INCOND P77_A-P77_C_OK",
+              "before": null,
+              "after": null
+            },
+            {
+              "node": "P77_CHAIN/P77_C",
+              "action": "add",
+              "element": "OUTCOND P77_A-P77_C_OK SIGN=\"-\"",
+              "before": null,
+              "after": null
+            }
+          ]
         },
         {
           "kind": "stop-emitting",
@@ -152,7 +243,16 @@
           "params": {
             "link": "P77_A-P77_C_OK",
             "producer": "P77_CHAIN/P77_A"
-          }
+          },
+          "effects": [
+            {
+              "node": "P77_CHAIN/P77_A",
+              "action": "remove",
+              "element": "OUTCOND P77_A-P77_C_OK SIGN=\"+\"",
+              "before": null,
+              "after": null
+            }
+          ]
         }
       ]
     },
@@ -173,7 +273,23 @@
           "params": {
             "link": "P77_GHOST-P77_E_OK",
             "consumer": "P77_CHAIN/P77_E"
-          }
+          },
+          "effects": [
+            {
+              "node": "P77_CHAIN/P77_E",
+              "action": "remove",
+              "element": "INCOND P77_GHOST-P77_E_OK",
+              "before": null,
+              "after": null
+            },
+            {
+              "node": "P77_CHAIN/P77_E",
+              "action": "remove",
+              "element": "OUTCOND P77_GHOST-P77_E_OK SIGN=\"-\"",
+              "before": null,
+              "after": null
+            }
+          ]
         }
       ]
     },
@@ -194,7 +310,23 @@
           "params": {
             "link": "P77_OTHER-P77_CHAIN_OK",
             "consumer": "P77_CHAIN/"
-          }
+          },
+          "effects": [
+            {
+              "node": "P77_CHAIN/",
+              "action": "remove",
+              "element": "INCOND P77_OTHER-P77_CHAIN_OK",
+              "before": null,
+              "after": null
+            },
+            {
+              "node": "P77_CHAIN/",
+              "action": "remove",
+              "element": "OUTCOND P77_OTHER-P77_CHAIN_OK SIGN=\"-\"",
+              "before": null,
+              "after": null
+            }
+          ]
         }
       ]
     },
@@ -215,7 +347,23 @@
           "params": {
             "link": "P77_PRICING-P77_INGEST_DAILY_OK",
             "consumer": "P77_INGEST_DAILY/"
-          }
+          },
+          "effects": [
+            {
+              "node": "P77_INGEST_DAILY/",
+              "action": "remove",
+              "element": "INCOND P77_PRICING-P77_INGEST_DAILY_OK",
+              "before": null,
+              "after": null
+            },
+            {
+              "node": "P77_INGEST_DAILY/",
+              "action": "remove",
+              "element": "OUTCOND P77_PRICING-P77_INGEST_DAILY_OK SIGN=\"-\"",
+              "before": null,
+              "after": null
+            }
+          ]
         }
       ]
     },
@@ -245,7 +393,16 @@
           "params": {
             "link": "P77_CHAIN-P77_NEXT_OK",
             "producer": "P77_CHAIN/"
-          }
+          },
+          "effects": [
+            {
+              "node": "P77_CHAIN/",
+              "action": "remove",
+              "element": "OUTCOND P77_CHAIN-P77_NEXT_OK SIGN=\"+\"",
+              "before": null,
+              "after": null
+            }
+          ]
         }
       ]
     },
@@ -266,7 +423,16 @@
           "params": {
             "link": "P77_D-P77_NOBODY_OK",
             "producer": "P77_CHAIN/P77_D"
-          }
+          },
+          "effects": [
+            {
+              "node": "P77_CHAIN/P77_D",
+              "action": "remove",
+              "element": "OUTCOND P77_D-P77_NOBODY_OK SIGN=\"+\"",
+              "before": null,
+              "after": null
+            }
+          ]
         }
       ]
     }

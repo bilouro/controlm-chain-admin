@@ -616,12 +616,10 @@ def cmd_serve(args: argparse.Namespace) -> int:
             "the web server needs the [web] extra: pip install 'controlm-chain-admin[web]'"
         ) from exc
     settings = Settings(
-        repo=repo.root,
-        host=args.host,
-        port=args.port,
-        open_browser=not args.no_browser,
-        token=secrets.token_urlsafe(18),
+        repo=repo.root, host=args.host, port=args.port, open_browser=not args.no_browser
     )
+    if settings.token is None:  # CTMCHAIN_TOKEN keeps open tabs working across restarts
+        settings = settings.model_copy(update={"token": secrets.token_urlsafe(18)})
     assert settings.token is not None
     folders = len(folder_names(repo))
     print(f"Serving {repo.config.application} ({_plural(folders, 'folder')}) at {settings.url}")
