@@ -8,7 +8,9 @@ Nothing is written here: the fix goes through the usual preview and apply.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping, Sequence
+from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -23,8 +25,11 @@ from controlm_chain_admin.core.links import (
 from controlm_chain_admin.core.repo import ChainRepo, read_json
 from controlm_chain_admin.core.validate import (
     Finding,
+    NameRules,
     embeds_endpoints,
     parse_condition_name,
+    replaced_words,
+    resources,
     validate,
 )
 
@@ -94,6 +99,8 @@ class _Index:
     used: dict[str, str]  # export name -> link id
     by_name: dict[str, list[NodeRef]]  # job name (without ~n) or folder name -> nodes
     jobs: dict[str, list[str]]  # folder -> job ids
+    repo: ChainRepo | None = None
+    names: NameRules | None = None
 
 
 def _index(repo: ChainRepo) -> _Index:
@@ -107,7 +114,7 @@ def _index(repo: ChainRepo) -> _Index:
         for job in ids:
             by_name.setdefault(job.split(DUPLICATE_SEPARATOR)[0], []).append(NodeRef(folder, job))
     used = {link.name: link.id for link in links.values()}
-    return _Index(links, standard_names(links), used, by_name, jobs)
+    return _Index(links, standard_names(links), used, by_name, jobs, repo, NameRules.of(repo))
 
 
 def _waiting(finding: Finding, link: Link, index: _Index) -> list[Fix]:
@@ -270,9 +277,103 @@ def _numbering(finding: Finding, index: _Index) -> list[Fix]:
     ]
 
 
+def _rename_to(link: Link, name: str, index: _Index, kind: str, title: str, why: str) -> list[Fix]:
+    if name == link.name or index.used.get(name, link.id) != link.id:
+        return []  # nothing to do, or the name belongs to another link
+    return [
+        Fix(
+            kind,
+            title,
+            f"rename {link.name} -> {name}",
+            why,
+            "rename-link",
+            {"link": link.id, "name": name},
+            tuple(
+                Effect(str(n), "change", "condition name", link.name, name) for n in _users(link)
+            ),
+        )
+    ]
+
+
+def _name_fixes(finding: Finding, index: _Index) -> list[Fix]:
+    rules = index.names
+    if rules is None:
+        return []
+    link = index.links.get(finding.link)
+    if finding.code == "foreign-letter" and link is not None:
+        return _rename_to(
+            link, rules.neutral(link.name), index, "remove-letter",
+            "Remove the environment letter",
+            "Renames the condition without the letter: on export every environment gets its "
+            "own letter, in every job that uses it.",
+        )  # fmt: skip
+    if finding.code == "letter-for-p" and link is not None:
+        return _rename_to(
+            link, rules.with_prefix(link.name), index, "restore-prefix",
+            f"Put {rules.prefix} back",
+            f"Renames the condition with {rules.prefix} where an environment letter replaced its "
+            f"first character; on export each environment adds its letter in front.",
+        )  # fmt: skip
+    if finding.code == "replaced-first-letter" and link is not None:
+        name = link.name
+        for token, word in replaced_words(name, link, rules):
+            name = re.sub(rf"(?<![A-Za-z0-9]){re.escape(token)}(?![A-Za-z0-9])", word, name)
+        return _rename_to(
+            link, name, index, "restore-word", "Restore the word",
+            "Renames the condition with the words of the jobs it links.",
+        )  # fmt: skip
+    if finding.code == "letter-for-p" and finding.node and index.repo is not None:
+        fixed = rules.with_prefix(finding.name)
+        return [
+            Fix(
+                "restore-prefix",
+                f"Put {rules.prefix} back",
+                f"MEMNAME {finding.name} -> {fixed}",
+                f"Sets MEMNAME to {fixed}; on export each environment adds its letter in front. "
+                "MEMNAME is the script Control-M runs: check that the script of that name exists "
+                "in every environment first.",
+                "set-attributes",
+                {"node": finding.node, "changes": {"MEMNAME": fixed}},
+                (Effect(finding.node, "change", "MEMNAME", finding.name, fixed),),
+            )
+        ]
+    if finding.code == "foreign-resource" and index.repo is not None:
+        rule = index.repo.config.letter_rule
+        fixed = rules.neutral(finding.name)
+        leading = rule.leading_pattern()
+        if not (leading and leading.match(fixed)) and len(rule.bare_pattern().findall(fixed)) > 1:
+            return []  # its inner prefix would get a letter too: needs letter_rule.leading_only
+        folder, _, job = finding.node.partition("/")
+        path = index.repo.job_file(folder, job) if job else index.repo.folder_file(folder)
+        data = deepcopy(read_json(path))
+        for _, item in resources(data):
+            if str(item.get("NAME", "")).removeprefix("literal:") == finding.name:
+                item["NAME"] = fixed
+        return [
+            Fix(
+                "remove-letter",
+                "Remove the environment letter",
+                f"resource {finding.name} -> {fixed}",
+                f"Uses {fixed}: on export each environment gets its own resource "
+                f"({fixed} with its letter in front).",
+                "replace-node",
+                {"node": finding.node, "data": data},
+                (Effect(finding.node, "change", "resource", finding.name, fixed),),
+            )
+        ]
+    return []
+
+
 def _fixes(finding: Finding, index: _Index) -> list[Fix]:
     if finding.code == "duplicate-jobname":
         return _numbering(finding, index)
+    if finding.code in (
+        "foreign-letter",
+        "letter-for-p",
+        "replaced-first-letter",
+        "foreign-resource",
+    ):
+        return _name_fixes(finding, index)
     link = index.links.get(finding.link)
     if link is None:
         return []

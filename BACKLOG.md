@@ -195,12 +195,12 @@ or addresses anywhere in this public repository.
     names with the letter on the first prefix only, Windows line endings, partial exports keep
     the header and the deduplicated names; exceptions per environment (`set-exception`),
     `rename-constant`; the intake analysis and *receive* (CLI, API, *Import* page), `env learn`.
-    Next, agreed: the data repository on a release (`leading_only`, `JOBS_IN_GROUP` volatile,
-    `node.bat1`/`node.bat2`, the learned values of bench and prod), the prod baseline into the
-    trunk, exceptions for `TASKTYPE`/`CMDLINE` in the UI, validations for dirty names
-    (another environment's letter, a letter in place of the P, a word with its first letter
-    replaced, resources of another environment, MEMNAME), folders that exist in some
-    environments only.
+    Done too: the dev data repository migrated on `release/environments` (`leading_only`,
+    `JOBS_IN_GROUP` volatile, `node.bat1`/`node.bat2`, bench and prod values of users,
+    machines and `%%GEIENV`), `env learn --only`, validations of dirty names with fixes.
+    Next, agreed: exceptions for `TASKTYPE`/`CMDLINE` in the UI, folders that exist in some
+    environments only; the prod baseline into the trunk is done at the company with real
+    exports (these are anonymised).
 
 Later, unordered: `envs` variants of sub-elements; second-environment import with learning; `diff`
 of environments and XML files with `xmldiffreport`; mapping editor; upstream graph explorer

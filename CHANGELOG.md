@@ -95,6 +95,10 @@ All notable changes to this project are documented here. The format follows
   `--choose ID=OPTION`, preview, `--apply`), the `receive` change, `POST /api/intake` and the
   *Import* page of the web UI (upload, analysis, a choice per decision, review). `ctmchain env
   learn` and the `set-values` change take only the values of the constants.
+- Validation of dirty names, each with its fix: `foreign-letter` (a condition name with another
+  environment's letter), `foreign-resource` (a resource of another environment, an error),
+  `letter-for-p` (a letter in place of the P of the application prefix, in a condition or a
+  MEMNAME) and `replaced-first-letter` (`PALES` for `SALES`).
 - Package skeleton, CI (lint, types, tests, web, build) and release workflows, community files.
 - `DESIGN.md` (architecture and data model) and `BACKLOG.md` (proof-of-concept plan and status).
 

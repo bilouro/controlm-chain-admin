@@ -312,6 +312,20 @@ so it goes to the checked-out release. `ctmchain env learn` takes the values onl
   every finding of the code with exactly one fix of that kind, `--apply` writes it. Several fixes
   run as one `batch` operation: each step runs in place in one sandbox, the diff is computed
   once (94 fixes on the real chain: ~12 s).
+- Dirty names (implemented 2026-11-02, asked by the author: "coloca isso na validação"), found
+  in real exports where a copy from one environment to another was not fully converted:
+  `foreign-letter` (warning: a condition name keeps another environment's letter,
+  `…-UP77D…` in prod) → rename without the letter (`remove-letter`); `foreign-resource`
+  (error: a job uses a resource of another environment, `TRQ_AM` in uat) → the neutral
+  resource (`remove-letter`, offered only when the export of the result is right, e.g. with
+  `leading_only` for `URQ_P77_X`); `letter-for-p` (warning: a letter in place of the P of the
+  application prefix, `U77CHECKRIGHT`, in a condition or a MEMNAME) → `P77…` back
+  (`restore-prefix`; for a MEMNAME the explanation warns that the script name changes);
+  `replaced-first-letter` (warning: a word of a condition name is a word of the jobs it links
+  with its first letter replaced by an environment letter, `PALES` for `SALES`) → the word
+  back (`restore-word`). A MEMNAME that merely differs from its JOBNAME is not reported: on the
+  real chain 647 of them are script names. On the uat data: 39 replaced words, 4 letters in
+  place of the P, 1 foreign letter, 2 foreign resources (107 before `leading_only`).
 - `diff A B`: plain `git diff` of the base is the first-class review tool. For XML↔XML semantic
   comparison the tool depends on `xmldiffreport` (key-aligned, N-way, Markdown/HTML report).
 - `show --envs <node>`: the node resolved in every environment, side by side, differences
