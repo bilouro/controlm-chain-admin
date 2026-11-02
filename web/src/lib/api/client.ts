@@ -37,6 +37,11 @@ export type PendingOut = Schemas["PendingOut"];
 export type CommittedOut = Schemas["CommittedOut"];
 export type CommitRequest = Schemas["CommitRequest"];
 export type PackageFolderOut = Schemas["PackageFolderOut"];
+export type WorkspaceOut = Schemas["WorkspaceOut"];
+export type ReleaseOut = Schemas["ReleaseOut"];
+export type InstallationOut = Schemas["InstallationOut"];
+export type StashOut = Schemas["StashOut"];
+export type ActionOut = Schemas["ActionOut"];
 
 export const TOKEN_HEADER = "X-Ctmchain-Token";
 

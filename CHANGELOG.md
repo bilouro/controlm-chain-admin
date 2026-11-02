@@ -66,12 +66,23 @@ All notable changes to this project are documented here. The format follows
   restart.
 - Committing edits: `ctmchain commit [-m MESSAGE] [--branch NAME] [--dry-run]` and the *Commit
   (n)* button of the web UI header, with a Conventional Commits message written from the
-  semantic comparison of HEAD with the working tree (editable), the files, and the option to
-  commit on a new branch when on main, master or develop. Only the chain files are committed
+  semantic comparison of HEAD with the working tree (editable), the files, and a new release
+  branch when on a protected branch. Only the chain files are committed
   (`git commit --only`); a commit prepared before other edits is refused
   (`GET /api/git/pending`, `POST /api/git/commit`, `changes` in `GET /api/git`).
 - *Copy Markdown* on the Compare page (`GET /api/compare/markdown`): the comparison for a pull
   request description; left-out commits are marked in the Markdown and the text reports.
+- Releases: the trunk (`main`) mirrors production and is never edited; edits and commits are
+  refused on protected branches and a detached HEAD. `ctmchain release
+  status|start|switch|installed|update|close`: a release branch `release/<name>` starts from the
+  trunk, each installation in an environment is a tag `<env>/<name>-<n>`, a release is closed
+  (merged into the trunk) once its last commit is installed in production, after merging the
+  trunk in when it moved. The web UI header shows the branch and opens the *Releases* dialog
+  (start, switch, stash and restore, discard, update, close, push and pull); a banner and the
+  review dialog explain why a branch is read-only; the package preview asks whether to hold
+  only what changed since the last installation in that environment, and marks the
+  installation (`GET /api/workspace`, `POST /api/workspace/...`). Rules in the optional `git`
+  key of `chain.json`.
 - Package skeleton, CI (lint, types, tests, web, build) and release workflows, community files.
 - `DESIGN.md` (architecture and data model) and `BACKLOG.md` (proof-of-concept plan and status).
 

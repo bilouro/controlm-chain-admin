@@ -11,6 +11,7 @@ import {
   type RepoInfo,
   type TableOut,
   type ValidateOut,
+  type WorkspaceOut,
 } from "./client";
 
 export const queryKeys = {
@@ -24,6 +25,7 @@ export const queryKeys = {
     ["compare", base, head, mergeBase, commits] as const,
   package: (query: string) => ["package", query] as const,
   pending: ["git-pending"] as const,
+  workspace: ["workspace"] as const,
 };
 
 export function useRepo() {
@@ -110,5 +112,14 @@ export function usePending(enabled: boolean) {
     retry: false,
     staleTime: 0,
     gcTime: 0,
+  });
+}
+
+/** The checked-out branch, whether it may be edited, the releases and their installations. */
+export function useWorkspace() {
+  return useQuery({
+    queryKey: queryKeys.workspace,
+    queryFn: () => api<WorkspaceOut>("/api/workspace"),
+    retry: false,
   });
 }

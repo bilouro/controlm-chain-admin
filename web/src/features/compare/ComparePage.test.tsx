@@ -7,6 +7,7 @@ import { renderAt } from "@/test/render";
 import { calls, server } from "@/test/server";
 import gitState from "@/test/fixtures/git.json";
 import comparison from "@/test/fixtures/compare.json";
+import packagePreview from "@/test/fixtures/package.json";
 import { ComparePage } from "./ComparePage";
 import { defaultRefs } from "./refs";
 
@@ -27,6 +28,10 @@ describe("defaultRefs", () => {
     });
   });
 
+  it("prefers the trunk of the releases", () => {
+    expect(defaultRefs(git, "main")).toEqual({ base: "main", head: "feature/demo" });
+  });
+
   it("falls back to main and to another branch when develop is checked out", () => {
     const refs = git.refs.filter((r) => r.name !== "develop");
     expect(defaultRefs({ ...git, current: "main", refs })).toEqual({
@@ -37,15 +42,16 @@ describe("defaultRefs", () => {
 });
 
 describe("ComparePage", () => {
-  it("compares the feature branch with develop from the merge base and counts the changes", async () => {
+  it("compares the checked-out branch with the trunk from the merge base and counts the changes", async () => {
     renderAt(<ComparePage />, { path: "/compare" });
 
     expect(await screen.findByRole("heading", { level: 1, name: "Compare" })).toBeInTheDocument();
     await screen.findByText("3 commit(s)", { exact: false });
-    expect(lastCompare()?.get("base")).toBe("develop");
+    expect(calls.compare.map((c) => c.get("base"))).not.toContain("develop");
+    expect(lastCompare()?.get("base")).toBe("main");
     expect(lastCompare()?.get("head")).toBe("feature/demo");
     expect(lastCompare()?.get("merge_base")).toBe("true");
-    expect(screen.getByLabelText("Base")).toHaveValue("develop");
+    expect(screen.getByLabelText("Base")).toHaveValue("main");
     expect(screen.getByLabelText("Head")).toHaveValue("feature/demo");
     const jobs = screen.getByText("Jobs").parentElement;
     expect(jobs).toHaveTextContent("7");
@@ -257,6 +263,32 @@ describe("ComparePage", () => {
 
     await user.click(within(panel).getByRole("button", { name: "Close" }));
     expect(screen.queryByRole("region", { name: "Import package" })).not.toBeInTheDocument();
+  });
+
+  it("asks what to package where the release is installed, then marks it installed", async () => {
+    const user = userEvent.setup();
+    renderAt(<ComparePage />, { path: "/compare?base=main&head=release/demo" });
+    await screen.findByRole("button", { name: "P77_C modified" });
+    await user.click(screen.getByRole("button", { name: "Generate XML" }));
+
+    const panel = await screen.findByRole("region", { name: "Import package" });
+    const question = within(panel).getByRole("group", { name: /uat already has release\/demo/ });
+    expect(calls.package).toEqual([]); // nothing is built before the answer
+    await user.click(
+      within(question).getByRole("radio", { name: /Only what changed since uat\/demo-1/ }),
+    );
+    await user.click(within(panel).getByRole("button", { name: "Generate" }));
+
+    await within(panel).findByText("P77_INGEST_DAILY");
+    expect(calls.package[0]?.get("base")).toBe("uat/demo-1");
+    await user.click(within(panel).getByRole("button", { name: "Mark as installed in uat" }));
+
+    expect(await within(panel).findByRole("status")).toHaveTextContent(
+      "Tagged uat/demo-2 on 1234567",
+    );
+    expect(calls.workspace).toEqual([
+      { action: "installed", body: { env: "uat", release: "demo", sha: packagePreview.head.sha } },
+    ]);
   });
 
   it("explains why a package cannot be built", async () => {

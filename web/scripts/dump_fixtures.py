@@ -10,6 +10,7 @@ Only synthetic data (application P77) is involved, so the output is safe to comm
 from __future__ import annotations
 
 import json
+import os
 import sys
 import tempfile
 from pathlib import Path
@@ -37,6 +38,7 @@ from controlm_chain_admin.core.refactor import (  # noqa: E402
     update_relation,
 )
 from controlm_chain_admin.core.repo import init_repo  # noqa: E402
+from controlm_chain_admin.core.workspace import mark_installed, stash, start_release  # noqa: E402
 from controlm_chain_admin.web.app import create_app  # noqa: E402
 from controlm_chain_admin.web.settings import Settings  # noqa: E402
 
@@ -90,7 +92,41 @@ def main() -> int:
             )
             print("wrote preview.json")
     dump_compare()
+    dump_workspace()
     return 0
+
+
+def _write(filename: str, body: object) -> None:
+    (FIXTURES / filename).write_text(
+        json.dumps(body, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    )
+    print(f"wrote {filename}")
+
+
+def dump_workspace() -> None:
+    """The trunk (read-only), then a release installed in uat one commit ago, with a stash."""
+    for role in ("AUTHOR", "COMMITTER"):  # tags and stashes are made by the code itself
+        os.environ.setdefault(f"GIT_{role}_NAME", "Test")
+        os.environ.setdefault(f"GIT_{role}_EMAIL", "test@example.com")
+    c = "P77_CHAIN"
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = chain_git_repo(Path(tmp))
+        settings = Settings(
+            repo=repo.root, open_browser=False, token="t", allowed_hosts=["testserver"]
+        )
+        with TestClient(create_app(settings)) as client:
+            _write("workspace-main.json", client.get("/api/workspace").json())
+            start_release(repo, "demo")
+            apply(repo, set_attributes(repo, f"{c}/P77_C", {"DESCRIPTION": "Loaded nightly"}))
+            commit_all(repo.root, "feat: describe P77_C")
+            mark_installed(repo, "uat")
+            apply(repo, set_attributes(repo, f"{c}/P77_E", {"DESCRIPTION": "Checked twice"}))
+            commit_all(repo.root, "fix: describe P77_E")
+            git(repo.root, "branch", "release/next", "main")
+            apply(repo, set_attributes(repo, f"{c}/P77_A", {"DESCRIPTION": "Draft"}))
+            stash(repo)
+            apply(repo, set_attributes(repo, f"{c}/P77_B", {"DESCRIPTION": "Work in progress"}))
+            _write("workspace.json", client.get("/api/workspace").json())
 
 
 def dump_compare() -> None:

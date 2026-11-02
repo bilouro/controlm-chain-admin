@@ -7,6 +7,9 @@ import {
   type ChangePreview,
   type ChangeRequest,
 } from "@/lib/api/client";
+import { useWorkspace } from "@/lib/api/queries";
+import { ReadOnlyNotice } from "@/features/workspace/ReadOnlyNotice";
+import { WorkspaceDialog } from "@/features/workspace/WorkspaceDialog";
 import { DiffView } from "@/components/DiffView";
 import { EffectsTable } from "@/components/EffectsTable";
 import { Button, ErrorBox, Loading } from "@/components/ui";
@@ -24,6 +27,8 @@ function ChangeDialog({
 }) {
   const queryClient = useQueryClient();
   const dialog = useRef<HTMLDivElement>(null);
+  const workspace = useWorkspace();
+  const [isReleasesOpen, setIsReleasesOpen] = useState(false);
   const preview = useQuery({
     queryKey: ["change-preview", JSON.stringify(request)],
     queryFn: () => postApi<ChangePreview>("/api/changes/preview", request),
@@ -50,6 +55,7 @@ function ChangeDialog({
   const nothing = data !== undefined && data.files.length === 0;
   const needsToken = preview.error instanceof ApiError && preview.error.status === 401;
   const effects = details.effects ?? [];
+  const readOnly = workspace.data && !workspace.data.editable ? workspace.data : null;
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 pt-16">
       <div
@@ -66,6 +72,14 @@ function ChangeDialog({
           </h2>
           <p className="text-xs text-muted">Nothing is written until you click Apply change.</p>
         </div>
+        {readOnly && (
+          <ReadOnlyNotice
+            workspace={readOnly}
+            onStart={() => setIsReleasesOpen(true)}
+            className="rounded-md"
+          />
+        )}
+        {isReleasesOpen && <WorkspaceDialog onClose={() => setIsReleasesOpen(false)} />}
         {preview.isPending && <Loading what="preview" />}
         {preview.isError && <ErrorBox error={preview.error} />}
         {needsToken && <TokenForm onToken={() => void preview.refetch()} />}
@@ -116,7 +130,7 @@ function ChangeDialog({
           </Button>
           {!apply.isSuccess && (
             <Button
-              disabled={!data || nothing || apply.isPending}
+              disabled={!data || nothing || apply.isPending || readOnly !== null}
               onClick={() => data && apply.mutate(data.fingerprint)}
             >
               {apply.isPending ? "Applying…" : "Apply change"}

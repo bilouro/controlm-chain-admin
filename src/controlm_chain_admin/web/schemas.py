@@ -246,7 +246,7 @@ class PendingOut(BaseModel):
     summary: dict[str, Any]
     message: str = Field(description="suggested commit message; empty when nothing is pending")
     fingerprint: str = Field(description="send it back with the commit")
-    protected: bool = Field(description="main, master or develop: a new branch is suggested")
+    protected: bool = Field(description="edits are refused here: the commit needs a new branch")
 
 
 class CommitRequest(BaseModel):
@@ -351,3 +351,76 @@ class PackageOut(BaseModel):
     findings: list[FindingOut] = Field(description="validation findings the base side has not")
     filename: str
     size: int = Field(description="bytes of the XML file; 0 when nothing changed")
+
+
+class InstallationOut(BaseModel):
+    env: str
+    tag: str
+    sha: str
+    behind: int = Field(description="commits of the release after the installed one")
+
+
+class ReleaseOut(BaseModel):
+    name: str
+    branch: str
+    sha: str
+    local: bool
+    remote: bool = Field(description="the branch is on the remote too")
+    ahead: int = Field(description="commits the trunk does not have")
+    trunk_behind: int = Field(description="trunk commits the release does not have")
+    installed: list[InstallationOut] = Field(description="latest installation per environment")
+    closable: bool = Field(description="last commit installed in production, trunk merged")
+
+
+class StashOut(BaseModel):
+    ref: str
+    branch: str | None = Field(None, description="where the stash was made")
+    message: str
+
+
+class WorkspaceOut(BaseModel):
+    branch: str | None = Field(description="checked-out branch; null when detached")
+    head: str
+    trunk: str = Field(description="the branch that mirrors production; never edited")
+    prefix: str = Field(description="prefix of the release branches, e.g. release/")
+    editable: bool
+    reason: str | None = Field(None, description="why edits are refused here")
+    release: str | None = Field(None, description="name of the checked-out release")
+    changes: int = Field(description="uncommitted chain files")
+    releases: list[ReleaseOut]
+    stashes: list[StashOut]
+    environments: list[str]
+    production: str
+    remote: str | None = None
+    upstream: str | None = None
+    ahead: int = Field(description="commits not pushed to the upstream")
+    behind: int = Field(description="commits of the upstream not pulled (as of the last fetch)")
+
+
+class ActionOut(BaseModel):
+    message: str
+    workspace: WorkspaceOut
+
+
+class StartReleaseRequest(BaseModel):
+    name: str = Field(description="the release name; the branch is <prefix><name>")
+    stash: bool = Field(False, description="stash uncommitted chain files first")
+
+
+class SwitchRequest(BaseModel):
+    branch: str
+    stash: bool = Field(False, description="stash uncommitted chain files first")
+
+
+class PopRequest(BaseModel):
+    ref: str = Field(description="e.g. stash@{0}")
+
+
+class DiscardRequest(BaseModel):
+    fingerprint: str = Field(description="fingerprint of GET /api/git/pending")
+
+
+class InstalledRequest(BaseModel):
+    env: str
+    release: str | None = Field(None, description="default: the checked-out release")
+    sha: str | None = Field(None, description="the installed commit; default: the release tip")

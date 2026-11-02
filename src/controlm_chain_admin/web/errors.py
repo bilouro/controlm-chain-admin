@@ -14,12 +14,15 @@ from controlm_chain_admin.core.errors import (
     EnvironmentRequired,
     GitError,
     InvalidChange,
+    MergeConflict,
     ModelError,
     NotAChainRepo,
     NothingToCommit,
     NothingToPackage,
     OrderConflict,
+    ProtectedBranch,
     SelectionConflict,
+    UncommittedChanges,
     UnknownEnvironment,
     UnresolvedConstant,
     UnsafeName,
@@ -32,6 +35,9 @@ _STATUS: tuple[tuple[type[ChainError], int], ...] = (
     (InvalidChange, 422),  # before ModelError, its base class
     (ChangeConflict, 409),
     (SelectionConflict, 409),  # before GitError, its base class
+    (UncommittedChanges, 409),  # before GitError, its base class
+    (MergeConflict, 409),  # before GitError, its base class
+    (ProtectedBranch, 409),
     (GitError, 422),
     (ModelError, 404),
     (UnknownEnvironment, 404),

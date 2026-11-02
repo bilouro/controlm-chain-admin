@@ -26,6 +26,7 @@ from controlm_chain_admin.core import inspect as inspect_mod
 from controlm_chain_admin.core import ops
 from controlm_chain_admin.core import package as package_mod
 from controlm_chain_admin.core import refactor as refactor_mod
+from controlm_chain_admin.core import workspace as workspace_mod
 from controlm_chain_admin.core.errors import ChainError, NotAChainRepo
 from controlm_chain_admin.core.history import WORKTREE
 from controlm_chain_admin.core.links import NodeRef, folder_names
@@ -293,6 +294,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     com.set_defaults(func=cmd_commit)
 
+    _add_release(commands)
     _add_refactorings(commands)
 
     srv = commands.add_parser(
@@ -735,6 +737,120 @@ def _add_refactorings(commands: Any) -> None:
     )
 
 
+def _add_release(commands: Any) -> None:
+    """``release``: where edits go, from a release branch to the trunk."""
+    rel = commands.add_parser(
+        "release", help="releases: start one from the trunk, mark installations, close it"
+    )
+    sub = rel.add_subparsers(dest="release_command", metavar="<subcommand>")
+
+    def command(name: str, help_text: str) -> argparse.ArgumentParser:
+        parser: argparse.ArgumentParser = sub.add_parser(name, help=help_text)
+        parser.add_argument(
+            "--repo", type=Path, default=Path("."), help="repository directory (default: .)"
+        )
+        return parser
+
+    status = command("status", "the branch, whether it may be edited, releases and stashes")
+    status.add_argument("--format", choices=("text", "json"), default="text")
+    status.set_defaults(func=cmd_release_status)
+    start = command("start", "create release/NAME from the trunk and switch to it")
+    start.add_argument("name")
+    start.add_argument("--stash", action="store_true", help="stash uncommitted changes first")
+    start.set_defaults(func=cmd_release_start)
+    switch = command("switch", "switch to another branch (local, or on the remote)")
+    switch.add_argument("branch")
+    switch.add_argument("--stash", action="store_true", help="stash uncommitted changes first")
+    switch.set_defaults(func=cmd_release_switch)
+    installed = command("installed", "record that a release is installed in an environment")
+    installed.add_argument("env")
+    installed.add_argument("--release", help="release name (default: the checked-out one)")
+    installed.add_argument("--commit", help="the installed commit (default: the release tip)")
+    installed.set_defaults(func=cmd_release_installed)
+    update = command("update", "merge the trunk into the checked-out release")
+    update.set_defaults(func=cmd_release_update)
+    close = command("close", "merge the release into the trunk once installed in production")
+    close.set_defaults(func=cmd_release_close)
+    rel.set_defaults(func=cmd_release_help)
+
+
+def cmd_release_help(args: argparse.Namespace) -> int:
+    print("usage: ctmchain release {status,start,switch,installed,update,close} [--repo DIR]")
+    return EXIT_USAGE
+
+
+def _release_line(release: workspace_mod.Release, state: workspace_mod.Workspace) -> str:
+    parts = [release.branch, f"{release.ahead} ahead of {state.trunk}"]
+    if release.trunk_behind:
+        parts[-1] += f", {release.trunk_behind} behind"
+    installed = {i.env: i for i in release.installed}
+    for env in state.environments:
+        mark = installed.get(env)
+        text = (
+            mark.tag + (f" ({mark.behind} behind)" if mark and mark.behind else "")
+            if mark
+            else "-"
+        )
+        parts.append(f"{env}: {text}")
+    if not release.local:
+        parts.append("(on the remote only)")
+    if release.closable:
+        parts.append("ready to close")
+    return "  " + "  ".join(parts)
+
+
+def cmd_release_status(args: argparse.Namespace) -> int:
+    state = workspace_mod.workspace(load_repo(args.repo))
+    if args.format == "json":
+        print(json.dumps(state.to_json(), indent=2, ensure_ascii=False))
+        return EXIT_OK
+    where = "editable" if state.editable else f"read-only: {state.reason}"
+    changes = _plural(state.changes, "uncommitted chain file")
+    print(f"On {state.branch or 'a detached HEAD'} · {where} · {changes}")
+    remote = state.remote or "none"
+    if state.upstream:
+        remote += f" ({state.upstream}: {state.ahead} ahead, {state.behind} behind)"
+    print(f"Trunk: {state.trunk} · production: {state.production} · remote: {remote}")
+    print("Releases:" if state.releases else "No release.")
+    for release in state.releases:
+        print(_release_line(release, state))
+    if state.stashes:
+        print("Stashes:")
+    for saved in state.stashes:
+        print(f"  {saved.ref} on {saved.branch or '?'}: {saved.message}")
+    return EXIT_OK
+
+
+def cmd_release_start(args: argparse.Namespace) -> int:
+    print(workspace_mod.start_release(load_repo(args.repo), args.name, stash=args.stash))
+    return EXIT_OK
+
+
+def cmd_release_switch(args: argparse.Namespace) -> int:
+    print(workspace_mod.switch(load_repo(args.repo), args.branch, stash=args.stash))
+    return EXIT_OK
+
+
+def cmd_release_installed(args: argparse.Namespace) -> int:
+    repo = load_repo(args.repo)
+    done = workspace_mod.mark_installed(repo, args.env, args.release, args.commit)
+    branch = repo.config.git_rules.release_prefix + (
+        args.release or workspace_mod.workspace(repo).release or "?"
+    )
+    print(f"Tagged {done.tag} on {done.sha[:7]}: {branch} in {done.env}")
+    return EXIT_OK
+
+
+def cmd_release_update(args: argparse.Namespace) -> int:
+    print(workspace_mod.update_from_trunk(load_repo(args.repo)))
+    return EXIT_OK
+
+
+def cmd_release_close(args: argparse.Namespace) -> int:
+    print(workspace_mod.close_release(load_repo(args.repo)))
+    return EXIT_OK
+
+
 def cmd_commit(args: argparse.Namespace) -> int:
     root = load_repo(args.repo).root
     state = commit_mod.pending(root)
@@ -797,6 +913,8 @@ def cmd_resolve(args: argparse.Namespace) -> int:
 
 def cmd_refactor(args: argparse.Namespace) -> int:
     repo = load_repo(args.repo)
+    if args.apply:
+        workspace_mod.ensure_editable(repo)
     change = args.build(repo, args)
     result = refactor_mod.apply(repo, change) if args.apply and change.edits else None
     if args.format == "json":

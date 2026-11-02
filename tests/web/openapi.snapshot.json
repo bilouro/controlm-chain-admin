@@ -1,6 +1,23 @@
 {
   "components": {
     "schemas": {
+      "ActionOut": {
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "workspace": {
+            "$ref": "#/components/schemas/WorkspaceOut"
+          }
+        },
+        "required": [
+          "message",
+          "workspace"
+        ],
+        "title": "ActionOut",
+        "type": "object"
+      },
       "ApplyOut": {
         "properties": {
           "deleted": {
@@ -351,6 +368,20 @@
           "name"
         ],
         "title": "ConstantChangeOut",
+        "type": "object"
+      },
+      "DiscardRequest": {
+        "properties": {
+          "fingerprint": {
+            "description": "fingerprint of GET /api/git/pending",
+            "title": "Fingerprint",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fingerprint"
+        ],
+        "title": "DiscardRequest",
         "type": "object"
       },
       "EdgeOut": {
@@ -784,6 +815,72 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "InstallationOut": {
+        "properties": {
+          "behind": {
+            "description": "commits of the release after the installed one",
+            "title": "Behind",
+            "type": "integer"
+          },
+          "env": {
+            "title": "Env",
+            "type": "string"
+          },
+          "sha": {
+            "title": "Sha",
+            "type": "string"
+          },
+          "tag": {
+            "title": "Tag",
+            "type": "string"
+          }
+        },
+        "required": [
+          "env",
+          "tag",
+          "sha",
+          "behind"
+        ],
+        "title": "InstallationOut",
+        "type": "object"
+      },
+      "InstalledRequest": {
+        "properties": {
+          "env": {
+            "title": "Env",
+            "type": "string"
+          },
+          "release": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "default: the checked-out release",
+            "title": "Release"
+          },
+          "sha": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the installed commit; default: the release tip",
+            "title": "Sha"
+          }
+        },
+        "required": [
+          "env"
+        ],
+        "title": "InstalledRequest",
         "type": "object"
       },
       "JobDetail": {
@@ -1415,7 +1512,7 @@
             "type": "string"
           },
           "protected": {
-            "description": "main, master or develop: a new branch is suggested",
+            "description": "edits are refused here: the commit needs a new branch",
             "title": "Protected",
             "type": "boolean"
           },
@@ -1434,6 +1531,20 @@
           "protected"
         ],
         "title": "PendingOut",
+        "type": "object"
+      },
+      "PopRequest": {
+        "properties": {
+          "ref": {
+            "description": "e.g. stash@{0}",
+            "title": "Ref",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ref"
+        ],
+        "title": "PopRequest",
         "type": "object"
       },
       "RefOut": {
@@ -1613,6 +1724,67 @@
         "title": "RelationOut",
         "type": "object"
       },
+      "ReleaseOut": {
+        "properties": {
+          "ahead": {
+            "description": "commits the trunk does not have",
+            "title": "Ahead",
+            "type": "integer"
+          },
+          "branch": {
+            "title": "Branch",
+            "type": "string"
+          },
+          "closable": {
+            "description": "last commit installed in production, trunk merged",
+            "title": "Closable",
+            "type": "boolean"
+          },
+          "installed": {
+            "description": "latest installation per environment",
+            "items": {
+              "$ref": "#/components/schemas/InstallationOut"
+            },
+            "title": "Installed",
+            "type": "array"
+          },
+          "local": {
+            "title": "Local",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "remote": {
+            "description": "the branch is on the remote too",
+            "title": "Remote",
+            "type": "boolean"
+          },
+          "sha": {
+            "title": "Sha",
+            "type": "string"
+          },
+          "trunk_behind": {
+            "description": "trunk commits the release does not have",
+            "title": "Trunk Behind",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "branch",
+          "sha",
+          "local",
+          "remote",
+          "ahead",
+          "trunk_behind",
+          "installed",
+          "closable"
+        ],
+        "title": "ReleaseOut",
+        "type": "object"
+      },
       "RepoInfo": {
         "properties": {
           "application": {
@@ -1651,6 +1823,75 @@
           "root"
         ],
         "title": "RepoInfo",
+        "type": "object"
+      },
+      "StartReleaseRequest": {
+        "properties": {
+          "name": {
+            "description": "the release name; the branch is <prefix><name>",
+            "title": "Name",
+            "type": "string"
+          },
+          "stash": {
+            "default": false,
+            "description": "stash uncommitted chain files first",
+            "title": "Stash",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "StartReleaseRequest",
+        "type": "object"
+      },
+      "StashOut": {
+        "properties": {
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "where the stash was made",
+            "title": "Branch"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "ref": {
+            "title": "Ref",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ref",
+          "message"
+        ],
+        "title": "StashOut",
+        "type": "object"
+      },
+      "SwitchRequest": {
+        "properties": {
+          "branch": {
+            "title": "Branch",
+            "type": "string"
+          },
+          "stash": {
+            "default": false,
+            "description": "stash uncommitted chain files first",
+            "title": "Stash",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "branch"
+        ],
+        "title": "SwitchRequest",
         "type": "object"
       },
       "TableFolder": {
@@ -1936,6 +2177,142 @@
         ],
         "title": "ValueChangeOut",
         "type": "object"
+      },
+      "WorkspaceOut": {
+        "properties": {
+          "ahead": {
+            "description": "commits not pushed to the upstream",
+            "title": "Ahead",
+            "type": "integer"
+          },
+          "behind": {
+            "description": "commits of the upstream not pulled (as of the last fetch)",
+            "title": "Behind",
+            "type": "integer"
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "checked-out branch; null when detached",
+            "title": "Branch"
+          },
+          "changes": {
+            "description": "uncommitted chain files",
+            "title": "Changes",
+            "type": "integer"
+          },
+          "editable": {
+            "title": "Editable",
+            "type": "boolean"
+          },
+          "environments": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Environments",
+            "type": "array"
+          },
+          "head": {
+            "title": "Head",
+            "type": "string"
+          },
+          "prefix": {
+            "description": "prefix of the release branches, e.g. release/",
+            "title": "Prefix",
+            "type": "string"
+          },
+          "production": {
+            "title": "Production",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "why edits are refused here",
+            "title": "Reason"
+          },
+          "release": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "name of the checked-out release",
+            "title": "Release"
+          },
+          "releases": {
+            "items": {
+              "$ref": "#/components/schemas/ReleaseOut"
+            },
+            "title": "Releases",
+            "type": "array"
+          },
+          "remote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remote"
+          },
+          "stashes": {
+            "items": {
+              "$ref": "#/components/schemas/StashOut"
+            },
+            "title": "Stashes",
+            "type": "array"
+          },
+          "trunk": {
+            "description": "the branch that mirrors production; never edited",
+            "title": "Trunk",
+            "type": "string"
+          },
+          "upstream": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upstream"
+          }
+        },
+        "required": [
+          "branch",
+          "head",
+          "trunk",
+          "prefix",
+          "editable",
+          "changes",
+          "releases",
+          "stashes",
+          "environments",
+          "production",
+          "ahead",
+          "behind"
+        ],
+        "title": "WorkspaceOut",
+        "type": "object"
       }
     }
   },
@@ -1981,7 +2358,7 @@
                 }
               }
             },
-            "description": "The repository changed since the preview"
+            "description": "The repository changed since the preview, or the branch is protected"
           },
           "422": {
             "content": {
@@ -2035,7 +2412,7 @@
                 }
               }
             },
-            "description": "The repository changed since the preview"
+            "description": "The repository changed since the preview, or the branch is protected"
           },
           "422": {
             "content": {
@@ -2956,6 +3333,650 @@
           "validate"
         ]
       }
+    },
+    "/api/workspace": {
+      "get": {
+        "operationId": "get_workspace_api_workspace_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or wrong session token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unknown environment"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Protected branch, uncommitted changes in the way, or a conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not allowed now (see the message) or a git error"
+          }
+        },
+        "summary": "The branch, whether it may be edited, releases and their installations, stashes",
+        "tags": [
+          "workspace"
+        ]
+      }
+    },
+    "/api/workspace/close": {
+      "post": {
+        "operationId": "close_api_workspace_close_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or wrong session token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unknown environment"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Protected branch, uncommitted changes in the way, or a conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not allowed now (see the message) or a git error"
+          }
+        },
+        "summary": "Merge the release into the trunk once in production",
+        "tags": [
+          "workspace"
+        ]
+      }
+    },
+    "/api/workspace/discard": {
+      "post": {
+        "operationId": "discard_changes_api_workspace_discard_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscardRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or wrong session token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unknown environment"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Protected branch, uncommitted changes in the way, or a conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not allowed now (see the message) or a git error"
+          }
+        },
+        "summary": "Throw the uncommitted chain changes away",
+        "tags": [
+          "workspace"
+        ]
+      }
+    },
+    "/api/workspace/installed": {
+      "post": {
+        "operationId": "installed_api_workspace_installed_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InstalledRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or wrong session token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unknown environment"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Protected branch, uncommitted changes in the way, or a conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not allowed now (see the message) or a git error"
+          }
+        },
+        "summary": "Record that a release is installed in an environment",
+        "tags": [
+          "workspace"
+        ]
+      }
+    },
+    "/api/workspace/pop": {
+      "post": {
+        "operationId": "pop_api_workspace_pop_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PopRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or wrong session token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unknown environment"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Protected branch, uncommitted changes in the way, or a conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not allowed now (see the message) or a git error"
+          }
+        },
+        "summary": "Restore a stash on the checked-out branch",
+        "tags": [
+          "workspace"
+        ]
+      }
+    },
+    "/api/workspace/pull": {
+      "post": {
+        "operationId": "pull_api_workspace_pull_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or wrong session token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unknown environment"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Protected branch, uncommitted changes in the way, or a conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not allowed now (see the message) or a git error"
+          }
+        },
+        "summary": "Fetch, then fast-forward the branch and the trunk",
+        "tags": [
+          "workspace"
+        ]
+      }
+    },
+    "/api/workspace/push": {
+      "post": {
+        "operationId": "push_api_workspace_push_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or wrong session token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unknown environment"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Protected branch, uncommitted changes in the way, or a conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not allowed now (see the message) or a git error"
+          }
+        },
+        "summary": "Push the checked-out branch and its installation tags",
+        "tags": [
+          "workspace"
+        ]
+      }
+    },
+    "/api/workspace/release": {
+      "post": {
+        "operationId": "start_release_api_workspace_release_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartReleaseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or wrong session token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unknown environment"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Protected branch, uncommitted changes in the way, or a conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not allowed now (see the message) or a git error"
+          }
+        },
+        "summary": "Start a release from the trunk and switch to it",
+        "tags": [
+          "workspace"
+        ]
+      }
+    },
+    "/api/workspace/stash": {
+      "post": {
+        "operationId": "stash_api_workspace_stash_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or wrong session token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unknown environment"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Protected branch, uncommitted changes in the way, or a conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not allowed now (see the message) or a git error"
+          }
+        },
+        "summary": "Put the uncommitted chain files aside",
+        "tags": [
+          "workspace"
+        ]
+      }
+    },
+    "/api/workspace/switch": {
+      "post": {
+        "operationId": "switch_api_workspace_switch_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SwitchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or wrong session token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unknown environment"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Protected branch, uncommitted changes in the way, or a conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not allowed now (see the message) or a git error"
+          }
+        },
+        "summary": "Switch to another branch",
+        "tags": [
+          "workspace"
+        ]
+      }
+    },
+    "/api/workspace/update": {
+      "post": {
+        "operationId": "update_api_workspace_update_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or wrong session token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unknown environment"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Protected branch, uncommitted changes in the way, or a conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not allowed now (see the message) or a git error"
+          }
+        },
+        "summary": "Merge the trunk into the checked-out release",
+        "tags": [
+          "workspace"
+        ]
+      }
     }
   },
   "tags": [
@@ -2990,6 +4011,10 @@
     {
       "description": "The Control-M import file with every folder a comparison changed.",
       "name": "package"
+    },
+    {
+      "description": "Where edits go: releases from the trunk, installations, stash, push.",
+      "name": "workspace"
     }
   ]
 }

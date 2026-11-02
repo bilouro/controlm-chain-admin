@@ -101,18 +101,23 @@ def _git(root: Path, *args: str, binary: bool = False) -> Any:
     return result.stdout
 
 
+def chain_changes(root: Path) -> int:
+    """Uncommitted chain files (modified, deleted or new), the derived index.json left out."""
+    chain = str(_git(root, "status", "--porcelain=v1", "-z", "--untracked-files=all", "--",
+                     "chain.json", "folders", "meta", "envs"))  # fmt: skip
+    return sum(
+        1
+        for entry in chain.split("\0")
+        if len(entry) > 3 and entry[2] == " " and not entry.endswith("/index.json")
+    )
+
+
 def git_state(root: Path) -> GitState:
     """Current branch, HEAD, dirtiness of the chain files, and every branch, remote and tag."""
     head = _git(root, "rev-parse", "HEAD").strip()
     current = _git(root, "rev-parse", "--abbrev-ref", "HEAD").strip()
     status = _git(root, "status", "--porcelain", "--", ".").strip()
-    chain = str(_git(root, "status", "--porcelain=v1", "-z", "--untracked-files=all", "--",
-                     "chain.json", "folders", "meta", "envs"))  # fmt: skip
-    changes = sum(
-        1
-        for entry in chain.split("\0")
-        if len(entry) > 3 and entry[2] == " " and not entry.endswith("/index.json")
-    )
+    changes = chain_changes(root)
     fmt = _SEP.join(
         ("%(refname)", "%(objectname)", "%(contents:subject)", "%(committerdate:iso-strict)")
     )

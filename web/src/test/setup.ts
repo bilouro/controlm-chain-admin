@@ -33,6 +33,7 @@ afterEach(() => {
   calls.compare.length = 0;
   calls.package.length = 0;
   calls.commit.length = 0;
+  calls.workspace.length = 0;
   sessionStorage.clear();
 });
 afterAll(() => server.close());

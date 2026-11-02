@@ -1,0 +1,54 @@
+{
+  "branch": "release/demo",
+  "head": "8ae4c9a6c49fd64eaaa25db0ac9e3d93db436f5a",
+  "trunk": "main",
+  "prefix": "release/",
+  "editable": true,
+  "reason": null,
+  "release": "demo",
+  "changes": 1,
+  "releases": [
+    {
+      "name": "demo",
+      "branch": "release/demo",
+      "sha": "8ae4c9a6c49fd64eaaa25db0ac9e3d93db436f5a",
+      "local": true,
+      "remote": false,
+      "ahead": 2,
+      "trunk_behind": 0,
+      "installed": [
+        {
+          "env": "uat",
+          "tag": "uat/demo-1",
+          "sha": "b27edc8aa12b82ae1eb300e5c68e4a0215256110",
+          "behind": 1
+        }
+      ],
+      "closable": false
+    },
+    {
+      "name": "next",
+      "branch": "release/next",
+      "sha": "913d04cc4115a09ef4198ca7f0b329a803a0642a",
+      "local": true,
+      "remote": false,
+      "ahead": 0,
+      "trunk_behind": 0,
+      "installed": [],
+      "closable": false
+    }
+  ],
+  "stashes": [
+    {
+      "ref": "stash@{0}",
+      "branch": "release/demo",
+      "message": "fix: update job P77_A in P77_CHAIN"
+    }
+  ],
+  "environments": ["uat", "prod"],
+  "production": "prod",
+  "remote": null,
+  "upstream": null,
+  "ahead": 0,
+  "behind": 0
+}

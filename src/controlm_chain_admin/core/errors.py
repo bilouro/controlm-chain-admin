@@ -85,3 +85,31 @@ class NothingToPackage(ChainError):
 
 class NothingToCommit(ChainError):
     """The chain files have no uncommitted change."""
+
+
+class ProtectedBranch(ChainError):
+    """Edits are refused on the trunk, another protected branch or a detached HEAD."""
+
+
+class UncommittedChanges(GitError):
+    """Uncommitted chain files stop a switch, a merge or a restore: commit, stash or discard."""
+
+    def __init__(self, message: str, changes: int) -> None:
+        super().__init__(message)
+        self.changes = changes
+
+    @property
+    def detail(self) -> dict[str, object]:
+        return {"changes": self.changes}
+
+
+class MergeConflict(GitError):
+    """A merge or a stash does not apply cleanly; nothing was changed."""
+
+    def __init__(self, message: str, paths: tuple[str, ...]) -> None:
+        super().__init__(message)
+        self.paths = paths
+
+    @property
+    def detail(self) -> dict[str, object]:
+        return {"paths": list(self.paths)}

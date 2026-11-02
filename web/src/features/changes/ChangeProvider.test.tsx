@@ -4,6 +4,7 @@ import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
 import { renderAt } from "@/test/render";
 import { calls, server, TEST_TOKEN } from "@/test/server";
+import workspaceMain from "@/test/fixtures/workspace-main.json";
 import { useChanges } from "./changes-context";
 
 function Proposer() {
@@ -35,6 +36,19 @@ function Proposer() {
 }
 
 describe("ChangeProvider", () => {
+  it("on a read-only branch keeps Apply disabled and says why", async () => {
+    server.use(http.get("/api/workspace", () => HttpResponse.json(workspaceMain)));
+    const user = userEvent.setup();
+    renderAt(<Proposer />);
+
+    await user.click(screen.getByRole("button", { name: "propose" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Review change" });
+    const notice = await within(dialog).findByRole("region", { name: "Read-only branch" });
+    expect(notice).toHaveTextContent("main mirrors production and is read-only");
+    expect(within(dialog).getByRole("button", { name: "Apply change" })).toBeDisabled();
+  });
+
   it("shows why a change is refused and keeps Apply disabled", async () => {
     server.use(
       http.post("/api/changes/preview", () =>

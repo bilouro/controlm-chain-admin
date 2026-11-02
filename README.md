@@ -52,13 +52,16 @@ ctmchain distinct NODEID RUN_AS DOMAIL/@DEST --xml uat_export.xml   # what varie
 ctmchain import uat_export.xml --env uat --repo ./my-chains         # XML -> JSON, with a report
 ctmchain validate --repo ./my-chains                                # chain findings, exit 1 if any
 ctmchain resolve never-cleaned=add-cleanup --repo ./my-chains       # preview the fixes; --apply
+ctmchain release start 2026-11 --repo ./my-chains                   # edits go to release/2026-11
 ctmchain commit --dry-run --repo ./my-chains                        # the message it would use
 ctmchain graph P77_INGEST_DAILY --repo ./my-chains --format mermaid # the chain of one folder
 ctmchain export --env uat -o uat.xml --repo ./my-chains             # byte-identical to the import
 ctmchain export --env prod -o prod.xml --repo ./my-chains           # same chain, prod letters
 ctmchain serve --repo ./my-chains                                   # local web UI
-ctmchain compare develop feature/new-check --repo ./my-chains       # what the branch changed
-ctmchain package develop feature/new-check --env uat --repo ./my-chains   # import file, changed folders
+ctmchain compare main release/2026-11 --repo ./my-chains            # what the release changed
+ctmchain package main release/2026-11 --env uat --repo ./my-chains  # import file, changed folders
+ctmchain release installed uat --repo ./my-chains                   # tag uat/2026-11-1
+ctmchain release close --repo ./my-chains                           # once installed in prod
 ```
 
 Refactorings preview a change set and write only with `--apply`:

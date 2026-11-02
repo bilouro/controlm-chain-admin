@@ -44,7 +44,7 @@ describe("CommitButton", () => {
     ]);
   });
 
-  it("on main it offers a new branch for the commit", async () => {
+  it("on a read-only branch the commit goes to a new release branch", async () => {
     withChanges(1);
     server.use(
       http.get("/api/git/pending", () =>
@@ -56,13 +56,13 @@ describe("CommitButton", () => {
     await user.click(await screen.findByRole("button", { name: "Commit (1)" }));
     const dialog = await screen.findByRole("dialog", { name: "Commit changes" });
 
-    await user.click(await within(dialog).findByRole("checkbox", { name: /new branch/ }));
-    const branch = within(dialog).getByLabelText("Branch name");
-    expect(branch).toHaveValue("fix/update-job-p77-e-in-p77-chain");
+    const branch = await within(dialog).findByLabelText("New branch");
+    expect(dialog).toHaveTextContent("main is read-only");
+    await waitFor(() => expect(branch).toHaveValue("release/update-job-p77-e-in-p77-chain"));
     await user.click(within(dialog).getByRole("button", { name: "Commit 1 file" }));
 
     await waitFor(() =>
-      expect(calls.commit[0]).toMatchObject({ branch: "fix/update-job-p77-e-in-p77-chain" }),
+      expect(calls.commit[0]).toMatchObject({ branch: "release/update-job-p77-e-in-p77-chain" }),
     );
   });
 });

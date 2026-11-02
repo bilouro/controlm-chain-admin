@@ -9,7 +9,7 @@ import pytest
 from controlm_chain_admin.cli import main
 from controlm_chain_admin.core.repo import load_repo
 from controlm_chain_admin.core.validate import validate
-from tests.support.gitrepo import chain_git_repo
+from tests.support.gitrepo import chain_git_repo, git
 
 
 def test_without_a_choice_it_lists_the_fixes_per_code(
@@ -35,6 +35,10 @@ def test_a_choice_is_previewed_then_applied(
     assert main(["resolve", *choice, "--repo", str(root), "--stat"]) == 0
     preview = capsys.readouterr().out
     assert preview.startswith("2 changes:") and "Preview only" in preview
+
+    assert main(["resolve", *choice, "--repo", str(root), "--apply"]) == 3
+    assert "main is protected" in capsys.readouterr().err  # never written on the trunk
+    git(root, "switch", "-q", "-c", "release/march")
 
     assert main(["resolve", *choice, "--repo", str(root), "--apply"]) == 0
     assert "Applied" in capsys.readouterr().out

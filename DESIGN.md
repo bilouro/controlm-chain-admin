@@ -318,6 +318,31 @@ element exists only on one side. It runs as a dry-run report first.
   that the base changed after the branch started (the package would undo them: merge first).
   Validation findings the head side has and the base has not are listed. The same `--commit`
   selection applies.
+- Releases (implemented 2026-11-02, asked by the author: "work only with the trunk, tags and
+  release branches; forbid edits on main"). One trunk (`main`) mirrors production and is never
+  edited, nor any other protected branch nor a detached HEAD: applying a change set (CLI
+  `--apply` and `POST /api/changes/apply`) and committing are refused there (`ProtectedBranch`);
+  a commit can still go to a new branch. Work happens on a release branch `release/<name>`,
+  always started from the trunk; it is committed, packaged against the trunk, installed in one
+  environment after the other, and each installation is recorded as an annotated tag
+  `<env>/<name>-<n>` on the installed commit (`ctmchain release installed <env>`). A later
+  change after an installation is a new commit on the same release; the package for that
+  environment can then hold only the folders changed since its last tag (base = the tag) or the
+  whole release. Once the last commit is installed in production, *closing* merges the release
+  into the trunk (one merge commit, without checking the trunk out, the tags listed in the
+  message) and deletes the branch; closing is refused while the trunk has commits the release
+  lacks: *update* merges the trunk into the release first (a conflict aborts and names the
+  files), and the merged commit is installed again. Starting or switching with uncommitted chain
+  files is refused unless they are stashed first (`git stash` of the chain paths, untracked
+  files included); a stash is restored on an editable branch, and a stash that no longer applies
+  changes nothing and is kept. *Discard* restores the chain files of HEAD after the same
+  fingerprint check as a commit. *Push* sends the branch and its installation tags
+  (`--follow-tags`, upstream set on the first push) and, from the trunk, deletes the remote
+  branches of closed releases; *pull* fetches with tags and prunes, then fast-forwards the branch
+  and the trunk only. Network commands never prompt (`GIT_TERMINAL_PROMPT=0`, ssh in batch mode)
+  and give up after 120 s. The names come from the `git` key of `chain.json`, all optional:
+  `{"trunk": "main", "protected": ["main", "master"], "release_prefix": "release/",
+  "tag_format": "{env}/{release}-{n}", "production": "prod", "remote": "origin"}`.
 
 ## 9. Refactorings (change-set with preview)
 
@@ -445,7 +470,7 @@ Server-side concerns (not in the core):
   its own Host names. `GET /api/table` builds the table in ~0.2 s on the real repository.
 - **Compare (implemented 2026-11-02).** The *Compare* page answers "what did this branch change,
   how was it and how is it now". The header picks the base and head refs (branches, tags, remote
-  branches and the working tree; by default develop, else main, against the checked-out branch)
+  branches and the working tree; by default the trunk, against the checked-out branch)
   and the merge-base option; the choice lives in the URL so a comparison can be shared. Summary
   cards count folders, jobs, conditions, relations and constants. The *Folders & jobs* tab lists
   the changed nodes grouped by folder, with a badge per kind of change and filters by kind; the
@@ -477,9 +502,24 @@ Server-side concerns (not in the core):
   `ctmchain serve` (`CTMCHAIN_TOKEN` keeps the same token across restarts).
 - **Commit (implemented 2026-11-02).** Applying a change writes files, it does not commit.
   The header shows *Commit (n)* with the uncommitted chain files (derived `index.json` left
-  out); the dialog lists them, proposes the message (editable) and, on main, master or develop,
-  offers a new branch named from the subject (`fix/update-job-x-in-f`). The commit needs the
-  session token and is refused when the files changed since the dialog opened.
+  out); the dialog lists them and proposes the message (editable); on a read-only branch the
+  commit goes to a new release branch named from the subject (`release/update-job-x-in-f`).
+  The commit needs the session token and is refused when the files changed since the dialog
+  opened.
+- **Releases (implemented 2026-11-02).** The header shows the checked-out branch (*read-only*
+  on the trunk) and opens the *Releases* dialog: the current branch and its uncommitted files
+  (*Stash changes*, *Discard changes…* with a confirmation), *Update from main* and *Close
+  release* (disabled with the reason until the last commit is installed in production), the
+  trunk and every release with its latest installation per environment and how many commits
+  behind it is, *Switch* (with uncommitted files it offers to stash them first), *Start
+  release* from the trunk, the stashes with *Restore*, and *Push*/*Pull* with the counts. On a
+  read-only branch a banner under the header, and the review dialog of every change, say why
+  and offer the dialog; *Apply change* stays disabled. In the package preview, when the
+  environment already has an earlier commit of the release, the panel first asks whether the
+  file holds only what changed since that installation or the whole release; after the
+  download, *Mark as installed in <env>* creates the tag. `GET /api/workspace` and
+  `POST /api/workspace/{release,switch,stash,pop,discard,installed,update,close,push,pull}`
+  (session token), each answering a message and the new state.
 
 ## 12. CLI reference (`ctmchain`)
 
@@ -522,6 +562,7 @@ the first import.
 Quality
 - `validate [--env <env>] [--strict]` — graph, naming, overlay and resolution checks; exit code = highest severity.
 - `resolve [CODE=KIND...] [--apply] [--stat]` — implemented: fixes for the findings (see §8); without arguments, the fix kinds per code.
+- `release status|start <name>|switch <branch>|installed <env>|update|close` — implemented: the release flow of §8 (`--stash` to stash uncommitted files first, `installed --release --commit` to tag another commit). Stash, discard, push and pull are plain git on the command line.
 - `commit [-m <message>] [--branch <name>] [--dry-run]` — implemented: commits the chain files only (`chain.json`, `folders/`, `meta/`, `envs/`, with `git commit --only`, so other staged or untracked files are left alone). Without `-m` the message is suggested from the semantic comparison of HEAD with the working tree: a Conventional Commits subject (`feat` when jobs or folders are added, `refactor` for renames and moves only, `fix` otherwise; e.g. `fix: update job X in F`, `feat: add 1 job, rename 2 conditions, update 3 jobs`) and a body listing every change. A batch of fixes is one apply and one commit.
 
 Inspection

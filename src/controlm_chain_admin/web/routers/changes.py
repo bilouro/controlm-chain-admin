@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, Request
 from controlm_chain_admin.core.errors import ChangeConflict
 from controlm_chain_admin.core.refactor import apply, fingerprint, run_operation
 from controlm_chain_admin.core.repo import ChainRepo
+from controlm_chain_admin.core.workspace import ensure_editable
 from controlm_chain_admin.web.deps import get_repo, require_token
 from controlm_chain_admin.web.schemas import (
     ApplyOut,
@@ -21,7 +22,10 @@ from controlm_chain_admin.web.schemas import (
 router = APIRouter(prefix="/api/changes", tags=["changes"], dependencies=[Depends(require_token)])
 ERRORS: dict[int | str, dict[str, Any]] = {
     401: {"description": "Missing or wrong session token"},
-    409: {"model": ErrorOut, "description": "The repository changed since the preview"},
+    409: {
+        "model": ErrorOut,
+        "description": "The repository changed since the preview, or the branch is protected",
+    },
     422: {"model": ErrorOut, "description": "The change is not allowed"},
 }
 
@@ -42,6 +46,7 @@ def preview(body: ChangeRequest, repo: ChainRepo = Depends(get_repo)) -> ChangeP
 def apply_change(
     body: ApplyRequest, request: Request, repo: ChainRepo = Depends(get_repo)
 ) -> ApplyOut:
+    ensure_editable(repo)
     with request.app.state.write_lock:
         change = run_operation(repo, body.op, body.params)
         if fingerprint(change) != body.fingerprint:

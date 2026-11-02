@@ -9,7 +9,7 @@ import {
   type RelationChangeOut,
   type ValueChangeOut,
 } from "@/lib/api/client";
-import { compareParams, useCompare, useGit, useRepo } from "@/lib/api/queries";
+import { compareParams, useCompare, useGit, useRepo, useWorkspace } from "@/lib/api/queries";
 import { cn, nodeRoute, parseNode } from "@/lib/utils";
 import { DiffView } from "@/components/DiffView";
 import { CommitPicker } from "./CommitPicker";
@@ -448,8 +448,12 @@ function parseSelection(value: string | null): string[] | null {
 export function ComparePage() {
   const git = useGit();
   const repo = useRepo();
+  const workspace = useWorkspace();
   const [params, setParams] = useSearchParams();
-  const defaults = git.data ? defaultRefs(git.data) : { base: "", head: "" };
+  const defaults =
+    git.data && !workspace.isPending // the trunk of the releases is the default base
+      ? defaultRefs(git.data, workspace.data?.trunk)
+      : { base: "", head: "" };
   const base = params.get("base") ?? defaults.base;
   const head = params.get("head") ?? defaults.head;
   const mergeBase = params.get("mb") !== "0";
@@ -567,7 +571,13 @@ export function ComparePage() {
       ) : null}
 
       {isPackageOpen && result && (
-        <PackagePanel params={packageParams} onClose={() => setIsPackageOpen(false)} />
+        <PackagePanel
+          key={`${env}-${base}-${head}`}
+          params={packageParams}
+          release={workspace.data?.releases.find((r) => r.branch === head) ?? null}
+          isSelection={selection !== null}
+          onClose={() => setIsPackageOpen(false)}
+        />
       )}
 
       {comparison.isPending && <Loading what="comparison" />}

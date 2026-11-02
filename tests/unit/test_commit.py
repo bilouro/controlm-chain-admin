@@ -7,7 +7,12 @@ from pathlib import Path
 import pytest
 
 from controlm_chain_admin.core.commit import commit, pending
-from controlm_chain_admin.core.errors import ChangeConflict, GitError, NothingToCommit
+from controlm_chain_admin.core.errors import (
+    ChangeConflict,
+    GitError,
+    NothingToCommit,
+    ProtectedBranch,
+)
 from controlm_chain_admin.core.history import git_state
 from controlm_chain_admin.core.refactor import (
     apply,
@@ -75,15 +80,18 @@ def test_a_batch_is_committed_as_one_commit_with_the_given_message(repo: ChainRe
         }},
         {"op": "rename-link", "params": {"link": "P77_D-P77_NOBODY_OK", "name": "P77_D_DONE"}},
     ]  # fmt: skip
+    git(repo.root, "switch", "-q", "-c", "release/march")
     apply(repo, run_operation(repo, "batch", {"changes": changes}))
     state = pending(repo.root)
     before = git(repo.root, "rev-list", "--count", "HEAD")
 
     done = commit(repo.root, "fix: two fixes\n\nedited by hand", state.fingerprint)
 
+    assert not state.protected
     assert git(repo.root, "rev-list", "--count", "HEAD") == str(int(before) + 1)
     assert git(repo.root, "log", "-1", "--format=%B") == "fix: two fixes\n\nedited by hand"
-    assert done.branch == "main" and done.subject == "fix: two fixes" and len(done.sha) == 40
+    assert done.branch == "release/march" and done.subject == "fix: two fixes"
+    assert len(done.sha) == 40
     assert not git_state(repo.root).dirty
     assert git(repo.root, "status", "--porcelain") == ""  # index.json committed too
 
@@ -99,7 +107,19 @@ def test_commit_on_a_new_branch(repo: ChainRepo) -> None:
     assert git(repo.root, "rev-list", "--count", "main..fix/describe-e") == "1"
 
 
+def test_a_protected_branch_is_never_committed_on(repo: ChainRepo) -> None:
+    apply(repo, set_attributes(repo, f"{C}/P77_E", {"DESCRIPTION": "x"}))
+    state = pending(repo.root)
+
+    with pytest.raises(ProtectedBranch, match="main is protected"):
+        commit(repo.root, state.message, state.fingerprint)
+    with pytest.raises(ProtectedBranch, match="master is protected"):
+        commit(repo.root, state.message, state.fingerprint, branch="master")
+    assert git(repo.root, "rev-list", "--count", "HEAD") == "1"
+
+
 def test_files_outside_the_chain_are_left_alone(repo: ChainRepo) -> None:
+    git(repo.root, "switch", "-q", "-c", "release/march")
     (repo.root / "notes.txt").write_text("not mine\n", encoding="utf-8")
     apply(repo, set_attributes(repo, f"{C}/P77_E", {"DESCRIPTION": "x"}))
     state = pending(repo.root)

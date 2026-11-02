@@ -13,6 +13,7 @@ import comparison from "./fixtures/compare.json";
 import comparisonSelected from "./fixtures/compare-selected.json";
 import packagePreview from "./fixtures/package.json";
 import pendingChanges from "./fixtures/pending.json";
+import workspace from "./fixtures/workspace.json";
 import type { FolderDetail, JobDetail } from "@/lib/api/client";
 
 // Fixtures are dumped from the real API running on the synthetic repository (web/scripts/dump_fixtures.py).
@@ -34,12 +35,20 @@ export const calls: {
   compare: URLSearchParams[];
   package: URLSearchParams[];
   commit: unknown[];
+  workspace: { action: string; body: unknown }[];
 } = {
   preview: [],
   apply: [],
   compare: [],
   package: [],
   commit: [],
+  workspace: [],
+};
+
+const WORKSPACE_MESSAGES: Record<string, (body: Record<string, unknown>) => string> = {
+  switch: (body) => `Switched to ${String(body.branch)}`,
+  release: (body) => `Started release/${String(body.name)} from main`,
+  installed: (body) => `Tagged ${String(body.env)}/demo-2 on 1234567`,
 };
 
 function notFound(message: string) {
@@ -76,6 +85,17 @@ export const handlers = [
       branch: body.branch ?? pendingChanges.branch,
       subject: body.message.split("\n")[0],
     });
+  }),
+  http.get("/api/workspace", () => HttpResponse.json(workspace)),
+  http.post("/api/workspace/:action", async ({ request, params }) => {
+    const denied = unauthorized(request);
+    if (denied) return denied;
+    const action = String(params.action);
+    const text = await request.text();
+    const body = (text ? JSON.parse(text) : {}) as Record<string, unknown>;
+    calls.workspace.push({ action, body });
+    const message = WORKSPACE_MESSAGES[action]?.(body) ?? `Done: ${action}`;
+    return HttpResponse.json({ message, workspace });
   }),
   http.get("/api/compare", ({ request }) => {
     const params = new URL(request.url).searchParams;

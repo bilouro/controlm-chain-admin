@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ApiError, postApi, type CommitRequest, type CommittedOut } from "@/lib/api/client";
-import { usePending } from "@/lib/api/queries";
+import { usePending, useWorkspace } from "@/lib/api/queries";
 import { TokenForm } from "@/features/changes/TokenForm";
 import { Button, ErrorBox, Loading, TextInput } from "@/components/ui";
 import { branchFor } from "./branch-name";
@@ -11,9 +11,9 @@ const FILES_SHOWN = 12;
 export function CommitDialog({ onClose }: { onClose: () => void }) {
   const queryClient = useQueryClient();
   const pending = usePending(true);
+  const workspace = useWorkspace();
   const dialog = useRef<HTMLDivElement>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [onBranch, setOnBranch] = useState(false);
   const [branch, setBranch] = useState<string | null>(null);
   const commit = useMutation({
     mutationFn: (body: CommitRequest) => postApi<CommittedOut>("/api/git/commit", body),
@@ -32,7 +32,8 @@ export function CommitDialog({ onClose }: { onClose: () => void }) {
   const data = pending.data;
   const text = message ?? data?.message ?? "";
   const subject = text.split("\n")[0] ?? "";
-  const branchName = branch ?? branchFor(subject);
+  const branchName = branch ?? branchFor(subject, workspace.data?.prefix);
+  const onBranch = data?.protected === true;
   const needsToken = commit.error instanceof ApiError && commit.error.status === 401;
   const handleCommit = () => {
     if (!data) return;
@@ -92,25 +93,18 @@ export function CommitDialog({ onClose }: { onClose: () => void }) {
             </label>
             {data.protected && (
               <div className="space-y-1 rounded-md border border-warning/40 bg-warning/10 p-2 text-xs">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={onBranch}
-                    onChange={(e) => setOnBranch(e.target.checked)}
+                <p>
+                  {data.branch ?? "A detached HEAD"} is read-only: the commit goes to a new release
+                  branch, which you then install and close.
+                </p>
+                <label className="block text-muted">
+                  New branch
+                  <TextInput
+                    value={branchName}
+                    onChange={(e) => setBranch(e.target.value)}
+                    className="block"
                   />
-                  You are on {data.branch}: commit on a new branch instead (then compare it and
-                  generate the XML from it)
                 </label>
-                {onBranch && (
-                  <label className="block text-muted">
-                    Branch name
-                    <TextInput
-                      value={branchName}
-                      onChange={(e) => setBranch(e.target.value)}
-                      className="block"
-                    />
-                  </label>
-                )}
               </div>
             )}
           </>
@@ -127,7 +121,10 @@ export function CommitDialog({ onClose }: { onClose: () => void }) {
             {commit.isSuccess ? "Close" : "Cancel"}
           </Button>
           {!commit.isSuccess && data && data.files.length > 0 && (
-            <Button disabled={!text.trim() || commit.isPending} onClick={handleCommit}>
+            <Button
+              disabled={!text.trim() || commit.isPending || (onBranch && !branchName.trim())}
+              onClick={handleCommit}
+            >
               {commit.isPending
                 ? "Committing…"
                 : `Commit ${data.files.length} file${data.files.length === 1 ? "" : "s"}`}

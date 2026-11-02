@@ -276,10 +276,203 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/workspace": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** The branch, whether it may be edited, releases and their installations, stashes */
+    get: operations["get_workspace_api_workspace_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/workspace/close": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Merge the release into the trunk once in production */
+    post: operations["close_api_workspace_close_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/workspace/discard": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Throw the uncommitted chain changes away */
+    post: operations["discard_changes_api_workspace_discard_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/workspace/installed": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Record that a release is installed in an environment */
+    post: operations["installed_api_workspace_installed_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/workspace/pop": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Restore a stash on the checked-out branch */
+    post: operations["pop_api_workspace_pop_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/workspace/pull": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Fetch, then fast-forward the branch and the trunk */
+    post: operations["pull_api_workspace_pull_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/workspace/push": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Push the checked-out branch and its installation tags */
+    post: operations["push_api_workspace_push_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/workspace/release": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Start a release from the trunk and switch to it */
+    post: operations["start_release_api_workspace_release_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/workspace/stash": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Put the uncommitted chain files aside */
+    post: operations["stash_api_workspace_stash_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/workspace/switch": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Switch to another branch */
+    post: operations["switch_api_workspace_switch_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/workspace/update": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Merge the trunk into the checked-out release */
+    post: operations["update_api_workspace_update_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /** ActionOut */
+    ActionOut: {
+      /** Message */
+      message: string;
+      workspace: components["schemas"]["WorkspaceOut"];
+    };
     /** ApplyOut */
     ApplyOut: {
       /** Deleted */
@@ -420,6 +613,14 @@ export interface components {
       env: string;
       /** Name */
       name: string;
+    };
+    /** DiscardRequest */
+    DiscardRequest: {
+      /**
+       * Fingerprint
+       * @description fingerprint of GET /api/git/pending
+       */
+      fingerprint: string;
     };
     /** EdgeOut */
     EdgeOut: {
@@ -609,6 +810,35 @@ export interface components {
     HTTPValidationError: {
       /** Detail */
       detail?: components["schemas"]["ValidationError"][];
+    };
+    /** InstallationOut */
+    InstallationOut: {
+      /**
+       * Behind
+       * @description commits of the release after the installed one
+       */
+      behind: number;
+      /** Env */
+      env: string;
+      /** Sha */
+      sha: string;
+      /** Tag */
+      tag: string;
+    };
+    /** InstalledRequest */
+    InstalledRequest: {
+      /** Env */
+      env: string;
+      /**
+       * Release
+       * @description default: the checked-out release
+       */
+      release?: string | null;
+      /**
+       * Sha
+       * @description the installed commit; default: the release tip
+       */
+      sha?: string | null;
     };
     /** JobDetail */
     JobDetail: {
@@ -841,13 +1071,21 @@ export interface components {
       message: string;
       /**
        * Protected
-       * @description main, master or develop: a new branch is suggested
+       * @description edits are refused here: the commit needs a new branch
        */
       protected: boolean;
       /** Summary */
       summary: {
         [key: string]: unknown;
       };
+    };
+    /** PopRequest */
+    PopRequest: {
+      /**
+       * Ref
+       * @description e.g. stash@{0}
+       */
+      ref: string;
     };
     /** RefOut */
     RefOut: {
@@ -911,6 +1149,42 @@ export interface components {
        */
       sign: string;
     };
+    /** ReleaseOut */
+    ReleaseOut: {
+      /**
+       * Ahead
+       * @description commits the trunk does not have
+       */
+      ahead: number;
+      /** Branch */
+      branch: string;
+      /**
+       * Closable
+       * @description last commit installed in production, trunk merged
+       */
+      closable: boolean;
+      /**
+       * Installed
+       * @description latest installation per environment
+       */
+      installed: components["schemas"]["InstallationOut"][];
+      /** Local */
+      local: boolean;
+      /** Name */
+      name: string;
+      /**
+       * Remote
+       * @description the branch is on the remote too
+       */
+      remote: boolean;
+      /** Sha */
+      sha: string;
+      /**
+       * Trunk Behind
+       * @description trunk commits the release does not have
+       */
+      trunk_behind: number;
+    };
     /** RepoInfo */
     RepoInfo: {
       /** Application */
@@ -924,6 +1198,43 @@ export interface components {
       letter_rule: components["schemas"]["LetterRuleOut"];
       /** Root */
       root: string;
+    };
+    /** StartReleaseRequest */
+    StartReleaseRequest: {
+      /**
+       * Name
+       * @description the release name; the branch is <prefix><name>
+       */
+      name: string;
+      /**
+       * Stash
+       * @description stash uncommitted chain files first
+       * @default false
+       */
+      stash: boolean;
+    };
+    /** StashOut */
+    StashOut: {
+      /**
+       * Branch
+       * @description where the stash was made
+       */
+      branch?: string | null;
+      /** Message */
+      message: string;
+      /** Ref */
+      ref: string;
+    };
+    /** SwitchRequest */
+    SwitchRequest: {
+      /** Branch */
+      branch: string;
+      /**
+       * Stash
+       * @description stash uncommitted chain files first
+       * @default false
+       */
+      stash: boolean;
     };
     /** TableFolder */
     TableFolder: {
@@ -1003,6 +1314,65 @@ export interface components {
       /** Name */
       name: string;
     };
+    /** WorkspaceOut */
+    WorkspaceOut: {
+      /**
+       * Ahead
+       * @description commits not pushed to the upstream
+       */
+      ahead: number;
+      /**
+       * Behind
+       * @description commits of the upstream not pulled (as of the last fetch)
+       */
+      behind: number;
+      /**
+       * Branch
+       * @description checked-out branch; null when detached
+       */
+      branch: string | null;
+      /**
+       * Changes
+       * @description uncommitted chain files
+       */
+      changes: number;
+      /** Editable */
+      editable: boolean;
+      /** Environments */
+      environments: string[];
+      /** Head */
+      head: string;
+      /**
+       * Prefix
+       * @description prefix of the release branches, e.g. release/
+       */
+      prefix: string;
+      /** Production */
+      production: string;
+      /**
+       * Reason
+       * @description why edits are refused here
+       */
+      reason?: string | null;
+      /**
+       * Release
+       * @description name of the checked-out release
+       */
+      release?: string | null;
+      /** Releases */
+      releases: components["schemas"]["ReleaseOut"][];
+      /** Remote */
+      remote?: string | null;
+      /** Stashes */
+      stashes: components["schemas"]["StashOut"][];
+      /**
+       * Trunk
+       * @description the branch that mirrors production; never edited
+       */
+      trunk: string;
+      /** Upstream */
+      upstream?: string | null;
+    };
   };
   responses: never;
   parameters: never;
@@ -1041,7 +1411,7 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description The repository changed since the preview */
+      /** @description The repository changed since the preview, or the branch is protected */
       409: {
         headers: {
           [name: string]: unknown;
@@ -1090,7 +1460,7 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description The repository changed since the preview */
+      /** @description The repository changed since the preview, or the branch is protected */
       409: {
         headers: {
           [name: string]: unknown;
@@ -1665,6 +2035,620 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ValidateOut"];
+        };
+      };
+    };
+  };
+  get_workspace_api_workspace_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkspaceOut"];
+        };
+      };
+      /** @description Missing or wrong session token */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Unknown environment */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description Protected branch, uncommitted changes in the way, or a conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description Not allowed now (see the message) or a git error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+    };
+  };
+  close_api_workspace_close_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ActionOut"];
+        };
+      };
+      /** @description Missing or wrong session token */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Unknown environment */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description Protected branch, uncommitted changes in the way, or a conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description Not allowed now (see the message) or a git error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+    };
+  };
+  discard_changes_api_workspace_discard_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DiscardRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ActionOut"];
+        };
+      };
+      /** @description Missing or wrong session token */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Unknown environment */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description Protected branch, uncommitted changes in the way, or a conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description Not allowed now (see the message) or a git error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+    };
+  };
+  installed_api_workspace_installed_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["InstalledRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ActionOut"];
+        };
+      };
+      /** @description Missing or wrong session token */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Unknown environment */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description Protected branch, uncommitted changes in the way, or a conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description Not allowed now (see the message) or a git error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+    };
+  };
+  pop_api_workspace_pop_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PopRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ActionOut"];
+        };
+      };
+      /** @description Missing or wrong session token */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Unknown environment */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description Protected branch, uncommitted changes in the way, or a conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description Not allowed now (see the message) or a git error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+    };
+  };
+  pull_api_workspace_pull_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ActionOut"];
+        };
+      };
+      /** @description Missing or wrong session token */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Unknown environment */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description Protected branch, uncommitted changes in the way, or a conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description Not allowed now (see the message) or a git error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+    };
+  };
+  push_api_workspace_push_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ActionOut"];
+        };
+      };
+      /** @description Missing or wrong session token */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Unknown environment */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description Protected branch, uncommitted changes in the way, or a conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description Not allowed now (see the message) or a git error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+    };
+  };
+  start_release_api_workspace_release_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["StartReleaseRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ActionOut"];
+        };
+      };
+      /** @description Missing or wrong session token */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Unknown environment */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description Protected branch, uncommitted changes in the way, or a conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description Not allowed now (see the message) or a git error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+    };
+  };
+  stash_api_workspace_stash_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ActionOut"];
+        };
+      };
+      /** @description Missing or wrong session token */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Unknown environment */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description Protected branch, uncommitted changes in the way, or a conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description Not allowed now (see the message) or a git error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+    };
+  };
+  switch_api_workspace_switch_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SwitchRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ActionOut"];
+        };
+      };
+      /** @description Missing or wrong session token */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Unknown environment */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description Protected branch, uncommitted changes in the way, or a conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description Not allowed now (see the message) or a git error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+    };
+  };
+  update_api_workspace_update_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ActionOut"];
+        };
+      };
+      /** @description Missing or wrong session token */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Unknown environment */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description Protected branch, uncommitted changes in the way, or a conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description Not allowed now (see the message) or a git error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
         };
       };
     };

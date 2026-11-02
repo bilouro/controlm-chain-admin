@@ -1,0 +1,18 @@
+{
+  "branch": "main",
+  "head": "913d04cc4115a09ef4198ca7f0b329a803a0642a",
+  "trunk": "main",
+  "prefix": "release/",
+  "editable": false,
+  "reason": "main is protected (the trunk mirrors production): edit on a release branch started from it",
+  "release": null,
+  "changes": 0,
+  "releases": [],
+  "stashes": [],
+  "environments": ["uat", "prod"],
+  "production": "prod",
+  "remote": null,
+  "upstream": null,
+  "ahead": 0,
+  "behind": 0
+}

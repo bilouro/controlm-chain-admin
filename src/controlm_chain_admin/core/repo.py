@@ -2,7 +2,8 @@
 
 Layout::
 
-    chain.json                       rules: application, environments, orders, volatile attributes
+    chain.json                       rules: application, environments, orders, volatile
+                                     attributes, letter rule, constants, git branches and tags
     meta/export.json                 declaration, prolog comments, root element and folder order
     meta/folders/<FOLDER>.json       volatile attributes of the folder and of its jobs
     folders/<FOLDER>/folder.json     folder attributes and folder-level children, plus "jobs"
@@ -52,6 +53,66 @@ DEFAULT_VOLATILE_ATTRIBUTES: tuple[str, ...] = (
 )
 
 
+@dataclass(frozen=True)
+class GitRules:
+    """The ``git`` key of ``chain.json``: which branches are read-only, how releases and their
+    installations are named. Every key is optional; these are the defaults."""
+
+    trunk: str = "main"  # mirrors production; releases start from it and merge back into it
+    protected: tuple[str, ...] = ("main", "master")  # never edited (the trunk always is)
+    release_prefix: str = "release/"
+    tag_format: str = "{env}/{release}-{n}"  # one tag per installation of a release
+    production: str = "prod"  # a release is closed once its last commit is installed here
+    remote: str = "origin"
+
+    def refusal(self, branch: str | None) -> str | None:
+        """Why edits are refused on ``branch`` (None: a detached HEAD); None when they are not."""
+        if branch is None:
+            return "HEAD is detached: switch to a release branch to edit"
+        if branch == self.trunk:
+            return (
+                f"{branch} is protected (the trunk mirrors production): edit on a release "
+                "branch started from it"
+            )
+        if branch in self.protected:
+            return f"{branch} is protected: edit on a release branch started from {self.trunk}"
+        return None
+
+    def to_json(self) -> dict[str, Any]:
+        return {
+            "trunk": self.trunk,
+            "protected": list(self.protected),
+            "release_prefix": self.release_prefix,
+            "tag_format": self.tag_format,
+            "production": self.production,
+            "remote": self.remote,
+        }
+
+    @classmethod
+    def from_json(cls, data: Any) -> GitRules:
+        if not isinstance(data, dict):
+            raise ModelError("chain.json: git must be an object")
+        known = cls().to_json()
+        unknown = sorted(set(data) - set(known))
+        if unknown:
+            raise ModelError(f"chain.json: git has unknown keys: {', '.join(unknown)}")
+        values: dict[str, Any] = {}
+        for key, value in data.items():
+            if key == "protected":
+                if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
+                    raise ModelError("chain.json: git.protected must be a list of branch names")
+                values[key] = tuple(value)
+            elif not isinstance(value, str) or not value:
+                raise ModelError(f"chain.json: git.{key} must be a non-empty string")
+            else:
+                values[key] = value
+        rules = cls(**values)
+        for field_name in ("{env}", "{release}", "{n}"):
+            if field_name not in rules.tag_format:
+                raise ModelError(f"chain.json: git.tag_format must contain {field_name}")
+        return rules
+
+
 def _tuple_map(data: Any, what: str) -> dict[str, tuple[str, ...]]:
     if not isinstance(data, dict):
         raise ModelError(f"chain.json: {what} must be an object")
@@ -70,9 +131,14 @@ class ChainConfig:
     letter_rule: LetterRule = field(default_factory=LetterRule)
     constants: dict[str, Selector] = field(default_factory=dict)
     dedupe_jobnames: bool = False
+    git: GitRules | None = None  # None: the defaults, not written to chain.json
+
+    @property
+    def git_rules(self) -> GitRules:
+        return self.git or GitRules()
 
     def to_json(self) -> dict[str, Any]:
-        return {
+        data: dict[str, Any] = {
             "application": self.application,
             "environments": list(self.environments),
             "letter_rule": {
@@ -85,6 +151,9 @@ class ChainConfig:
             "constants": {k: v.to_json() for k, v in self.constants.items()},
             "dedupe_jobnames": self.dedupe_jobnames,
         }
+        if self.git is not None:
+            data["git"] = self.git.to_json()
+        return data
 
     @classmethod
     def from_json(cls, data: dict[str, Any]) -> ChainConfig:
@@ -110,6 +179,7 @@ class ChainConfig:
                     str(k): Selector.from_json(v) for k, v in data.get("constants", {}).items()
                 },
                 dedupe_jobnames=bool(data.get("dedupe_jobnames", False)),
+                git=GitRules.from_json(data["git"]) if "git" in data else None,
             )
         except KeyError as exc:
             raise ModelError(f"chain.json: missing key {exc}") from exc

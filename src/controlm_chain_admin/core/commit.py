@@ -1,9 +1,11 @@
-"""Commit the edits of a chain repository: what is pending, a suggested message, the commit.
+"""Commit or discard the edits of a chain repository: what is pending, a suggested message.
 
 Only the chain files (``chain.json``, ``folders/``, ``meta/``, ``envs/``) are committed, with
 ``git commit --only``: other files of the working tree and anything else staged stay as they
 are. The suggested message is written from the semantic comparison of HEAD with the working
 tree, so it describes every edit, whether it came from the web UI, the CLI or a text editor.
+Nothing is committed on a protected branch (``git`` rules of ``chain.json``): there the commit
+goes to a new branch.
 """
 
 from __future__ import annotations
@@ -15,12 +17,16 @@ from pathlib import Path
 from typing import Any
 
 from controlm_chain_admin.core.compare import Comparison, _node_lines, compare
-from controlm_chain_admin.core.errors import ChangeConflict, GitError, NothingToCommit
+from controlm_chain_admin.core.errors import (
+    ChangeConflict,
+    GitError,
+    NothingToCommit,
+    ProtectedBranch,
+)
 from controlm_chain_admin.core.history import WORKTREE, _git, git_state
 from controlm_chain_admin.core.links import INDEX_FILE
+from controlm_chain_admin.core.repo import load_repo
 
-#: Branches the UI suggests not to commit on directly.
-PROTECTED = ("main", "master", "develop")
 _PATHS = ("chain.json", "folders", "meta", "envs")
 _BODY_LINES = 40
 
@@ -33,10 +39,7 @@ class Pending:
     summary: dict[str, Any]
     message: str  # suggested; "" when nothing is pending
     fingerprint: str
-
-    @property
-    def protected(self) -> bool:
-        return self.branch in PROTECTED
+    protected: bool = False  # the commit must go to a new branch
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -62,6 +65,23 @@ class Committed:
 
 def _derived(path: str) -> bool:
     return path.rsplit("/", 1)[-1] == INDEX_FILE
+
+
+def _paths(root: Path) -> list[str]:
+    """The chain paths that exist on disk or in the index (pathspecs that match something)."""
+    return [p for p in _PATHS if (root / p).exists() or str(_git(root, "ls-files", "--", p))]
+
+
+def restore(root: Path) -> None:
+    """Put the chain files back as committed in HEAD: index, working tree, new files removed."""
+    paths = _paths(root)
+    if not paths:
+        return
+    _git(root, "reset", "-q", "--", *paths)
+    tracked = [p for p in paths if str(_git(root, "ls-files", "--", p))]
+    if tracked:
+        _git(root, "checkout", "-q", "--", *tracked)
+    _git(root, "clean", "-fdq", "--", *paths)
 
 
 def _changed(root: Path) -> list[str]:
@@ -155,9 +175,22 @@ def pending(root: Path) -> Pending:
     if shown:
         result = compare(root, "HEAD", WORKTREE)
         message, summary = suggest_message(result), result.summary()
+    protected = load_repo(root).config.git_rules.refusal(state.current) is not None
     return Pending(
-        state.current, state.head, shown, summary, message, _fingerprint(root, state.head, files)
-    )
+        state.current, state.head, shown, summary, message,
+        _fingerprint(root, state.head, files), protected,
+    )  # fmt: skip
+
+
+def _check(root: Path, fingerprint: str, what: str) -> tuple[str, list[str]]:
+    """HEAD and the changed files, after checking that they are what the author reviewed."""
+    head = str(_git(root, "rev-parse", "HEAD")).strip()
+    files = _changed(root)
+    if not [f for f in files if not _derived(f)]:
+        raise NothingToCommit(f"nothing to {what}: the chain files have no change")
+    if _fingerprint(root, head, files) != fingerprint:
+        raise ChangeConflict(f"the files changed since the {what} was prepared; review it again")
+    return head, files
 
 
 def commit(root: Path, message: str, fingerprint: str, *, branch: str | None = None) -> Committed:
@@ -168,17 +201,20 @@ def commit(root: Path, message: str, fingerprint: str, *, branch: str | None = N
     text = message.strip()
     if not text:
         raise GitError("the commit message is empty")
-    head = git_state(root).head
-    files = _changed(root)
-    if not [f for f in files if not _derived(f)]:
-        raise NothingToCommit("nothing to commit: the chain files have no change")
-    if _fingerprint(root, head, files) != fingerprint:
-        raise ChangeConflict("the files changed since the commit was prepared; review it again")
-    if branch:
+    _check(root, fingerprint, "commit")
+    rules = load_repo(root).config.git_rules
+    if not branch:
+        current = str(_git(root, "rev-parse", "--abbrev-ref", "HEAD")).strip()
+        refusal = rules.refusal(None if current == "HEAD" else current)
+        if refusal:
+            raise ProtectedBranch(f"{refusal}; or commit on a new branch")
+    else:
         try:
             _git(root, "check-ref-format", "--branch", branch)
         except GitError as exc:
             raise GitError(f"invalid branch name {branch!r}") from exc
+        if rules.refusal(branch):
+            raise ProtectedBranch(f"{branch} is protected: name the new branch otherwise")
         try:
             _git(root, "show-ref", "--verify", "--quiet", f"refs/heads/{branch}")
         except GitError:
@@ -186,7 +222,7 @@ def commit(root: Path, message: str, fingerprint: str, *, branch: str | None = N
         else:
             raise GitError(f"branch {branch} already exists")
         _git(root, "switch", "-q", "-c", branch)
-    paths = [p for p in _PATHS if (root / p).exists() or str(_git(root, "ls-files", "--", p))]
+    paths = _paths(root)
     _git(root, "add", "-A", "--", *paths)
     with tempfile.TemporaryDirectory(prefix="ctmchain-commit-") as tmp:
         note = Path(tmp) / "message.txt"
@@ -194,3 +230,14 @@ def commit(root: Path, message: str, fingerprint: str, *, branch: str | None = N
         _git(root, "commit", "-q", "--cleanup=whitespace", "-F", str(note), "--only", "--", *paths)
     sha = str(_git(root, "rev-parse", "HEAD")).strip()
     return Committed(sha, git_state(root).current, text.splitlines()[0])
+
+
+def discard(root: Path, fingerprint: str) -> int:
+    """Throw the uncommitted chain changes away; returns how many files were discarded.
+
+    Refuses when nothing is pending or when the files changed since :func:`pending`. Files
+    outside the chain directories are left alone.
+    """
+    _, files = _check(root, fingerprint, "discard")
+    restore(root)
+    return sum(1 for f in files if not _derived(f))

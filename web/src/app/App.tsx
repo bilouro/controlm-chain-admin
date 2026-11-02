@@ -8,6 +8,8 @@ import { FolderPage } from "@/features/folder-graph/FolderPage";
 import { JobPage } from "@/features/job-detail/JobPage";
 import { ValidatePage } from "@/features/validate/ValidatePage";
 import { RepoBadge } from "@/features/repo/RepoBadge";
+import { BranchButton } from "@/features/workspace/BranchButton";
+import { ProtectedBanner } from "@/features/workspace/ProtectedBanner";
 import { cn } from "@/lib/utils";
 
 const queryClient = new QueryClient({
@@ -41,10 +43,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <NavItem to="/compare">Compare</NavItem>
         </nav>
         <div className="ml-auto flex items-center gap-3">
+          <BranchButton />
           <CommitButton />
           <RepoBadge />
         </div>
       </header>
+      <ProtectedBanner />
       <main className="min-h-0 flex-1 overflow-auto">{children}</main>
     </div>
   );
