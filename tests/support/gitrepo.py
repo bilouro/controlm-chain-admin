@@ -55,3 +55,16 @@ def remove_tree(path: Path) -> None:
         if item.is_file():
             os.chmod(item, stat.S_IREAD | stat.S_IWRITE)
     shutil.rmtree(path)
+
+
+def plain_git_identity(monkeypatch: object, tmp_path: Path) -> None:
+    """Make commits by the code under test work anywhere: a fixed identity, no global config."""
+    import pytest
+
+    assert isinstance(monkeypatch, pytest.MonkeyPatch)
+    config = tmp_path / "gitconfig"
+    config.write_text("", encoding="utf-8")
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(config))
+    for role in ("AUTHOR", "COMMITTER"):
+        monkeypatch.setenv(f"GIT_{role}_NAME", "Test")
+        monkeypatch.setenv(f"GIT_{role}_EMAIL", "test@example.com")

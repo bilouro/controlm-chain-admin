@@ -156,6 +156,65 @@
         "title": "CommitOut",
         "type": "object"
       },
+      "CommitRequest": {
+        "properties": {
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "create this branch and commit there",
+            "title": "Branch"
+          },
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message",
+          "fingerprint"
+        ],
+        "title": "CommitRequest",
+        "type": "object"
+      },
+      "CommittedOut": {
+        "properties": {
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Branch"
+          },
+          "sha": {
+            "title": "Sha",
+            "type": "string"
+          },
+          "subject": {
+            "title": "Subject",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sha",
+          "subject"
+        ],
+        "title": "CommittedOut",
+        "type": "object"
+      },
       "ComparisonOut": {
         "properties": {
           "base": {
@@ -618,6 +677,12 @@
       },
       "GitStateOut": {
         "properties": {
+          "changes": {
+            "default": 0,
+            "description": "uncommitted chain files (derived index.json left out)",
+            "title": "Changes",
+            "type": "integer"
+          },
           "current": {
             "anyOf": [
               {
@@ -1313,6 +1378,62 @@
           "node"
         ],
         "title": "PeerOut",
+        "type": "object"
+      },
+      "PendingOut": {
+        "properties": {
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Branch"
+          },
+          "files": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "fingerprint": {
+            "description": "send it back with the commit",
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "head": {
+            "title": "Head",
+            "type": "string"
+          },
+          "message": {
+            "description": "suggested commit message; empty when nothing is pending",
+            "title": "Message",
+            "type": "string"
+          },
+          "protected": {
+            "description": "main, master or develop: a new branch is suggested",
+            "title": "Protected",
+            "type": "boolean"
+          },
+          "summary": {
+            "additionalProperties": true,
+            "title": "Summary",
+            "type": "object"
+          }
+        },
+        "required": [
+          "head",
+          "files",
+          "summary",
+          "message",
+          "fingerprint",
+          "protected"
+        ],
+        "title": "PendingOut",
         "type": "object"
       },
       "RefOut": {
@@ -2185,6 +2306,101 @@
           }
         },
         "summary": "Branches, tags and HEAD",
+        "tags": [
+          "history"
+        ]
+      }
+    },
+    "/api/git/commit": {
+      "post": {
+        "operationId": "git_commit_api_git_commit_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommitRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommittedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or wrong session token"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "The files changed since the commit was prepared"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Nothing to commit, empty message, bad branch"
+          }
+        },
+        "summary": "Commit the chain files",
+        "tags": [
+          "history"
+        ]
+      }
+    },
+    "/api/git/pending": {
+      "get": {
+        "operationId": "git_pending_api_git_pending_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendingOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "A selected commit needs one that was left out"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not a git repository, or unknown ref or commit"
+          }
+        },
+        "summary": "Uncommitted chain changes and a suggested message",
         "tags": [
           "history"
         ]

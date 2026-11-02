@@ -7,6 +7,7 @@ import {
   type GitStateOut,
   type JobDetail,
   type PackageOut,
+  type PendingOut,
   type RepoInfo,
   type TableOut,
   type ValidateOut,
@@ -22,6 +23,7 @@ export const queryKeys = {
   compare: (base: string, head: string, mergeBase: boolean, commits: string | null) =>
     ["compare", base, head, mergeBase, commits] as const,
   package: (query: string) => ["package", query] as const,
+  pending: ["git-pending"] as const,
 };
 
 export function useRepo() {
@@ -96,5 +98,17 @@ export function usePackage(params: URLSearchParams, enabled: boolean) {
     queryFn: () => api<PackageOut>(`/api/package?${query}`),
     enabled,
     retry: false,
+  });
+}
+
+/** Uncommitted chain changes with a suggested commit message (computed when asked). */
+export function usePending(enabled: boolean) {
+  return useQuery({
+    queryKey: queryKeys.pending,
+    queryFn: () => api<PendingOut>("/api/git/pending"),
+    enabled,
+    retry: false,
+    staleTime: 0,
+    gcTime: 0,
   });
 }

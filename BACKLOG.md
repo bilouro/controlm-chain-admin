@@ -184,8 +184,10 @@ or addresses anywhere in this public repository.
 7. **Resolving findings — DONE (2026-11-02)**, asked by the author: a resolve button per finding
    and for the selection on the *Validation* page, filter by type of problem, several explained
    fixes where there is a choice; `ctmchain resolve`; the page fits the screen.
+8. **Commit from the UI — DONE (2026-11-02)**, asked by the author: *Commit (n)* button with a
+   message written from the changes, optional new branch; `ctmchain commit`.
 
 Later, unordered: overrides and `envs` variants; second-environment import with learning; `diff`
-of environments and XML files with `xmldiffreport`; mapping editor; git bar (commit from the UI);
+of environments and XML files with `xmldiffreport`; mapping editor; push and pull from the UI;
 upstream graph explorer (paused by the author); cycle detection in `validate`; PyPI release and
 bilingual docs.

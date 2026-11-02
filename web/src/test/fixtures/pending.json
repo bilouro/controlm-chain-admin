@@ -1,0 +1,35 @@
+{
+  "branch": "feature/demo",
+  "head": "e423c8d3dd002e3212a50c0d3eab461de5138ca9",
+  "files": ["folders/P77_CHAIN/jobs/P77_E.json"],
+  "summary": {
+    "folders": {
+      "added": 0,
+      "removed": 0,
+      "modified": 0,
+      "renamed": 0
+    },
+    "jobs": {
+      "added": 0,
+      "removed": 0,
+      "modified": 1,
+      "renamed": 0,
+      "moved": 0
+    },
+    "links": {
+      "added": 0,
+      "removed": 0,
+      "renamed": 0
+    },
+    "relations": {
+      "added": 0,
+      "removed": 0,
+      "modified": 0
+    },
+    "constants": 0,
+    "commits": 0
+  },
+  "message": "fix: update job P77_E in P77_CHAIN\n\n- modified job P77_CHAIN/P77_E\n  DESCRIPTION: (none) -> Checked twice",
+  "fingerprint": "500c658b9f4bdaa9714f06b6e0d604ba2412fa3e5ffc81c928fd46c25e0bc595",
+  "protected": false
+}

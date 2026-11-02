@@ -33,6 +33,9 @@ export type LinkChangeOut = Schemas["LinkChangeOut"];
 export type ConstantChangeOut = Schemas["ConstantChangeOut"];
 export type CommitOut = Schemas["CommitOut"];
 export type PackageOut = Schemas["PackageOut"];
+export type PendingOut = Schemas["PendingOut"];
+export type CommittedOut = Schemas["CommittedOut"];
+export type CommitRequest = Schemas["CommitRequest"];
 export type PackageFolderOut = Schemas["PackageFolderOut"];
 
 export const TOKEN_HEADER = "X-Ctmchain-Token";

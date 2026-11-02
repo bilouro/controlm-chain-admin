@@ -81,3 +81,7 @@ class SelectionConflict(GitError):
 
 class NothingToPackage(ChainError):
     """No folder changed, so there is no import file to write."""
+
+
+class NothingToCommit(ChainError):
+    """The chain files have no uncommitted change."""

@@ -235,7 +235,30 @@ class GitStateOut(BaseModel):
     current: str | None = Field(description="checked-out branch; null when detached")
     head: str
     dirty: bool
+    changes: int = Field(0, description="uncommitted chain files (derived index.json left out)")
     refs: list[RefOut]
+
+
+class PendingOut(BaseModel):
+    branch: str | None = None
+    head: str
+    files: list[str]
+    summary: dict[str, Any]
+    message: str = Field(description="suggested commit message; empty when nothing is pending")
+    fingerprint: str = Field(description="send it back with the commit")
+    protected: bool = Field(description="main, master or develop: a new branch is suggested")
+
+
+class CommitRequest(BaseModel):
+    message: str
+    fingerprint: str
+    branch: str | None = Field(None, description="create this branch and commit there")
+
+
+class CommittedOut(BaseModel):
+    sha: str
+    branch: str | None = None
+    subject: str
 
 
 class CommitOut(BaseModel):

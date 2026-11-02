@@ -1,4 +1,4 @@
-"""GET /api/git and /api/compare — branches and what changed between two refs."""
+"""GET /api/git, /api/git/pending, POST /api/git/commit and GET /api/compare."""
 
 from __future__ import annotations
 
@@ -8,11 +8,19 @@ from typing import Any, TypeVar
 
 from fastapi import APIRouter, Depends, Query, Request
 
+from controlm_chain_admin.core.commit import commit, pending
 from controlm_chain_admin.core.compare import compare
 from controlm_chain_admin.core.history import git_state, resolve
 from controlm_chain_admin.core.repo import ChainRepo
-from controlm_chain_admin.web.deps import get_repo
-from controlm_chain_admin.web.schemas import ComparisonOut, ErrorOut, GitStateOut
+from controlm_chain_admin.web.deps import get_repo, require_token
+from controlm_chain_admin.web.schemas import (
+    CommitRequest,
+    CommittedOut,
+    ComparisonOut,
+    ErrorOut,
+    GitStateOut,
+    PendingOut,
+)
 
 router = APIRouter(prefix="/api", tags=["history"])
 ERRORS: dict[int | str, dict[str, Any]] = {
@@ -62,6 +70,35 @@ def cached(
 @router.get("/git", response_model=GitStateOut, responses=ERRORS, summary="Branches, tags and HEAD")
 def git(repo: ChainRepo = Depends(get_repo)) -> GitStateOut:
     return GitStateOut.model_validate(git_state(repo.root).to_json())
+
+
+@router.get(
+    "/git/pending",
+    response_model=PendingOut,
+    responses=ERRORS,
+    summary="Uncommitted chain changes and a suggested message",
+)
+def git_pending(repo: ChainRepo = Depends(get_repo)) -> PendingOut:
+    return PendingOut.model_validate(pending(repo.root).to_json())
+
+
+@router.post(
+    "/git/commit",
+    response_model=CommittedOut,
+    dependencies=[Depends(require_token)],
+    responses={
+        401: {"description": "Missing or wrong session token"},
+        409: {"model": ErrorOut, "description": "The files changed since the commit was prepared"},
+        422: {"model": ErrorOut, "description": "Nothing to commit, empty message, bad branch"},
+    },
+    summary="Commit the chain files",
+)
+def git_commit(
+    body: CommitRequest, request: Request, repo: ChainRepo = Depends(get_repo)
+) -> CommittedOut:
+    with request.app.state.write_lock:
+        done = commit(repo.root, body.message, body.fingerprint, branch=body.branch or None)
+    return CommittedOut.model_validate(done.to_json())
 
 
 @router.get("/compare", response_model=ComparisonOut, responses=ERRORS, summary="Compare two refs")

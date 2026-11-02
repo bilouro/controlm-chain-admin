@@ -474,6 +474,11 @@ Server-side concerns (not in the core):
   after), shown under every option and in the review dialog as *What will change*; rows are
   tinted on hover. Without a token in the tab, the review dialog asks for the URL printed by
   `ctmchain serve` (`CTMCHAIN_TOKEN` keeps the same token across restarts).
+- **Commit (implemented 2026-11-02).** Applying a change writes files, it does not commit.
+  The header shows *Commit (n)* with the uncommitted chain files (derived `index.json` left
+  out); the dialog lists them, proposes the message (editable) and, on main, master or develop,
+  offers a new branch named from the subject (`fix/update-job-x-in-f`). The commit needs the
+  session token and is refused when the files changed since the dialog opened.
 
 ## 12. CLI reference (`ctmchain`)
 
@@ -516,6 +521,7 @@ the first import.
 Quality
 - `validate [--env <env>] [--strict]` — graph, naming, overlay and resolution checks; exit code = highest severity.
 - `resolve [CODE=KIND...] [--apply] [--stat]` — implemented: fixes for the findings (see §8); without arguments, the fix kinds per code.
+- `commit [-m <message>] [--branch <name>] [--dry-run]` — implemented: commits the chain files only (`chain.json`, `folders/`, `meta/`, `envs/`, with `git commit --only`, so other staged or untracked files are left alone). Without `-m` the message is suggested from the semantic comparison of HEAD with the working tree: a Conventional Commits subject (`feat` when jobs or folders are added, `refactor` for renames and moves only, `fix` otherwise; e.g. `fix: update job X in F`, `feat: add 1 job, rename 2 conditions, update 3 jobs`) and a body listing every change. A batch of fixes is one apply and one commit.
 
 Inspection
 - `ls folders|jobs|envs|constants [--filter <glob>]` — listings.

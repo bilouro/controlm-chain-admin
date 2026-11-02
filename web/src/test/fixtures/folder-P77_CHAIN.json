@@ -27,15 +27,7 @@
         "SIGN": "+"
       }
     ],
-    "jobs": [
-      "P77_A",
-      "P77_B",
-      "P77_C",
-      "P77_D",
-      "P77_E",
-      "P77_F",
-      "P77_F~2"
-    ],
+    "jobs": ["P77_A", "P77_B", "P77_C", "P77_D", "P77_E", "P77_F", "P77_F~2"],
     "meta": {
       "JOBISN": "1"
     }
@@ -82,22 +74,12 @@
       "id": "P77_A-P77_B_OK",
       "name": "P77_A-P77_B_OK",
       "standard": "P77_A-P77_B_OK",
-      "from": [
-        "P77_CHAIN/P77_A"
-      ],
-      "to": [
-        "P77_CHAIN/P77_B"
-      ],
-      "cleanup": [
-        "P77_CHAIN/P77_B"
-      ],
+      "from": ["P77_CHAIN/P77_A"],
+      "to": ["P77_CHAIN/P77_B"],
+      "cleanup": ["P77_CHAIN/P77_B"],
       "docond": [],
-      "odates": [
-        "ODAT"
-      ],
-      "and_or": [
-        "A"
-      ],
+      "odates": ["ODAT"],
+      "and_or": ["A"],
       "kind": "edge",
       "external": false
     },
@@ -105,15 +87,11 @@
       "id": "P77_A-P77_C_OK",
       "name": "P77_A-P77_C_OK",
       "standard": null,
-      "from": [
-        "P77_CHAIN/P77_A"
-      ],
+      "from": ["P77_CHAIN/P77_A"],
       "to": [],
       "cleanup": [],
       "docond": [],
-      "odates": [
-        "ODAT"
-      ],
+      "odates": ["ODAT"],
       "and_or": [],
       "kind": "unconsumed",
       "external": true
@@ -123,19 +101,11 @@
       "name": "P77_A-P77_E_OK",
       "standard": null,
       "from": [],
-      "to": [
-        "P77_CHAIN/P77_E"
-      ],
-      "cleanup": [
-        "P77_CHAIN/P77_E"
-      ],
+      "to": ["P77_CHAIN/P77_E"],
+      "cleanup": ["P77_CHAIN/P77_E"],
       "docond": [],
-      "odates": [
-        "ODAT"
-      ],
-      "and_or": [
-        "A"
-      ],
+      "odates": ["ODAT"],
+      "and_or": ["A"],
       "kind": "dangling",
       "external": true
     },
@@ -143,12 +113,8 @@
       "id": "P77_B-P77_C_OK",
       "name": "P77_B-P77_C_OK",
       "standard": "P77_B-P77_C_OK",
-      "from": [
-        "P77_CHAIN/P77_B"
-      ],
-      "to": [
-        "P77_CHAIN/P77_C"
-      ],
+      "from": ["P77_CHAIN/P77_B"],
+      "to": ["P77_CHAIN/P77_C"],
       "cleanup": [],
       "docond": [
         {
@@ -157,12 +123,8 @@
           "sign": "+"
         }
       ],
-      "odates": [
-        "ODAT"
-      ],
-      "and_or": [
-        "A"
-      ],
+      "odates": ["ODAT"],
+      "and_or": ["A"],
       "kind": "edge",
       "external": false
     },
@@ -170,15 +132,11 @@
       "id": "P77_CHAIN-P77_NEXT_OK",
       "name": "P77_CHAIN-P77_NEXT_OK",
       "standard": null,
-      "from": [
-        "P77_CHAIN/"
-      ],
+      "from": ["P77_CHAIN/"],
       "to": [],
       "cleanup": [],
       "docond": [],
-      "odates": [
-        "ODAT"
-      ],
+      "odates": ["ODAT"],
       "and_or": [],
       "kind": "unconsumed",
       "external": true
@@ -187,15 +145,11 @@
       "id": "P77_D-P77_NOBODY_OK",
       "name": "P77_D-P77_NOBODY_OK",
       "standard": null,
-      "from": [
-        "P77_CHAIN/P77_D"
-      ],
+      "from": ["P77_CHAIN/P77_D"],
       "to": [],
       "cleanup": [],
       "docond": [],
-      "odates": [
-        "ODAT"
-      ],
+      "odates": ["ODAT"],
       "and_or": [],
       "kind": "unconsumed",
       "external": true
@@ -205,19 +159,11 @@
       "name": "P77_GHOST-P77_E_OK",
       "standard": null,
       "from": [],
-      "to": [
-        "P77_CHAIN/P77_E"
-      ],
-      "cleanup": [
-        "P77_CHAIN/P77_E"
-      ],
+      "to": ["P77_CHAIN/P77_E"],
+      "cleanup": ["P77_CHAIN/P77_E"],
       "docond": [],
-      "odates": [
-        "ODAT"
-      ],
-      "and_or": [
-        "A"
-      ],
+      "odates": ["ODAT"],
+      "and_or": ["A"],
       "kind": "dangling",
       "external": true
     },
@@ -225,22 +171,12 @@
       "id": "P77_OLDNAME-P77_D_OK",
       "name": "P77_OLDNAME-P77_D_OK",
       "standard": "P77_C-P77_D_OK",
-      "from": [
-        "P77_CHAIN/P77_C"
-      ],
-      "to": [
-        "P77_CHAIN/P77_D"
-      ],
-      "cleanup": [
-        "P77_CHAIN/P77_D"
-      ],
+      "from": ["P77_CHAIN/P77_C"],
+      "to": ["P77_CHAIN/P77_D"],
+      "cleanup": ["P77_CHAIN/P77_D"],
       "docond": [],
-      "odates": [
-        "ODAT"
-      ],
-      "and_or": [
-        "A"
-      ],
+      "odates": ["ODAT"],
+      "and_or": ["A"],
       "kind": "edge",
       "external": false
     },
@@ -249,19 +185,11 @@
       "name": "P77_OTHER-P77_CHAIN_OK",
       "standard": null,
       "from": [],
-      "to": [
-        "P77_CHAIN/"
-      ],
-      "cleanup": [
-        "P77_CHAIN/"
-      ],
+      "to": ["P77_CHAIN/"],
+      "cleanup": ["P77_CHAIN/"],
       "docond": [],
-      "odates": [
-        "ODAT"
-      ],
-      "and_or": [
-        "A"
-      ],
+      "odates": ["ODAT"],
+      "and_or": ["A"],
       "kind": "dangling",
       "external": true
     },
@@ -270,19 +198,11 @@
       "name": "WEIRD_NAME",
       "standard": null,
       "from": [],
-      "to": [
-        "P77_CHAIN/P77_F"
-      ],
-      "cleanup": [
-        "P77_CHAIN/P77_F"
-      ],
+      "to": ["P77_CHAIN/P77_F"],
+      "cleanup": ["P77_CHAIN/P77_F"],
       "docond": [],
-      "odates": [
-        "ODAT"
-      ],
-      "and_or": [
-        "A"
-      ],
+      "odates": ["ODAT"],
+      "and_or": ["A"],
       "kind": "dangling",
       "external": true
     }

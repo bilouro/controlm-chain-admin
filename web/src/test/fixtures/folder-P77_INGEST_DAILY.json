@@ -30,10 +30,7 @@
         "SIGN": "-"
       }
     ],
-    "jobs": [
-      "P77_INGEST_INIT",
-      "P77_INGEST_LOAD"
-    ],
+    "jobs": ["P77_INGEST_INIT", "P77_INGEST_LOAD"],
     "meta": {
       "JOBISN": "1"
     }
@@ -55,22 +52,12 @@
       "id": "P77_INGEST_INIT-P77_INGEST_LOAD_OK",
       "name": "P77_INGEST_INIT-P77_INGEST_LOAD_OK",
       "standard": "P77_INGEST_INIT-P77_INGEST_LOAD_OK",
-      "from": [
-        "P77_INGEST_DAILY/P77_INGEST_INIT"
-      ],
-      "to": [
-        "P77_INGEST_DAILY/P77_INGEST_LOAD"
-      ],
-      "cleanup": [
-        "P77_INGEST_DAILY/P77_INGEST_LOAD"
-      ],
+      "from": ["P77_INGEST_DAILY/P77_INGEST_INIT"],
+      "to": ["P77_INGEST_DAILY/P77_INGEST_LOAD"],
+      "cleanup": ["P77_INGEST_DAILY/P77_INGEST_LOAD"],
       "docond": [],
-      "odates": [
-        "ODAT"
-      ],
-      "and_or": [
-        "A"
-      ],
+      "odates": ["ODAT"],
+      "and_or": ["A"],
       "kind": "edge",
       "external": false
     },
@@ -79,19 +66,11 @@
       "name": "P77_PRICING-P77_INGEST_DAILY_OK",
       "standard": null,
       "from": [],
-      "to": [
-        "P77_INGEST_DAILY/"
-      ],
-      "cleanup": [
-        "P77_INGEST_DAILY/"
-      ],
+      "to": ["P77_INGEST_DAILY/"],
+      "cleanup": ["P77_INGEST_DAILY/"],
       "docond": [],
-      "odates": [
-        "ODAT"
-      ],
-      "and_or": [
-        "A"
-      ],
+      "odates": ["ODAT"],
+      "and_or": ["A"],
       "kind": "dangling",
       "external": true
     }

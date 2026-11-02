@@ -39,22 +39,12 @@
       "id": "P77_A-P77_B_OK",
       "name": "P77_A-P77_B_OK",
       "standard": null,
-      "from": [
-        "P77_CHAIN/P77_A"
-      ],
-      "to": [
-        "P77_CHAIN/P77_B"
-      ],
-      "cleanup": [
-        "P77_CHAIN/P77_B"
-      ],
+      "from": ["P77_CHAIN/P77_A"],
+      "to": ["P77_CHAIN/P77_B"],
+      "cleanup": ["P77_CHAIN/P77_B"],
       "docond": [],
-      "odates": [
-        "ODAT"
-      ],
-      "and_or": [
-        "A"
-      ],
+      "odates": ["ODAT"],
+      "and_or": ["A"],
       "kind": "edge",
       "external": false
     },
@@ -62,12 +52,8 @@
       "id": "P77_B-P77_C_OK",
       "name": "P77_B-P77_C_OK",
       "standard": null,
-      "from": [
-        "P77_CHAIN/P77_B"
-      ],
-      "to": [
-        "P77_CHAIN/P77_C"
-      ],
+      "from": ["P77_CHAIN/P77_B"],
+      "to": ["P77_CHAIN/P77_C"],
       "cleanup": [],
       "docond": [
         {
@@ -76,12 +62,8 @@
           "sign": "+"
         }
       ],
-      "odates": [
-        "ODAT"
-      ],
-      "and_or": [
-        "A"
-      ],
+      "odates": ["ODAT"],
+      "and_or": ["A"],
       "kind": "edge",
       "external": false
     }

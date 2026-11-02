@@ -12,6 +12,7 @@ import gitState from "./fixtures/git.json";
 import comparison from "./fixtures/compare.json";
 import comparisonSelected from "./fixtures/compare-selected.json";
 import packagePreview from "./fixtures/package.json";
+import pendingChanges from "./fixtures/pending.json";
 import type { FolderDetail, JobDetail } from "@/lib/api/client";
 
 // Fixtures are dumped from the real API running on the synthetic repository (web/scripts/dump_fixtures.py).
@@ -32,11 +33,13 @@ export const calls: {
   apply: unknown[];
   compare: URLSearchParams[];
   package: URLSearchParams[];
+  commit: unknown[];
 } = {
   preview: [],
   apply: [],
   compare: [],
   package: [],
+  commit: [],
 };
 
 function notFound(message: string) {
@@ -62,6 +65,18 @@ export const handlers = [
   }),
   http.get("/api/validate", () => HttpResponse.json(validate)),
   http.get("/api/git", () => HttpResponse.json(gitState)),
+  http.get("/api/git/pending", () => HttpResponse.json(pendingChanges)),
+  http.post("/api/git/commit", async ({ request }) => {
+    const denied = unauthorized(request);
+    if (denied) return denied;
+    const body = (await request.json()) as { message: string; branch?: string | null };
+    calls.commit.push(body);
+    return HttpResponse.json({
+      sha: "1234567890abcdef1234567890abcdef12345678",
+      branch: body.branch ?? pendingChanges.branch,
+      subject: body.message.split("\n")[0],
+    });
+  }),
   http.get("/api/compare", ({ request }) => {
     const params = new URL(request.url).searchParams;
     calls.compare.push(params);

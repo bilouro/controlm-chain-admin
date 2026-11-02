@@ -16,6 +16,7 @@ from controlm_chain_admin.core.errors import (
     InvalidChange,
     ModelError,
     NotAChainRepo,
+    NothingToCommit,
     NothingToPackage,
     OrderConflict,
     SelectionConflict,
@@ -42,6 +43,7 @@ _STATUS: tuple[tuple[type[ChainError], int], ...] = (
     (XmlFormatError, 422),
     (UnresolvedConstant, 422),
     (NothingToPackage, 422),
+    (NothingToCommit, 422),
 )
 
 

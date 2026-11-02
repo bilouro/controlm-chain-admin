@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, NavLink, Navigate, Route, Routes } from "react-router";
 import { ChainTablePage } from "@/features/chain-table/ChainTablePage";
 import { ChangeProvider } from "@/features/changes/ChangeProvider";
+import { CommitButton } from "@/features/commit/CommitButton";
 import { ComparePage } from "@/features/compare/ComparePage";
 import { FolderPage } from "@/features/folder-graph/FolderPage";
 import { JobPage } from "@/features/job-detail/JobPage";
@@ -39,7 +40,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <NavItem to="/validate">Validate</NavItem>
           <NavItem to="/compare">Compare</NavItem>
         </nav>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-3">
+          <CommitButton />
           <RepoBadge />
         </div>
       </header>

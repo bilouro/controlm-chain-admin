@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from controlm_chain_admin import __version__
+from controlm_chain_admin.core import commit as commit_mod
 from controlm_chain_admin.core import compare as compare_mod
 from controlm_chain_admin.core import constants as constants_mod
 from controlm_chain_admin.core import fixes as fixes_mod
@@ -278,6 +279,19 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _refactor_options(res)
     res.set_defaults(func=cmd_resolve)
+
+    com = commands.add_parser(
+        "commit", help="commit the chain files, with a message written from what changed"
+    )
+    com.add_argument("-m", "--message", help="commit message (default: the suggested one)")
+    com.add_argument("--branch", help="create this branch and commit there")
+    com.add_argument(
+        "--dry-run", action="store_true", help="show the files and the message, commit nothing"
+    )
+    com.add_argument(
+        "--repo", type=Path, default=Path("."), help="repository directory (default: .)"
+    )
+    com.set_defaults(func=cmd_commit)
 
     _add_refactorings(commands)
 
@@ -719,6 +733,27 @@ def _add_refactorings(commands: Any) -> None:
             r, a.target, a.literal, a.variable, attribute=a.attribute
         ),
     )
+
+
+def cmd_commit(args: argparse.Namespace) -> int:
+    root = load_repo(args.repo).root
+    state = commit_mod.pending(root)
+    if not state.files:
+        print("Nothing to commit: the chain files have no change.")
+        return EXIT_OK
+    message = args.message or state.message
+    if args.dry_run:
+        print(f"On {state.branch or 'a detached HEAD'}: {_plural(len(state.files), 'file')}")
+        for path in state.files:
+            print(f"  {path}")
+        print()
+        print(message)
+        print()
+        print("Nothing committed (dry run).")
+        return EXIT_OK
+    done = commit_mod.commit(root, message, state.fingerprint, branch=args.branch)
+    print(f"Committed {done.sha[:7]} on {done.branch}: {done.subject}")
+    return EXIT_OK
 
 
 def cmd_resolve(args: argparse.Namespace) -> int:

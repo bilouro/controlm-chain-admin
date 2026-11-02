@@ -76,12 +76,14 @@ class GitState:
     head: str
     dirty: bool
     refs: tuple[RefInfo, ...]
+    changes: int = 0  # uncommitted chain files, derived index.json left out
 
     def to_json(self) -> dict[str, Any]:
         return {
             "current": self.current,
             "head": self.head,
             "dirty": self.dirty,
+            "changes": self.changes,
             "refs": [r.to_json() for r in self.refs],
         }
 
@@ -104,6 +106,13 @@ def git_state(root: Path) -> GitState:
     head = _git(root, "rev-parse", "HEAD").strip()
     current = _git(root, "rev-parse", "--abbrev-ref", "HEAD").strip()
     status = _git(root, "status", "--porcelain", "--", ".").strip()
+    chain = str(_git(root, "status", "--porcelain=v1", "-z", "--untracked-files=all", "--",
+                     "chain.json", "folders", "meta", "envs"))  # fmt: skip
+    changes = sum(
+        1
+        for entry in chain.split("\0")
+        if len(entry) > 3 and entry[2] == " " and not entry.endswith("/index.json")
+    )
     fmt = _SEP.join(
         ("%(refname)", "%(objectname)", "%(contents:subject)", "%(committerdate:iso-strict)")
     )
@@ -130,7 +139,9 @@ def git_state(root: Path) -> GitState:
                     break
                 refs.append(RefInfo(name, kind, sha, subject, date))
                 break
-    return GitState(None if current == "HEAD" else current, head, bool(status), tuple(refs))
+    return GitState(
+        None if current == "HEAD" else current, head, bool(status), tuple(refs), changes
+    )
 
 
 def resolve(root: Path, ref: str) -> RefInfo:

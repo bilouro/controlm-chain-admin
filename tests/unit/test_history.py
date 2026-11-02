@@ -35,8 +35,13 @@ def test_git_state_lists_branches_and_the_current_one(tmp_path: Path) -> None:
 def test_dirty_working_tree_is_reported(tmp_path: Path) -> None:
     repo = chain_git_repo(tmp_path)
     (repo.root / FOLDER).write_text("{}\n", encoding="utf-8")
+    (repo.root / "folders/P77_CHAIN/index.json").write_text("{}\n", encoding="utf-8")
+    (repo.root / "folders/P77_CHAIN/jobs/P77_NEW.json").write_text("{}\n", encoding="utf-8")
+    (repo.root / "notes.txt").write_text("not a chain file\n", encoding="utf-8")
 
-    assert git_state(repo.root).dirty
+    state = git_state(repo.root)
+
+    assert state.dirty and state.changes == 2  # chain files only, derived index.json left out
 
 
 def test_snapshot_of_a_ref_holds_the_files_as_committed(tmp_path: Path) -> None:

@@ -106,6 +106,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/git/commit": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Commit the chain files */
+    post: operations["git_commit_api_git_commit_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/git/pending": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Uncommitted chain changes and a suggested message */
+    get: operations["git_pending_api_git_pending_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/jobs/{folder}/{job}": {
     parameters: {
       query?: never;
@@ -308,6 +342,27 @@ export interface components {
       /** Subject */
       subject: string;
     };
+    /** CommitRequest */
+    CommitRequest: {
+      /**
+       * Branch
+       * @description create this branch and commit there
+       */
+      branch?: string | null;
+      /** Fingerprint */
+      fingerprint: string;
+      /** Message */
+      message: string;
+    };
+    /** CommittedOut */
+    CommittedOut: {
+      /** Branch */
+      branch?: string | null;
+      /** Sha */
+      sha: string;
+      /** Subject */
+      subject: string;
+    };
     /** ComparisonOut */
     ComparisonOut: {
       base: components["schemas"]["RefOut"];
@@ -500,6 +555,12 @@ export interface components {
     };
     /** GitStateOut */
     GitStateOut: {
+      /**
+       * Changes
+       * @description uncommitted chain files (derived index.json left out)
+       * @default 0
+       */
+      changes: number;
       /**
        * Current
        * @description checked-out branch; null when detached
@@ -742,6 +803,34 @@ export interface components {
       conditional?: string | null;
       /** Node */
       node: string;
+    };
+    /** PendingOut */
+    PendingOut: {
+      /** Branch */
+      branch?: string | null;
+      /** Files */
+      files: string[];
+      /**
+       * Fingerprint
+       * @description send it back with the commit
+       */
+      fingerprint: string;
+      /** Head */
+      head: string;
+      /**
+       * Message
+       * @description suggested commit message; empty when nothing is pending
+       */
+      message: string;
+      /**
+       * Protected
+       * @description main, master or develop: a new branch is suggested
+       */
+      protected: boolean;
+      /** Summary */
+      summary: {
+        [key: string]: unknown;
+      };
     };
     /** RefOut */
     RefOut: {
@@ -1141,6 +1230,93 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["GitStateOut"];
+        };
+      };
+      /** @description A selected commit needs one that was left out */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description Not a git repository, or unknown ref or commit */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+    };
+  };
+  git_commit_api_git_commit_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CommitRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CommittedOut"];
+        };
+      };
+      /** @description Missing or wrong session token */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The files changed since the commit was prepared */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description Nothing to commit, empty message, bad branch */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+    };
+  };
+  git_pending_api_git_pending_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PendingOut"];
         };
       };
       /** @description A selected commit needs one that was left out */

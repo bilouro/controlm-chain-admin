@@ -2,16 +2,16 @@
   "base": {
     "name": "develop",
     "kind": "branch",
-    "sha": "dfef96d672ad79715a4cc0bf3eefe8da2c6737aa",
+    "sha": "f57145e73fb79a7a666d2f3ebc90fa1035d49c5f",
     "subject": "chore: constants",
-    "date": "2026-11-02T13:16:45Z"
+    "date": "2026-11-02T13:37:45Z"
   },
   "head": {
     "name": "feature/demo",
     "kind": "branch",
-    "sha": "d15b6a66b131ead416f4973c5e7f2cda4020ee66",
+    "sha": "e423c8d3dd002e3212a50c0d3eab461de5138ca9",
     "subject": "feat: quality check before P77_B",
-    "date": "2026-11-02T13:16:46Z"
+    "date": "2026-11-02T13:37:46Z"
   },
   "merge_base": null,
   "summary": {
@@ -43,24 +43,24 @@
   },
   "commits": [
     {
-      "sha": "d15b6a66b131ead416f4973c5e7f2cda4020ee66",
+      "sha": "e423c8d3dd002e3212a50c0d3eab461de5138ca9",
       "subject": "feat: quality check before P77_B",
       "author": "Test",
-      "date": "2026-11-02T13:16:46Z",
+      "date": "2026-11-02T13:37:46Z",
       "merge": false
     },
     {
-      "sha": "98da4157d73359c4f24c5c27f789c02650242b78",
+      "sha": "640384e436b1cb10b594fb579d579d9f41c5ad96",
       "subject": "refactor: rename P77_D and move the load job",
       "author": "Test",
-      "date": "2026-11-02T13:16:46Z",
+      "date": "2026-11-02T13:37:45Z",
       "merge": false
     },
     {
-      "sha": "881884d9b877c9b9dd0d7be3596ee5b5973397f6",
+      "sha": "ff0145586d1333d877d4d91ac90e6785a4ce3137",
       "subject": "feat: retries on P77_C",
       "author": "Test",
-      "date": "2026-11-02T13:16:46Z",
+      "date": "2026-11-02T13:37:45Z",
       "merge": false
     }
   ],
@@ -75,9 +75,7 @@
       "relations": [],
       "groups": [],
       "jobs_added": [],
-      "jobs_removed": [
-        "P77_INGEST_DAILY/P77_INGEST_LOAD"
-      ],
+      "jobs_removed": ["P77_INGEST_DAILY/P77_INGEST_LOAD"],
       "before": {
         "tag": "SMART_FOLDER",
         "APPLICATION": "P77_RISK_ENGINE",
@@ -109,10 +107,7 @@
             "SIGN": "-"
           }
         ],
-        "jobs": [
-          "P77_INGEST_INIT",
-          "P77_INGEST_LOAD"
-        ]
+        "jobs": ["P77_INGEST_INIT", "P77_INGEST_LOAD"]
       },
       "after": {
         "tag": "SMART_FOLDER",
@@ -145,14 +140,10 @@
             "SIGN": "-"
           }
         ],
-        "jobs": [
-          "P77_INGEST_INIT"
-        ]
+        "jobs": ["P77_INGEST_INIT"]
       },
       "diff": "--- a/P77_INGEST_DAILY/\n+++ b/P77_INGEST_DAILY/\n@@ -31,6 +31,5 @@\n   ],\n   \"jobs\": [\n-    \"P77_INGEST_INIT\",\n-    \"P77_INGEST_LOAD\"\n+    \"P77_INGEST_INIT\"\n   ]\n }",
-      "commits": [
-        "98da4157d73359c4f24c5c27f789c02650242b78"
-      ]
+      "commits": ["640384e436b1cb10b594fb579d579d9f41c5ad96"]
     },
     {
       "node": "P77_CHAIN/",
@@ -163,10 +154,7 @@
       "variables": [],
       "relations": [],
       "groups": [],
-      "jobs_added": [
-        "P77_CHAIN/P77_CHECK",
-        "P77_CHAIN/P77_INGEST_LOAD"
-      ],
+      "jobs_added": ["P77_CHAIN/P77_CHECK", "P77_CHAIN/P77_INGEST_LOAD"],
       "jobs_removed": [],
       "before": {
         "tag": "SMART_FOLDER",
@@ -196,15 +184,7 @@
             "SIGN": "+"
           }
         ],
-        "jobs": [
-          "P77_A",
-          "P77_B",
-          "P77_C",
-          "P77_D",
-          "P77_E",
-          "P77_F",
-          "P77_F~2"
-        ]
+        "jobs": ["P77_A", "P77_B", "P77_C", "P77_D", "P77_E", "P77_F", "P77_F~2"]
       },
       "after": {
         "tag": "SMART_FOLDER",
@@ -248,9 +228,9 @@
       },
       "diff": "--- a/P77_CHAIN/\n+++ b/P77_CHAIN/\n@@ -29,10 +29,12 @@\n   \"jobs\": [\n     \"P77_A\",\n+    \"P77_CHECK\",\n     \"P77_B\",\n     \"P77_C\",\n-    \"P77_D\",\n+    \"P77_DELTA\",\n     \"P77_E\",\n     \"P77_F\",\n-    \"P77_F~2\"\n+    \"P77_F~2\",\n+    \"P77_INGEST_LOAD\"\n   ]\n }",
       "commits": [
-        "d15b6a66b131ead416f4973c5e7f2cda4020ee66",
-        "98da4157d73359c4f24c5c27f789c02650242b78",
-        "881884d9b877c9b9dd0d7be3596ee5b5973397f6"
+        "e423c8d3dd002e3212a50c0d3eab461de5138ca9",
+        "640384e436b1cb10b594fb579d579d9f41c5ad96",
+        "ff0145586d1333d877d4d91ac90e6785a4ce3137"
       ]
     }
   ],
@@ -268,12 +248,8 @@
           "link": "P77_A-P77_B_OK",
           "name": "P77_A-P77_CHECK_OK",
           "change": "modified",
-          "peers_before": [
-            "P77_CHAIN/P77_B"
-          ],
-          "peers_after": [
-            "P77_CHAIN/P77_CHECK"
-          ],
+          "peers_before": ["P77_CHAIN/P77_B"],
+          "peers_after": ["P77_CHAIN/P77_CHECK"],
           "details": []
         }
       ],
@@ -327,9 +303,7 @@
         ]
       },
       "diff": "",
-      "commits": [
-        "d15b6a66b131ead416f4973c5e7f2cda4020ee66"
-      ]
+      "commits": ["e423c8d3dd002e3212a50c0d3eab461de5138ca9"]
     },
     {
       "node": "P77_CHAIN/P77_CHECK",
@@ -381,9 +355,7 @@
           "name": "P77_A-P77_CHECK_OK",
           "change": "added",
           "peers_before": [],
-          "peers_after": [
-            "P77_CHAIN/P77_A"
-          ],
+          "peers_after": ["P77_CHAIN/P77_A"],
           "details": []
         },
         {
@@ -392,9 +364,7 @@
           "name": "P77_CHECK-P77_B_OK",
           "change": "added",
           "peers_before": [],
-          "peers_after": [
-            "P77_CHAIN/P77_B"
-          ],
+          "peers_after": ["P77_CHAIN/P77_B"],
           "details": []
         }
       ],
@@ -431,9 +401,7 @@
         ]
       },
       "diff": "--- a/P77_CHAIN/P77_CHECK\n+++ b/P77_CHAIN/P77_CHECK\n@@ -0,0 +1,28 @@\n+{\n+  \"APPLICATION\": \"P77_RISK_ENGINE\",\n+  \"SUB_APPLICATION\": \"P77_BATCH\",\n+  \"MEMNAME\": \"P77_CHECK\",\n+  \"JOBNAME\": \"P77_CHECK\",\n+  \"DESCRIPTION\": \"inserted between P77_A and P77_B\",\n+  \"TASKTYPE\": \"Dummy\",\n+  \"PARENT_FOLDER\": \"P77_CHAIN\",\n+  \"INCOND\": [\n+    {\n+      \"link\": \"P77_A-P77_B_OK\",\n+      \"ODATE\": \"ODAT\",\n+      \"AND_OR\": \"A\"\n+    }\n+  ],\n+  \"OUTCOND\": [\n+    {\n+      \"link\": \"P77_A-P77_B_OK\",\n+      \"ODATE\": \"ODAT\",\n+      \"SIGN\": \"-\"\n+    },\n+    {\n+      \"link\": \"P77_CHECK-P77_B_OK\",\n+      \"ODATE\": \"ODAT\",\n+      \"SIGN\": \"+\"\n+    }\n+  ]\n+}",
-      "commits": [
-        "d15b6a66b131ead416f4973c5e7f2cda4020ee66"
-      ]
+      "commits": ["e423c8d3dd002e3212a50c0d3eab461de5138ca9"]
     },
     {
       "node": "P77_CHAIN/P77_B",
@@ -448,9 +416,7 @@
           "link": "P77_A-P77_B_OK",
           "name": "P77_A-P77_B_OK",
           "change": "removed",
-          "peers_before": [
-            "P77_CHAIN/P77_A"
-          ],
+          "peers_before": ["P77_CHAIN/P77_A"],
           "peers_after": [],
           "details": []
         },
@@ -460,9 +426,7 @@
           "name": "P77_CHECK-P77_B_OK",
           "change": "added",
           "peers_before": [],
-          "peers_after": [
-            "P77_CHAIN/P77_CHECK"
-          ],
+          "peers_after": ["P77_CHAIN/P77_CHECK"],
           "details": []
         }
       ],
@@ -558,9 +522,7 @@
         ]
       },
       "diff": "--- a/P77_CHAIN/P77_B\n+++ b/P77_CHAIN/P77_B\n@@ -11,5 +11,5 @@\n   \"INCOND\": [\n     {\n-      \"link\": \"P77_A-P77_B_OK\",\n+      \"link\": \"P77_CHECK-P77_B_OK\",\n       \"ODATE\": \"ODAT\",\n       \"AND_OR\": \"A\"\n@@ -18,5 +18,5 @@\n   \"OUTCOND\": [\n     {\n-      \"link\": \"P77_A-P77_B_OK\",\n+      \"link\": \"P77_CHECK-P77_B_OK\",\n       \"ODATE\": \"ODAT\",\n       \"SIGN\": \"-\"\n",
-      "commits": [
-        "d15b6a66b131ead416f4973c5e7f2cda4020ee66"
-      ]
+      "commits": ["e423c8d3dd002e3212a50c0d3eab461de5138ca9"]
     },
     {
       "node": "P77_CHAIN/P77_C",
@@ -592,12 +554,8 @@
           "link": "P77_B-P77_C_OK",
           "name": "P77_B-P77_C_OK",
           "change": "modified",
-          "peers_before": [
-            "P77_CHAIN/P77_B"
-          ],
-          "peers_after": [
-            "P77_CHAIN/P77_B"
-          ],
+          "peers_before": ["P77_CHAIN/P77_B"],
+          "peers_after": ["P77_CHAIN/P77_B"],
           "details": [
             {
               "name": "AND_OR",
@@ -612,9 +570,7 @@
           "name": "P77_C-P77_E_OK",
           "change": "added",
           "peers_before": [],
-          "peers_after": [
-            "P77_CHAIN/P77_E"
-          ],
+          "peers_after": ["P77_CHAIN/P77_E"],
           "details": []
         }
       ],
@@ -686,8 +642,8 @@
       },
       "diff": "--- a/P77_CHAIN/P77_C\n+++ b/P77_CHAIN/P77_C\n@@ -9,9 +9,17 @@\n   \"CMDLINE\": \"/opt/p77/bin/c.ksh\",\n   \"PARENT_FOLDER\": \"P77_CHAIN\",\n+  \"DESCRIPTION\": \"Loaded nightly\",\n+  \"MAXRERUN\": \"2\",\n+  \"VARIABLE\": [\n+    {\n+      \"NAME\": \"%%RETRIES\",\n+      \"VALUE\": \"3\"\n+    }\n+  ],\n   \"INCOND\": [\n     {\n       \"link\": \"P77_B-P77_C_OK\",\n       \"ODATE\": \"ODAT\",\n-      \"AND_OR\": \"A\"\n+      \"AND_OR\": \"O\"\n     }\n   ],\n@@ -21,4 +29,9 @@\n       \"ODATE\": \"ODAT\",\n       \"SIGN\": \"+\"\n+    },\n+    {\n+      \"link\": \"P77_C-P77_E_OK\",\n+      \"ODATE\": \"ODAT\",\n+      \"SIGN\": \"+\"\n     }\n   ]\n",
       "commits": [
-        "d15b6a66b131ead416f4973c5e7f2cda4020ee66",
-        "881884d9b877c9b9dd0d7be3596ee5b5973397f6"
+        "e423c8d3dd002e3212a50c0d3eab461de5138ca9",
+        "ff0145586d1333d877d4d91ac90e6785a4ce3137"
       ]
     },
     {
@@ -768,9 +724,7 @@
         ]
       },
       "diff": "--- a/P77_CHAIN/P77_D\n+++ b/P77_CHAIN/P77_DELTA\n@@ -3,5 +3,5 @@\n   \"SUB_APPLICATION\": \"P77_BATCH\",\n   \"MEMNAME\": \"P77_D\",\n-  \"JOBNAME\": \"P77_D\",\n+  \"JOBNAME\": \"P77_DELTA\",\n   \"RUN_AS\": \"aup77proc\",\n   \"TASKTYPE\": \"Command\",\n",
-      "commits": [
-        "98da4157d73359c4f24c5c27f789c02650242b78"
-      ]
+      "commits": ["640384e436b1cb10b594fb579d579d9f41c5ad96"]
     },
     {
       "node": "P77_CHAIN/P77_E",
@@ -786,9 +740,7 @@
           "name": "P77_C-P77_E_OK",
           "change": "added",
           "peers_before": [],
-          "peers_after": [
-            "P77_CHAIN/P77_C"
-          ],
+          "peers_after": ["P77_CHAIN/P77_C"],
           "details": []
         }
       ],
@@ -876,9 +828,7 @@
         ]
       },
       "diff": "--- a/P77_CHAIN/P77_E\n+++ b/P77_CHAIN/P77_E\n@@ -19,4 +19,9 @@\n       \"ODATE\": \"ODAT\",\n       \"AND_OR\": \"A\"\n+    },\n+    {\n+      \"link\": \"P77_C-P77_E_OK\",\n+      \"ODATE\": \"ODAT\",\n+      \"AND_OR\": \"A\"\n     }\n   ],\n@@ -31,4 +36,9 @@\n       \"ODATE\": \"ODAT\",\n       \"SIGN\": \"-\"\n+    },\n+    {\n+      \"link\": \"P77_C-P77_E_OK\",\n+      \"ODATE\": \"ODAT\",\n+      \"SIGN\": \"-\"\n     }\n   ]\n",
-      "commits": [
-        "d15b6a66b131ead416f4973c5e7f2cda4020ee66"
-      ]
+      "commits": ["e423c8d3dd002e3212a50c0d3eab461de5138ca9"]
     },
     {
       "node": "P77_CHAIN/P77_INGEST_LOAD",
@@ -994,9 +944,7 @@
         ]
       },
       "diff": "--- a/P77_INGEST_DAILY/P77_INGEST_LOAD\n+++ b/P77_CHAIN/P77_INGEST_LOAD\n@@ -9,5 +9,5 @@\n   \"NODEID\": \"UP77_BATCH\",\n   \"CMDLINE\": \"/opt/p77/bin/load.ksh -d %%ODATE\",\n-  \"PARENT_FOLDER\": \"P77_INGEST_DAILY\",\n+  \"PARENT_FOLDER\": \"P77_CHAIN\",\n   \"INCOND\": [\n     {\n",
-      "commits": [
-        "98da4157d73359c4f24c5c27f789c02650242b78"
-      ]
+      "commits": ["640384e436b1cb10b594fb579d579d9f41c5ad96"]
     }
   ],
   "links": [

@@ -1,12 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type FormEvent,
-  type ReactNode,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ApiError,
@@ -15,45 +7,11 @@ import {
   type ChangePreview,
   type ChangeRequest,
 } from "@/lib/api/client";
-import { setToken } from "@/lib/api/session";
 import { DiffView } from "@/components/DiffView";
 import { EffectsTable } from "@/components/EffectsTable";
-import { Button, ErrorBox, Loading, TextInput } from "@/components/ui";
+import { Button, ErrorBox, Loading } from "@/components/ui";
 import { ChangesContext, type ProposeDetails } from "./changes-context";
-
-/** The token from the URL printed by `ctmchain serve`, or the token itself. */
-function tokenFrom(text: string): string {
-  const value = text.trim();
-  try {
-    return new URL(value).searchParams.get("token") ?? value;
-  } catch {
-    return value;
-  }
-}
-
-function TokenForm({ onToken }: { onToken: () => void }) {
-  const [value, setValue] = useState("");
-  const handleSubmit = (event: FormEvent) => {
-    event.preventDefault();
-    if (!value.trim()) return;
-    setToken(tokenFrom(value));
-    onToken();
-  };
-  return (
-    <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-2 text-sm">
-      <label className="flex-1 text-xs text-muted">
-        Editing URL or token
-        <TextInput
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          placeholder="http://127.0.0.1:8765/?token=…"
-          className="block w-full"
-        />
-      </label>
-      <Button type="submit">Use this token</Button>
-    </form>
-  );
-}
+import { TokenForm } from "./TokenForm";
 
 function ChangeDialog({
   request,
@@ -148,7 +106,8 @@ function ChangeDialog({
         {apply.isError && <ErrorBox error={apply.error} />}
         {apply.isSuccess && (
           <p role="status" className="text-sm text-ok">
-            Applied: {apply.data.written} written, {apply.data.deleted} deleted.
+            Applied: {apply.data.written} written, {apply.data.deleted} deleted. Not committed yet:
+            use Commit at the top when you are done.
           </p>
         )}
         <div className="flex justify-end gap-2">

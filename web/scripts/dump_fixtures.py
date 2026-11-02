@@ -138,6 +138,14 @@ def dump_compare() -> None:
                     encoding="utf-8",
                 )
                 print(f"wrote {filename}")
+            apply(repo, update_relation(repo, "P77_B-P77_C_OK", f"{c}/P77_C", cleanup=False))
+            apply(repo, set_attributes(repo, f"{c}/P77_E", {"DESCRIPTION": "Checked twice"}))
+            response = client.get("/api/git/pending")
+            response.raise_for_status()
+            (FIXTURES / "pending.json").write_text(
+                json.dumps(response.json(), indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+            )
+            print("wrote pending.json")
 
 
 if __name__ == "__main__":

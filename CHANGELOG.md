@@ -64,6 +64,12 @@ All notable changes to this project are documented here. The format follows
   nothing is written before *Apply change*, and asks for the editing URL or token when the tab
   has none. `ctmchain serve` keeps `CTMCHAIN_TOKEN` when it is set, so open tabs survive a
   restart.
+- Committing edits: `ctmchain commit [-m MESSAGE] [--branch NAME] [--dry-run]` and the *Commit
+  (n)* button of the web UI header, with a Conventional Commits message written from the
+  semantic comparison of HEAD with the working tree (editable), the files, and the option to
+  commit on a new branch when on main, master or develop. Only the chain files are committed
+  (`git commit --only`); a commit prepared before other edits is refused
+  (`GET /api/git/pending`, `POST /api/git/commit`, `changes` in `GET /api/git`).
 - Package skeleton, CI (lint, types, tests, web, build) and release workflows, community files.
 - `DESIGN.md` (architecture and data model) and `BACKLOG.md` (proof-of-concept plan and status).
 

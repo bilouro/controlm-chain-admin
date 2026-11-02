@@ -52,6 +52,7 @@ ctmchain distinct NODEID RUN_AS DOMAIL/@DEST --xml uat_export.xml   # what varie
 ctmchain import uat_export.xml --env uat --repo ./my-chains         # XML -> JSON, with a report
 ctmchain validate --repo ./my-chains                                # chain findings, exit 1 if any
 ctmchain resolve never-cleaned=add-cleanup --repo ./my-chains       # preview the fixes; --apply
+ctmchain commit --dry-run --repo ./my-chains                        # the message it would use
 ctmchain graph P77_INGEST_DAILY --repo ./my-chains --format mermaid # the chain of one folder
 ctmchain export --env uat -o uat.xml --repo ./my-chains             # byte-identical to the import
 ctmchain export --env prod -o prod.xml --repo ./my-chains           # same chain, prod letters
