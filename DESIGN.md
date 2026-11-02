@@ -243,7 +243,12 @@ exception for that environment, or ignore), *children* (conditions, ON blocks...
 ignore) and *removed* (a job not in the export). Values of new folders and jobs that no
 constant explains are *unresolved*. Volatile attributes are not compared. On the real prod
 export (337 folders) it takes about 2.5 s and finds 12 constants to learn, one wrong value
-(`%%GEIENV`) and a few hundred differences.
+(`%%GEIENV`) and a few hundred differences. *Receiving* the export (`ctmchain receive`, the
+`receive` change, the *Import* page) applies the chosen options over the defaults as one
+change set: values learned in `envs/<env>/env.json`, exceptions in `overrides.json`, the
+folders rewritten neutral with the base kept where a value is ignored or excepted, kept jobs
+restored; unresolved values refuse it. It is previewed, applied and committed like any edit,
+so it goes to the checked-out release. `ctmchain env learn` takes the values only.
 
 ## 6. Import
 
@@ -535,6 +540,13 @@ Server-side concerns (not in the core):
   commit goes to a new release branch named from the subject (`release/update-job-x-in-f`).
   The commit needs the session token and is refused when the files changed since the dialog
   opened.
+- **Import (implemented 2026-11-02).** The *Import* page takes an export file (a delivery of
+  some folders, or a full export) and an environment (told from the names by default),
+  analyses it (`POST /api/intake`, session token) and shows the evidence, the warnings, the
+  folders (new, changed, unchanged) and the decisions grouped by kind, each with its options and
+  the default checked: values to learn, jobs that differ from a constant, differences,
+  children, jobs not in the export. Unresolved values block the review. *Review change* sends
+  the `receive` change with the choices that differ from the defaults to the usual review.
 - **Releases (implemented 2026-11-02).** The header shows the checked-out branch (*read-only*
   on the trunk) and opens the *Releases* dialog: the current branch and its uncommitted files
   (*Stash changes*, *Discard changes…* with a confirmation), *Update from main* and *Close
@@ -591,6 +603,8 @@ the first import.
 Quality
 - `validate [--env <env>] [--strict]` — graph, naming, overlay and resolution checks; exit code = highest severity.
 - `resolve [CODE=KIND...] [--apply] [--stat]` — implemented: fixes for the findings (see §8); without arguments, the fix kinds per code.
+- `receive <xml> [--env ENV] [--choose ID=OPTION ...] [--apply] [--stat] [--format text|json]` — implemented: an export of one environment (some folders or all) taken into the checked-out release (§5): the decisions with their defaults, then the change set.
+- `env learn <xml> [--env ENV] [--apply]` — implemented: only the values of the constants in that environment.
 - `set-exception <env> <node> [--set ATTR=VALUE] [--unset ATTR] [--var %%NAME=VALUE] [--drop NAME]` — implemented: an exception of one environment for one job or folder (§5), previewed, `--apply` writes `envs/<env>/overrides.json`.
 - `rename-constant <old> <new>` — implemented: placeholders, `chain.json`, environment values and exceptions follow.
 - `release status|start <name>|switch <branch>|installed <env>|update|close` — implemented: the release flow of §8 (`--stash` to stash uncommitted files first, `installed --release --commit` to tag another commit). Stash, discard, push and pull are plain git on the command line.

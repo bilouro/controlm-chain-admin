@@ -42,6 +42,9 @@ export type ReleaseOut = Schemas["ReleaseOut"];
 export type InstallationOut = Schemas["InstallationOut"];
 export type StashOut = Schemas["StashOut"];
 export type ActionOut = Schemas["ActionOut"];
+export type IntakeOut = Schemas["IntakeOut"];
+export type IntakeRequest = Schemas["IntakeRequest"];
+export type DecisionOut = Schemas["DecisionOut"];
 
 export const TOKEN_HEADER = "X-Ctmchain-Token";
 

@@ -23,6 +23,7 @@ from controlm_chain_admin.core import constants as constants_mod
 from controlm_chain_admin.core import fixes as fixes_mod
 from controlm_chain_admin.core import graph as graph_mod
 from controlm_chain_admin.core import inspect as inspect_mod
+from controlm_chain_admin.core import intake as intake_mod
 from controlm_chain_admin.core import ops
 from controlm_chain_admin.core import package as package_mod
 from controlm_chain_admin.core import refactor as refactor_mod
@@ -207,7 +208,30 @@ def build_parser() -> argparse.ArgumentParser:
     envc.add_argument("--missing", action="store_true", help="only constants without a value")
     envc.add_argument("--format", choices=("text", "json"), default="text")
     envc.set_defaults(func=cmd_env_constants)
+    envl = env_sub.add_parser(
+        "learn", help="the values of the constants in an environment, from one of its exports"
+    )
+    envl.add_argument("xml", type=Path, help="an export of that environment")
+    envl.add_argument("--env", help="the environment (default: told by the letter of the names)")
+    _refactor_options(envl)
+    envl.set_defaults(func=cmd_env_learn)
     envp.set_defaults(func=cmd_env_help)
+
+    rec = commands.add_parser(
+        "receive",
+        help="take an export of one environment (some folders, e.g. a delivery) into the release",
+    )
+    rec.add_argument("xml", type=Path, help="the export")
+    rec.add_argument("--env", help="its environment (default: told by the letter of the names)")
+    rec.add_argument(
+        "--choose",
+        action="append",
+        default=[],
+        metavar="ID=OPTION",
+        help="another option than the default for one decision (repeatable)",
+    )
+    _refactor_options(rec)
+    rec.set_defaults(func=cmd_receive)
 
     cmp_ = commands.add_parser("compare", help="what changed in the chains between two git refs")
     cmp_.add_argument("base", help="base ref, e.g. develop")
@@ -468,7 +492,97 @@ def cmd_env_help(args: argparse.Namespace) -> int:
     print(
         "usage: ctmchain env constants [--repo DIR] [--env ENV] [--missing] [--format text|json]"
     )
+    print("       ctmchain env learn XML [--env ENV] [--repo DIR] [--apply] [--stat]")
     return EXIT_USAGE
+
+
+_SHOWN_PER_KIND = 20
+
+
+def _decision_line(decision: intake_mod.Decision) -> str:
+    options = "|".join(decision.options)
+    head = f"  {decision.id}  {decision.default} [{options}]"
+    uses = (
+        f" ({_plural(decision.count, 'use')})" if decision.kind in ("learn", "set-value") else ""
+    )
+    if decision.kind == "learn":
+        return f"{head}  {decision.constant} = {decision.incoming}{uses}"
+    if decision.kind == "set-value":
+        return f"{head}  {decision.constant}: {decision.expected} -> {decision.incoming}{uses}"
+    if decision.kind in ("value", "constant"):
+        return f"{head}  {decision.current} -> {decision.incoming}"
+    return head
+
+
+def _print_intake(intake: intake_mod.Intake) -> None:
+    print(f"{intake.env} export: {'; '.join(intake.evidence)}")
+    statuses = {
+        s: sum(1 for f in intake.folders if f.status == s) for s in ("new", "changed", "same")
+    }
+    print(
+        f"Folders: {len(intake.folders)} ({statuses['new']} new, {statuses['changed']} changed, "
+        f"{statuses['same']} unchanged)" + (", some folders only" if intake.partial else "")
+    )
+    if intake.decisions:
+        print("Decisions (default [options]; another one with --choose ID=OPTION):")
+    for kind in ("learn", "set-value", "constant", "value", "children", "removed"):
+        of_kind = [d for d in intake.decisions if d.kind == kind]
+        for decision in of_kind[:_SHOWN_PER_KIND]:
+            print(_decision_line(decision))
+        if len(of_kind) > _SHOWN_PER_KIND:
+            print(f"  ... {len(of_kind) - _SHOWN_PER_KIND} more {kind} decisions (--format json)")
+    for line in intake.unresolved:
+        print(f"unresolved: {line}")
+    for warning in intake.warnings:
+        print(f"warning: {warning}")
+    print()
+
+
+def cmd_receive(args: argparse.Namespace) -> int:
+    repo = load_repo(args.repo)
+    data = args.xml.read_bytes()
+    choices = _pairs(args.choose, "ID=OPTION")
+    intake = intake_mod.analyze(repo, data, args.env)
+    if args.format == "text":
+        _print_intake(intake)
+    if args.apply:
+        workspace_mod.ensure_editable(repo)
+    change = intake_mod.receive(repo, data, intake.env, choices)
+    if args.format == "json":
+        result = refactor_mod.apply(repo, change) if args.apply and change.edits else None
+        body = {"intake": intake.to_json(), "change": change.to_json(), "applied": bool(result)}
+        print(json.dumps(body, indent=2, ensure_ascii=False))
+        return EXIT_OK
+    args.build = lambda _r, _a: change
+    return cmd_refactor(args)
+
+
+def cmd_env_learn(args: argparse.Namespace) -> int:
+    repo = load_repo(args.repo)
+    intake = intake_mod.analyze(repo, args.xml.read_bytes(), args.env)
+    values = {
+        d.constant: d.incoming
+        for d in intake.decisions
+        if d.kind in ("learn", "set-value") and d.constant
+    }
+    print(f"{intake.env} export: {'; '.join(intake.evidence)}")
+    for decision in intake.decisions:
+        if decision.kind in ("learn", "set-value"):
+            before = decision.expected if decision.kind == "set-value" else None
+            print(
+                f"  {decision.constant}: {before or '?'} -> {decision.incoming} "
+                f"({_plural(decision.count, 'use')})"
+            )
+    disagree = sum(1 for d in intake.decisions if d.kind == "constant")
+    if disagree:
+        print(f"{_plural(disagree, 'value')} of single jobs disagree: see ctmchain receive")
+    if not values:
+        print("Nothing to learn.")
+        return EXIT_OK
+    args.build = lambda r, _a: refactor_mod.run_operation(
+        r, "set-values", {"env": intake.env, "values": values}
+    )
+    return cmd_refactor(args)
 
 
 def cmd_env_constants(args: argparse.Namespace) -> int:

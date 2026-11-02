@@ -21,6 +21,7 @@ from controlm_chain_admin.web.routers import (
     changes,
     folders,
     history,
+    intake,
     jobs,
     package,
     repo,
@@ -77,6 +78,10 @@ TAGS = [
         "description": "The Control-M import file with every folder a comparison changed.",
     },
     {
+        "name": "intake",
+        "description": "What an export of one environment brings, before receiving it.",
+    },
+    {
         "name": "workspace",
         "description": "Where edits go: releases from the trunk, installations, stash, push.",
     },
@@ -109,6 +114,7 @@ def create_app(settings: Settings, *, static_dir: Path = STATIC_DIR) -> FastAPI:
         changes.router,
         history.router,
         package.router,
+        intake.router,
         workspace.router,
     ):
         app.include_router(router)

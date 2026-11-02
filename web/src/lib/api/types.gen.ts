@@ -157,6 +157,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/intake": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** The environment of an export, the values to learn and every difference */
+    post: operations["intake_api_intake_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/jobs/{folder}/{job}": {
     parameters: {
       query?: never;
@@ -614,6 +631,46 @@ export interface components {
       /** Name */
       name: string;
     };
+    /** DecisionOut */
+    DecisionOut: {
+      /** Constant */
+      constant?: string | null;
+      /**
+       * Count
+       * @default 1
+       */
+      count: number;
+      /**
+       * Current
+       * @description the repository value (neutral)
+       */
+      current?: string | null;
+      /** Default */
+      default: string;
+      /**
+       * Expected
+       * @description the value of the constant there
+       */
+      expected?: string | null;
+      /** Field */
+      field?: string | null;
+      /** Id */
+      id: string;
+      /**
+       * Incoming
+       * @description the export value (neutral)
+       */
+      incoming?: string | null;
+      /**
+       * Kind
+       * @description learn | set-value | constant | value | children | removed
+       */
+      kind: string;
+      /** Node */
+      node?: string | null;
+      /** Options */
+      options: string[];
+    };
     /** DiscardRequest */
     DiscardRequest: {
       /**
@@ -751,6 +808,22 @@ export interface components {
        */
       successors: components["schemas"]["RelationOut"][];
     };
+    /** FolderIntakeOut */
+    FolderIntakeOut: {
+      /** Jobs Added */
+      jobs_added: string[];
+      /** Jobs Changed */
+      jobs_changed: string[];
+      /** Jobs Removed */
+      jobs_removed: string[];
+      /** Name */
+      name: string;
+      /**
+       * Status
+       * @description new | changed | same
+       */
+      status: string;
+    };
     /** FolderList */
     FolderList: {
       /** Items */
@@ -839,6 +912,47 @@ export interface components {
        * @description the installed commit; default: the release tip
        */
       sha?: string | null;
+    };
+    /** IntakeOut */
+    IntakeOut: {
+      /** Decisions */
+      decisions: components["schemas"]["DecisionOut"][];
+      /** Env */
+      env: string;
+      /** Evidence */
+      evidence: string[];
+      /** Folders */
+      folders: components["schemas"]["FolderIntakeOut"][];
+      /**
+       * Partial
+       * @description some folders of the repository are not in the export
+       */
+      partial: boolean;
+      /**
+       * Skipped
+       * @description folders of other applications
+       */
+      skipped: string[];
+      /**
+       * Unresolved
+       * @description values no constant explains: they block
+       */
+      unresolved: string[];
+      /** Warnings */
+      warnings: string[];
+    };
+    /** IntakeRequest */
+    IntakeRequest: {
+      /**
+       * Env
+       * @description its environment; default: told by the names
+       */
+      env?: string | null;
+      /**
+       * Xml
+       * @description the export, as text
+       */
+      xml: string;
     };
     /** JobDetail */
     JobDetail: {
@@ -1764,6 +1878,55 @@ export interface operations {
         };
       };
       /** @description Not a git repository, or unknown ref or commit */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+    };
+  };
+  intake_api_intake_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["IntakeRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["IntakeOut"];
+        };
+      };
+      /** @description Missing or wrong session token */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Unknown environment */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description Not an export, or its environment cannot be told */
       422: {
         headers: {
           [name: string]: unknown;

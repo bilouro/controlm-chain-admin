@@ -61,6 +61,7 @@ ctmchain serve --repo ./my-chains                                   # local web 
 ctmchain compare main release/2026-11 --repo ./my-chains            # what the release changed
 ctmchain package main release/2026-11 --env uat --repo ./my-chains  # import file, changed folders
 ctmchain release installed uat --repo ./my-chains                   # tag uat/2026-11-1
+ctmchain receive delivery.xml --repo ./my-chains                    # a team's folders, made neutral
 ctmchain release close --repo ./my-chains                           # once installed in prod
 ```
 

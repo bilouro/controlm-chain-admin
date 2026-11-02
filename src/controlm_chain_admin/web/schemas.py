@@ -424,3 +424,41 @@ class InstalledRequest(BaseModel):
     env: str
     release: str | None = Field(None, description="default: the checked-out release")
     sha: str | None = Field(None, description="the installed commit; default: the release tip")
+
+
+class IntakeRequest(BaseModel):
+    xml: str = Field(description="the export, as text")
+    env: str | None = Field(None, description="its environment; default: told by the names")
+
+
+class DecisionOut(BaseModel):
+    id: str
+    kind: str = Field(description="learn | set-value | constant | value | children | removed")
+    options: list[str]
+    default: str
+    node: str | None = None
+    field: str | None = None
+    constant: str | None = None
+    current: str | None = Field(None, description="the repository value (neutral)")
+    expected: str | None = Field(None, description="the value of the constant there")
+    incoming: str | None = Field(None, description="the export value (neutral)")
+    count: int = 1
+
+
+class FolderIntakeOut(BaseModel):
+    name: str
+    status: str = Field(description="new | changed | same")
+    jobs_added: list[str]
+    jobs_removed: list[str]
+    jobs_changed: list[str]
+
+
+class IntakeOut(BaseModel):
+    env: str
+    evidence: list[str]
+    partial: bool = Field(description="some folders of the repository are not in the export")
+    folders: list[FolderIntakeOut]
+    decisions: list[DecisionOut]
+    unresolved: list[str] = Field(description="values no constant explains: they block")
+    warnings: list[str]
+    skipped: list[str] = Field(description="folders of other applications")

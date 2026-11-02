@@ -5,6 +5,7 @@ import { ChangeProvider } from "@/features/changes/ChangeProvider";
 import { CommitButton } from "@/features/commit/CommitButton";
 import { ComparePage } from "@/features/compare/ComparePage";
 import { FolderPage } from "@/features/folder-graph/FolderPage";
+import { ImportPage } from "@/features/intake/ImportPage";
 import { JobPage } from "@/features/job-detail/JobPage";
 import { ValidatePage } from "@/features/validate/ValidatePage";
 import { RepoBadge } from "@/features/repo/RepoBadge";
@@ -41,6 +42,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <NavItem to="/">Chains</NavItem>
           <NavItem to="/validate">Validate</NavItem>
           <NavItem to="/compare">Compare</NavItem>
+          <NavItem to="/import">Import</NavItem>
         </nav>
         <div className="ml-auto flex items-center gap-3">
           <BranchButton />
@@ -63,6 +65,7 @@ export function AppRoutes() {
       <Route path="/folders/:folder/jobs/:job" element={<JobPage />} />
       <Route path="/validate" element={<ValidatePage />} />
       <Route path="/compare" element={<ComparePage />} />
+      <Route path="/import" element={<ImportPage />} />
       <Route path="*" element={<p className="p-6 text-muted">Page not found.</p>} />
     </Routes>
   );

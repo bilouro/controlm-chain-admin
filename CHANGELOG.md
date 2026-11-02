@@ -91,6 +91,10 @@ All notable changes to this project are documented here. The format follows
 - The intake analysis of an export of one environment (`core/intake.py`): its environment
   told by the letter of the names, the values of constants to learn, values the export
   contradicts, exceptions, changes of the base, removed jobs and unresolved values.
+- Receiving an export of one environment into the release: `ctmchain receive` (the decisions,
+  `--choose ID=OPTION`, preview, `--apply`), the `receive` change, `POST /api/intake` and the
+  *Import* page of the web UI (upload, analysis, a choice per decision, review). `ctmchain env
+  learn` and the `set-values` change take only the values of the constants.
 - Package skeleton, CI (lint, types, tests, web, build) and release workflows, community files.
 - `DESIGN.md` (architecture and data model) and `BACKLOG.md` (proof-of-concept plan and status).
 

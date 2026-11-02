@@ -22,20 +22,42 @@ from __future__ import annotations
 import re
 from collections import Counter
 from collections.abc import Iterator, Mapping
-from dataclasses import dataclass, field
-from typing import Any
+from dataclasses import dataclass, field, replace
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 from controlm_chain_admin.core.constants import PLACEHOLDER, Selector
-from controlm_chain_admin.core.errors import ModelError
+from controlm_chain_admin.core.errors import InvalidChange, ModelError
 from controlm_chain_admin.core.model import XmlDocument
 from controlm_chain_admin.core.ops import JOB_TAG, JOBS_KEY, TAG_KEY, import_xml, only_application
-from controlm_chain_admin.core.overrides import Override, load_overrides
-from controlm_chain_admin.core.repo import ChainRepo, load_repo, read_json
+from controlm_chain_admin.core.overrides import Override, load_overrides, write_overrides
+from controlm_chain_admin.core.repo import ChainRepo, load_repo, read_json, write_json
 from controlm_chain_admin.core.xmlio import parse_xml
+
+if TYPE_CHECKING:
+    from controlm_chain_admin.core.refactor import ChangeSet
 
 VARIABLE_TAG = "VARIABLE"
 _KNOWN_OPTIONS = ("exception", "set-value", "ignore")
 _NAME_ATTRIBUTES = ("FOLDER_NAME", "JOBNAME")
+
+
+@dataclass(frozen=True)
+class Site:
+    """One place of a value: a node, the attribute, variable or child path, and its base value."""
+
+    node: str
+    field: str
+    scope: str  # attribute | variable | child
+    path: tuple[Any, ...]
+    current: str | None
+    incoming: str | None
+
+    @property
+    def can_except(self) -> bool:
+        return self.scope == "attribute" or (
+            self.scope == "variable" and self.incoming is not None
+        )
 
 
 @dataclass(frozen=True)
@@ -51,7 +73,7 @@ class Decision:
     expected: str | None = None  # the value of the constant in the environment
     incoming: str | None = None  # the export (neutral)
     count: int = 1
-    path: tuple[Any, ...] = ()  # inside the children (learnable leaves)
+    sites: tuple[Site, ...] = ()  # where the decision applies
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -207,57 +229,35 @@ class _Collector:
     overrides: Mapping[str, Override]
     volatile: frozenset[str] = frozenset()
     decisions: list[Decision] = field(default_factory=list)
-    contradicted: dict[str, dict[str, list[tuple[str, str, str, tuple[Any, ...], bool]]]] = field(
-        default_factory=dict
-    )
-    learning: dict[str, dict[str, list[tuple[str, str, tuple[Any, ...], bool]]]] = field(
-        default_factory=dict
-    )
+    contradicted: dict[str, dict[str, list[Site]]] = field(default_factory=dict)
+    learning: dict[str, dict[str, list[Site]]] = field(default_factory=dict)
 
-    def classify(
-        self,
-        node: str,
-        name: str,
-        current: str | None,
-        incoming: str | None,
-        *,
-        variable: bool = False,
-        path: tuple[Any, ...] = (),
-    ) -> None:
-        exception = self.overrides.get(node)
+    def classify(self, site: Site) -> None:
+        exception = self.overrides.get(site.node)
         if exception is not None:
+            variable = site.scope == "variable"
             values: Mapping[str, Any] = exception.variables if variable else exception.attributes
-            if name in values and values[name] == incoming:
+            if site.field in values and values[site.field] == site.incoming:
                 return  # this environment already has it as an exception
-        can_except = not path and not (variable and incoming is None)
-        whole = PLACEHOLDER.fullmatch(current or "")
-        if whole and incoming is not None and not PLACEHOLDER.fullmatch(incoming):
+        whole = PLACEHOLDER.fullmatch(site.current or "")
+        if whole and site.incoming is not None and not PLACEHOLDER.fullmatch(site.incoming):
             constant = whole[1]
-            if self.known.get(constant) is None:
-                learning = self.learning.setdefault(constant, {}).setdefault(incoming, [])
-                learning.append((node, name, path, can_except))
-                return
-            contradicted = self.contradicted.setdefault(constant, {}).setdefault(incoming, [])
-            contradicted.append((node, name, current or "", path, can_except))
+            pending = self.learning if self.known.get(constant) is None else self.contradicted
+            pending.setdefault(constant, {}).setdefault(site.incoming, []).append(site)
             return
-        self.decisions.append(
-            Decision(
-                f"{node}@{name}", "value",
-                ("change", "exception", "ignore") if can_except else ("change", "ignore"),
-                "change", node, name, None, current, None, incoming, path=path,
-            )
-        )  # fmt: skip
+        options = ("change", "exception", "ignore") if site.can_except else ("change", "ignore")
+        self.decisions.append(_site_decision(site, "value", options, "change"))
 
     def compare(self, node: str, before: Mapping[str, Any], after: Mapping[str, Any]) -> bool:
         size = self._size()
         b, a = _strings(before, self.volatile), _strings(after, self.volatile)
         for key in [*b, *(k for k in a if k not in b)]:
             if b.get(key) != a.get(key):
-                self.classify(node, key, b.get(key), a.get(key))
+                self.classify(Site(node, key, "attribute", (), b.get(key), a.get(key)))
         bv, av = _variables(before), _variables(after)
         for key in [*bv, *(k for k in av if k not in bv)]:
             if bv.get(key) != av.get(key):
-                self.classify(node, key, bv.get(key), av.get(key), variable=True)
+                self.classify(Site(node, key, "variable", (), bv.get(key), av.get(key)))
         bc, ac = _children(before), _children(after)
         structural = False
         for path in _leaves(bc, ac):
@@ -266,7 +266,7 @@ class _Collector:
                 continue
             current, incoming = _get(bc, path), _get(ac, path)
             if PLACEHOLDER.fullmatch(current) and not PLACEHOLDER.fullmatch(incoming):
-                self.classify(node, _path_text(path), current, incoming, path=path)
+                self.classify(Site(node, _path_text(path), "child", path, current, incoming))
             else:
                 structural = True
         if structural:
@@ -284,52 +284,65 @@ class _Collector:
         """Learn decisions (one per constant), values the whole export contradicts (one per
         constant), then the sites that disagree; ``agreeing`` counts the uses of each constant
         whose value the export confirms."""
-        learned: list[Decision] = []
+        grouped: list[Decision] = []
         disagree: list[Decision] = []
         for constant, by_value in self.contradicted.items():
             known = self.known[constant]
             if not agreeing.get(constant) and len(by_value) == 1:
                 [(value, sites)] = by_value.items()
-                learned.append(
+                grouped.append(
                     Decision(
                         f"value:{constant}", "set-value", ("set-value", "exceptions", "ignore"),
                         "set-value", constant=constant, current="@{" + constant + "}",
-                        expected=known, incoming=value, count=len(sites),
+                        expected=known, incoming=value, count=len(sites), sites=tuple(sites),
                     )
                 )  # fmt: skip
                 continue
-            for value, sites in by_value.items():
-                for node, name, current, path, can_except in sites:
+            for sites in by_value.values():
+                for site in sites:
+                    options = _KNOWN_OPTIONS if site.can_except else ("set-value", "ignore")
                     disagree.append(
-                        Decision(
-                            f"{node}@{name}", "constant",
-                            _KNOWN_OPTIONS if can_except else ("set-value", "ignore"),
-                            "exception" if can_except else "ignore",
-                            node, name, constant, current, known, value, path=path,
+                        _site_decision(
+                            site, "constant", options,
+                            "exception" if site.can_except else "ignore", constant, known,
                         )
                     )  # fmt: skip
         for constant, learning in self.learning.items():
             ranked = sorted(learning.items(), key=lambda item: -len(item[1]))
             value, agreeing_sites = ranked[0]
-            learned.append(
+            grouped.append(
                 Decision(
                     f"learn:{constant}", "learn", ("learn", "ignore"), "learn",
                     constant=constant, current="@{" + constant + "}", incoming=value,
-                    count=len(agreeing_sites),
+                    count=len(agreeing_sites), sites=tuple(agreeing_sites),
                 )
             )  # fmt: skip
-            for other, other_sites in ranked[1:]:
-                for node, name, path, can_except in other_sites:
+            for _, other_sites in ranked[1:]:
+                for site in other_sites:
+                    learned_options: tuple[str, ...] = (
+                        ("exception", "ignore") if site.can_except else ("ignore",)
+                    )
                     disagree.append(
-                        Decision(
-                            f"{node}@{name}", "constant",
-                            ("exception", "ignore") if can_except else ("ignore",),
-                            "exception" if can_except else "ignore",
-                            node, name, constant, "@{" + constant + "}", value, other,
-                            path=path,
+                        _site_decision(
+                            site, "constant", learned_options,
+                            "exception" if site.can_except else "ignore", constant, value,
                         )
                     )  # fmt: skip
-        return [*learned, *disagree, *self.decisions]
+        return [*grouped, *disagree, *self.decisions]
+
+
+def _site_decision(
+    site: Site,
+    kind: str,
+    options: tuple[str, ...],
+    default: str,
+    constant: str | None = None,
+    expected: str | None = None,
+) -> Decision:
+    return Decision(
+        f"{site.node}@{site.field}", kind, options, default, site.node, site.field, constant,
+        site.current, expected, site.incoming, sites=(site,),
+    )  # fmt: skip
 
 
 def _walk(data: Mapping[str, Any], tag: str) -> Iterator[tuple[str, Mapping[str, Any]]]:
@@ -457,3 +470,181 @@ def analyze(repo: ChainRepo, data: bytes, env: str | None = None) -> Intake:
         env, evidence, bool(present - set(report.folders)), tuple(folders), tuple(decisions),
         tuple(unresolved), tuple(warnings), tuple(s.folder for s in report.skipped),
     )  # fmt: skip
+
+
+# ---------------------------------------------------------------- receive
+
+
+def _node_file(repo: ChainRepo, node: str) -> Path:
+    folder, _, job = node.partition("/")
+    return repo.job_file(folder, job) if job else repo.folder_file(folder)
+
+
+def _set_variable(data: dict[str, Any], name: str, value: str | None) -> None:
+    variables = [dict(v) for v in data.get(VARIABLE_TAG, [])]
+    kept = [v for v in variables if v.get("NAME") != name]
+    if value is None:
+        variables = kept
+    elif len(kept) == len(variables):
+        variables.append({"NAME": name, "VALUE": value})
+    else:
+        for variable in variables:
+            if variable.get("NAME") == name:
+                variable["VALUE"] = value
+    if variables:
+        data[VARIABLE_TAG] = variables
+    else:
+        data.pop(VARIABLE_TAG, None)
+
+
+def _restore(box: ChainRepo, site: Site) -> None:
+    """Put the repository's value back at ``site`` in the copy."""
+    path = _node_file(box, site.node)
+    data = dict(read_json(path))
+    if site.scope == "attribute":
+        if site.current is None:
+            data.pop(site.field, None)
+        else:
+            data[site.field] = site.current
+    elif site.scope == "variable":
+        _set_variable(data, site.field, site.current)
+    else:
+        _get(data, site.path[:-1])[site.path[-1]] = site.current
+    write_json(path, data)
+
+
+def _except(overrides: dict[str, Override], site: Site) -> None:
+    current = overrides.get(site.node, Override())
+    if site.scope == "attribute":
+        overrides[site.node] = Override(
+            {**current.attributes, site.field: site.incoming}, current.variables
+        )
+    elif site.incoming is not None:
+        overrides[site.node] = Override(
+            current.attributes, {**current.variables, site.field: site.incoming}
+        )
+
+
+def _keep_children(repo: ChainRepo, box: ChainRepo, node: str) -> None:
+    before = read_json(_node_file(repo, node))
+    path = _node_file(box, node)
+    data = {k: v for k, v in read_json(path).items() if k not in _children(read_json(path))}
+    data.update(_children(before))
+    write_json(path, data)
+
+
+def _keep_job(repo: ChainRepo, box: ChainRepo, node: str) -> None:
+    folder, _, job_id = node.partition("/")
+    write_json(box.job_file(folder, job_id), read_json(repo.job_file(folder, job_id)))
+    ids_before = [str(j) for j in read_json(repo.folder_file(folder)).get(JOBS_KEY, [])]
+    folder_json = dict(read_json(box.folder_file(folder)))
+    ids = [str(j) for j in folder_json.get(JOBS_KEY, [])]
+    position = ids_before.index(job_id)
+    later = [j for j in ids_before[position + 1 :] if j in ids]
+    ids.insert(ids.index(later[0]) if later else len(ids), job_id)
+    folder_json[JOBS_KEY] = ids
+    write_json(box.folder_file(folder), folder_json)
+    meta_before = repo.folder_meta_file(folder)
+    if meta_before.is_file():
+        old_jobs = read_json(meta_before).get(JOBS_KEY, {})
+        meta = dict(read_json(box.folder_meta_file(folder)))
+        jobs = meta.get(JOBS_KEY, {})
+        meta[JOBS_KEY] = {j: jobs.get(j, old_jobs.get(j, {})) for j in ids}  # folder order
+        write_json(box.folder_meta_file(folder), meta)
+
+
+def _new_nodes(box: ChainRepo, intake: Intake) -> list[tuple[str, Mapping[str, Any], str]]:
+    nodes: list[tuple[str, Mapping[str, Any], str]] = []
+    for folder in intake.folders:
+        jobs = folder.jobs_added
+        if folder.status == "new":
+            data = read_json(box.folder_file(folder.name))
+            nodes.append((f"{folder.name}/", data, str(data.get(TAG_KEY))))
+        for job_id in jobs:
+            if box.job_file(folder.name, job_id).is_file():
+                nodes.append(
+                    (
+                        f"{folder.name}/{job_id}",
+                        read_json(box.job_file(folder.name, job_id)),
+                        JOB_TAG,
+                    )
+                )
+    return nodes
+
+
+def receive(
+    repo: ChainRepo,
+    data: bytes,
+    env: str | None = None,
+    choices: Mapping[str, str] | None = None,
+) -> ChangeSet:
+    """The export taken into the repository, with ``choices`` (decision id -> option) applied
+    over the defaults of :func:`analyze`, as one change set to preview and apply."""
+    from controlm_chain_admin.core.refactor import _finish, _sandbox, _tracked
+
+    repo = load_repo(repo.root)
+    intake = analyze(repo, data, env)
+    choices = dict(choices or {})
+    unknown = sorted(set(choices) - {d.id for d in intake.decisions})
+    if unknown:
+        raise InvalidChange(f"unknown decision(s): {', '.join(unknown)}")
+    chosen = {d.id: choices.get(d.id, d.default) for d in intake.decisions}
+    for decision in intake.decisions:
+        if chosen[decision.id] not in decision.options:
+            raise InvalidChange(f"{decision.id}: choose one of {', '.join(decision.options)}")
+    values: dict[str, str] = {}
+    for decision in intake.decisions:
+        option = chosen[decision.id]
+        if (decision.kind, option) in (("learn", "learn"), ("set-value", "set-value"), (
+            "constant", "set-value",
+        )) and decision.constant and decision.incoming is not None:  # fmt: skip
+            if values.get(decision.constant, decision.incoming) != decision.incoming:
+                raise InvalidChange(f"two values chosen for {decision.constant}")
+            values[decision.constant] = decision.incoming
+    env = intake.env
+    original = _tracked(repo.root)
+    with _sandbox(original) as box:
+        if values:
+            env_config = box.load_env(env)
+            constants = {**env_config.constants, **values}
+            write_json(box.env_file(env), replace(env_config, constants=constants).to_json())
+        import_xml(box, data, env)
+        box = load_repo(box.root)
+        overrides = load_overrides(box, env)
+        exceptions = 0
+        for decision in intake.decisions:
+            option = chosen[decision.id]
+            if decision.kind == "children":
+                if option == "ignore" and decision.node:
+                    _keep_children(repo, box, decision.node)
+                continue
+            if decision.kind == "removed":
+                if option == "keep" and decision.node:
+                    _keep_job(repo, box, decision.node)
+                continue
+            if option in ("exception", "exceptions"):
+                for site in decision.sites:
+                    _restore(box, site)
+                    if site.can_except:
+                        _except(overrides, site)
+                        exceptions += 1
+            elif option == "ignore" or (decision.kind == "learn" and option != "learn"):
+                for site in decision.sites:
+                    _restore(box, site)
+        write_overrides(box, env, overrides)
+        remaining = _unresolved(box, env, _new_nodes(box, intake), {})
+        if remaining:
+            raise InvalidChange(
+                f"values no constant explains in {env}: {'; '.join(remaining[:5])}"
+                + (f" and {len(remaining) - 5} more" if len(remaining) > 5 else "")
+                + "; give the constants a value there first"
+            )
+        new = sum(1 for f in intake.folders if f.status == "new")
+        changed = sum(1 for f in intake.folders if f.status == "changed")
+        folders = len(intake.folders)
+        summary = (
+            f"receive a {env} export: {folders} folder{'s' if folders != 1 else ''} "
+            f"({new} new, {changed} changed), {len(values)} value(s) of {env}, "
+            f"{exceptions} exception(s)"
+        )
+        return _finish(original, box, summary, list(intake.warnings))

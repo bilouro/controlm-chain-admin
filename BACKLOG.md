@@ -191,7 +191,18 @@ or addresses anywhere in this public repository.
    the trunk; branch button, *Releases* dialog, stash/restore, discard, push and pull in the UI;
    `ctmchain release`; rules in the `git` key of `chain.json`.
 
-Later, unordered: overrides and `envs` variants; second-environment import with learning; `diff`
+10. **Environments and deliveries — in progress (2026-11-02)**, asked by the author: resource
+    names with the letter on the first prefix only, Windows line endings, partial exports keep
+    the header and the deduplicated names; exceptions per environment (`set-exception`),
+    `rename-constant`; the intake analysis and *receive* (CLI, API, *Import* page), `env learn`.
+    Next, agreed: the data repository on a release (`leading_only`, `JOBS_IN_GROUP` volatile,
+    `node.bat1`/`node.bat2`, the learned values of bench and prod), the prod baseline into the
+    trunk, exceptions for `TASKTYPE`/`CMDLINE` in the UI, validations for dirty names
+    (another environment's letter, a letter in place of the P, a word with its first letter
+    replaced, resources of another environment, MEMNAME), folders that exist in some
+    environments only.
+
+Later, unordered: `envs` variants of sub-elements; second-environment import with learning; `diff`
 of environments and XML files with `xmldiffreport`; mapping editor; upstream graph explorer
 (paused by the author); cycle detection in `validate`; a check for one condition name used by
 two links; PyPI release and bilingual docs.

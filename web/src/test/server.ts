@@ -14,6 +14,7 @@ import comparisonSelected from "./fixtures/compare-selected.json";
 import packagePreview from "./fixtures/package.json";
 import pendingChanges from "./fixtures/pending.json";
 import workspace from "./fixtures/workspace.json";
+import intake from "./fixtures/intake.json";
 import type { FolderDetail, JobDetail } from "@/lib/api/client";
 
 // Fixtures are dumped from the real API running on the synthetic repository (web/scripts/dump_fixtures.py).
@@ -36,6 +37,7 @@ export const calls: {
   package: URLSearchParams[];
   commit: unknown[];
   workspace: { action: string; body: unknown }[];
+  intake: unknown[];
 } = {
   preview: [],
   apply: [],
@@ -43,6 +45,7 @@ export const calls: {
   package: [],
   commit: [],
   workspace: [],
+  intake: [],
 };
 
 const WORKSPACE_MESSAGES: Record<string, (body: Record<string, unknown>) => string> = {
@@ -87,6 +90,12 @@ export const handlers = [
     });
   }),
   http.get("/api/workspace", () => HttpResponse.json(workspace)),
+  http.post("/api/intake", async ({ request }) => {
+    const denied = unauthorized(request);
+    if (denied) return denied;
+    calls.intake.push(await request.json());
+    return HttpResponse.json(intake);
+  }),
   http.post("/api/workspace/:action", async ({ request, params }) => {
     const denied = unauthorized(request);
     if (denied) return denied;

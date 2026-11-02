@@ -93,7 +93,26 @@ def main() -> int:
             print("wrote preview.json")
     dump_compare()
     dump_workspace()
+    dump_intake()
     return 0
+
+
+def dump_intake() -> None:
+    """A prod export of the synthetic chain, one job changed, analysed against the repository."""
+    from tests.support.envexports import both, constants_repo, job, to_prod
+
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = constants_repo(Path(tmp))
+        data = job(to_prod(both()), b"PP77_E", b'TASKTYPE="Command"', b'TASKTYPE="Dummy"')
+        settings = Settings(
+            repo=repo.root, open_browser=False, token="t", allowed_hosts=["testserver"]
+        )
+        with TestClient(create_app(settings)) as client:
+            response = client.post(
+                "/api/intake", json={"xml": data.decode()}, headers={"X-Ctmchain-Token": "t"}
+            )
+            response.raise_for_status()
+            _write("intake.json", response.json())
 
 
 def _write(filename: str, body: object) -> None:

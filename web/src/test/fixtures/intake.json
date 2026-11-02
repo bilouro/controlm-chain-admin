@@ -1,0 +1,65 @@
+{
+  "env": "prod",
+  "evidence": ["13 folder and job names carry the letter P of prod"],
+  "partial": false,
+  "folders": [
+    {
+      "name": "P77_INGEST_DAILY",
+      "status": "changed",
+      "jobs_added": [],
+      "jobs_removed": [],
+      "jobs_changed": ["P77_INGEST_INIT", "P77_INGEST_LOAD"]
+    },
+    {
+      "name": "P77_CHAIN",
+      "status": "changed",
+      "jobs_added": [],
+      "jobs_removed": [],
+      "jobs_changed": ["P77_A", "P77_B", "P77_C", "P77_D", "P77_E", "P77_F", "P77_F~2"]
+    }
+  ],
+  "decisions": [
+    {
+      "id": "learn:user.proc",
+      "kind": "learn",
+      "options": ["learn", "ignore"],
+      "default": "learn",
+      "node": null,
+      "field": null,
+      "constant": "user.proc",
+      "current": "@{user.proc}",
+      "expected": null,
+      "incoming": "app77proc",
+      "count": 11
+    },
+    {
+      "id": "learn:var.geienv",
+      "kind": "learn",
+      "options": ["learn", "ignore"],
+      "default": "learn",
+      "node": null,
+      "field": null,
+      "constant": "var.geienv",
+      "current": "@{var.geienv}",
+      "expected": null,
+      "incoming": "x",
+      "count": 1
+    },
+    {
+      "id": "P77_CHAIN/P77_E@TASKTYPE",
+      "kind": "value",
+      "options": ["change", "exception", "ignore"],
+      "default": "change",
+      "node": "P77_CHAIN/P77_E",
+      "field": "TASKTYPE",
+      "constant": null,
+      "current": "Command",
+      "expected": null,
+      "incoming": "Dummy",
+      "count": 1
+    }
+  ],
+  "unresolved": [],
+  "warnings": [],
+  "skipped": ["UOTH_HOUSEKEEPING"]
+}

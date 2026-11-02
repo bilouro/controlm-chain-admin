@@ -769,6 +769,23 @@ def set_exception(
         return _finish(original, box, f"exception for {env} on {key}: {', '.join(parts)}", [])
 
 
+def set_values(repo: ChainRepo, env: str, values: Mapping[str, str | None]) -> ChangeSet:
+    """Give constants their value in one environment (``None``: no value yet)."""
+    repo = load_repo(repo.root)
+    env_config = repo.load_env(env)
+    unknown = sorted(set(values) - set(repo.config.constants))
+    if unknown:
+        raise InvalidChange(f"unknown constant(s): {', '.join(unknown)}")
+    if not values:
+        raise InvalidChange("no value to set")
+    original = _tracked(repo.root)
+    with _sandbox(original) as box:
+        constants = {**env_config.constants, **values}
+        write_json(box.env_file(env), replace(env_config, constants=constants).to_json())
+        shown = ", ".join(f"{k}={v if v is not None else '?'}" for k, v in values.items())
+        return _finish(original, box, f"set {len(values)} value(s) of {env}: {shown}", [])
+
+
 def rename_constant(repo: ChainRepo, old: str, new: str) -> ChangeSet:
     """Rename a constant everywhere: placeholders, chain.json, environment values, exceptions."""
     repo = load_repo(repo.root)
@@ -1237,7 +1254,17 @@ OPERATIONS: dict[str, Callable[..., ChangeSet]] = {
     "extract-variable": extract_variable,
     "set-exception": set_exception,
     "rename-constant": lambda repo, old, new: rename_constant(repo, old, new),
+    "set-values": lambda repo, env, values: set_values(repo, env, values),
+    "receive": lambda repo, xml, env=None, choices=None: _receive(repo, xml, env, choices),
 }
+
+
+def _receive(
+    repo: ChainRepo, xml: str, env: str | None, choices: Mapping[str, str] | None
+) -> ChangeSet:
+    from controlm_chain_admin.core.intake import receive  # intake builds on this module
+
+    return receive(repo, xml.encode("utf-8"), env, choices)
 
 
 def run_operation(repo: ChainRepo, op: str, params: Mapping[str, Any]) -> ChangeSet:
