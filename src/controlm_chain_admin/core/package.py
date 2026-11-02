@@ -29,6 +29,7 @@ from controlm_chain_admin.core.history import (
 )
 from controlm_chain_admin.core.links import folder_names, load_links
 from controlm_chain_admin.core.ops import export_document
+from controlm_chain_admin.core.overrides import load_overrides
 from controlm_chain_admin.core.repo import CHAIN_FILE, ChainRepo, load_repo, read_json
 from controlm_chain_admin.core.selection import Sides, open_sides
 from controlm_chain_admin.core.validate import Finding, validate
@@ -175,6 +176,23 @@ def _reasons(result: Comparison, head: ChainRepo, env: str) -> _Reasons:
     return reasons
 
 
+def _exception_reasons(sides: Sides, head: ChainRepo, env: str, reasons: _Reasons) -> None:
+    """Folders whose exceptions for ``env`` changed (they export differently there)."""
+    before = (
+        load_overrides(load_repo(sides.base_root), env)
+        if (sides.base_root / CHAIN_FILE).is_file()
+        else {}
+    )
+    after = load_overrides(head, env)
+    present = set(folder_names(head))
+    for node in sorted(set(before) | set(after)):
+        if before.get(node) == after.get(node):
+            continue
+        folder, _, job = node.partition("/")
+        if folder in present:
+            reasons.add(folder, f"exception for {env} changed: {job or 'the folder'}")
+
+
 def _behind(root: Path, sides: Sides, folders: Sequence[str]) -> list[str]:
     """Warnings for packaged folders that the base changed after the head side left it."""
     if sides.base.sha is None or (sides.selected is not None and sides.compared == sides.base.sha):
@@ -267,7 +285,9 @@ def build_package(
         result = comparison(sides)
         repo = load_repo(sides.head_root)
         repo.load_env(env)  # an unknown environment fails before anything else
-        reasons = _reasons(result, repo, env).by_folder
+        found = _reasons(result, repo, env)
+        _exception_reasons(sides, repo, env, found)
+        reasons = found.by_folder
         order = [str(f) for f in read_json(repo.export_meta_file).get("folder_order", [])]
         missing = [f for f in reasons if f not in order]
         packaged = [f for f in order if f in reasons]

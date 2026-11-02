@@ -83,6 +83,11 @@ All notable changes to this project are documented here. The format follows
   only what changed since the last installation in that environment, and marks the
   installation (`GET /api/workspace`, `POST /api/workspace/...`). Rules in the optional `git`
   key of `chain.json`.
+- Exceptions per environment (`envs/<env>/overrides.json`): attributes and variables one
+  environment uses for one job or folder instead of the base, applied at export before the
+  constants; `ctmchain set-exception` and the `set-exception` change; a changed exception
+  puts its folder in that environment's package. `ctmchain rename-constant` (and the change of
+  the same name) renames a constant everywhere it is used.
 - Package skeleton, CI (lint, types, tests, web, build) and release workflows, community files.
 - `DESIGN.md` (architecture and data model) and `BACKLOG.md` (proof-of-concept plan and status).
 

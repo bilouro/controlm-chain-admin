@@ -178,3 +178,24 @@ def test_output_piped_into_a_closed_reader_does_not_print_a_broken_pipe_error(
     process.wait(timeout=60)
 
     assert b"Broken pipe" not in error and b"Traceback" not in error
+
+
+def test_exceptions_and_constant_renames_are_wired(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = _repo(tmp_path)
+    r = ["--repo", str(root), "--apply", "--stat"]
+
+    assert main(["set-exception", "uat", "P77_CHAIN/P77_E", "--set", "TASKTYPE=Dummy",
+                 "--unset", "CMDLINE", "--var", "%%X=1", *r]) == 0  # fmt: skip
+    out = capsys.readouterr().out
+    assert "exception for uat on P77_CHAIN/P77_E: TASKTYPE=Dummy, CMDLINE=(left out), %%X=1" in out
+    assert main(["set-exception", "uat", "P77_CHAIN/P77_E", "--drop", "TASKTYPE", *r]) == 0
+    assert main(["map", "NODEID", "UP77_BATCH", "--as", "node.batch", "--env", "uat",
+                 "--repo", str(root)]) == 0  # fmt: skip
+    capsys.readouterr()
+    assert main(["rename-constant", "node.batch", "node.bat1", *r]) == 0
+    assert "rename constant node.batch -> node.bat1" in capsys.readouterr().out
+
+    assert main(["set-exception", "uat", "P77_CHAIN/P77_E", "--set", "BAD", *r]) == 3
+    assert "expected ATTR=VALUE" in capsys.readouterr().err

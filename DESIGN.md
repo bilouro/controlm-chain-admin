@@ -197,6 +197,12 @@ the long-term goal.
 ```
 
 Resolution order at export, per attribute: **override → constant/token → base value**.
+Implemented 2026-11-02 for attributes (`set`, `null` leaves the attribute out in that
+environment) and variables (`variables`, added when the base has none), for jobs (`F/J`) and
+folders (`F/`); an override value may be a `@{constant}`. `set-exception` and
+`rename-constant` are previewed change sets like the refactorings, and a changed exception puts
+its folder in that environment's package. `base_hash` and the stale-override warning are not
+implemented yet; names (the letter rule attributes) cannot be overridden.
 An unresolved constant or token is an export **error** (flag `--allow-unresolved` turns it into
 a warning). `base_hash` is the hash of the base value when the override was created; `validate`
 warns when the base changed since (possible stale override).
@@ -572,6 +578,8 @@ the first import.
 Quality
 - `validate [--env <env>] [--strict]` — graph, naming, overlay and resolution checks; exit code = highest severity.
 - `resolve [CODE=KIND...] [--apply] [--stat]` — implemented: fixes for the findings (see §8); without arguments, the fix kinds per code.
+- `set-exception <env> <node> [--set ATTR=VALUE] [--unset ATTR] [--var %%NAME=VALUE] [--drop NAME]` — implemented: an exception of one environment for one job or folder (§5), previewed, `--apply` writes `envs/<env>/overrides.json`.
+- `rename-constant <old> <new>` — implemented: placeholders, `chain.json`, environment values and exceptions follow.
 - `release status|start <name>|switch <branch>|installed <env>|update|close` — implemented: the release flow of §8 (`--stash` to stash uncommitted files first, `installed --release --commit` to tag another commit). Stash, discard, push and pull are plain git on the command line.
 - `commit [-m <message>] [--branch <name>] [--dry-run]` — implemented: commits the chain files only (`chain.json`, `folders/`, `meta/`, `envs/`, with `git commit --only`, so other staged or untracked files are left alone). Without `-m` the message is suggested from the semantic comparison of HEAD with the working tree: a Conventional Commits subject (`feat` when jobs or folders are added, `refactor` for renames and moves only, `fix` otherwise; e.g. `fix: update job X in F`, `feat: add 1 job, rename 2 conditions, update 3 jobs`) and a body listing every change. A batch of fixes is one apply and one commit.
 

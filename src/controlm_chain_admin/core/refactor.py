@@ -48,6 +48,12 @@ from controlm_chain_admin.core.links import (
     write_names,
 )
 from controlm_chain_admin.core.ops import ORIGINALS_KEY, _check_safe
+from controlm_chain_admin.core.overrides import (
+    OVERRIDES_FILE,
+    Override,
+    load_overrides,
+    write_overrides,
+)
 from controlm_chain_admin.core.repo import ChainRepo, load_repo, read_json, write_json
 
 #: Canonical child order measured on real Control-M exports; used to place a group that a
@@ -62,7 +68,7 @@ DEFAULT_CHILD_ORDER: dict[str, tuple[str, ...]] = {
     ),
 }  # fmt: skip
 
-_TRACKED_DIRS = ("folders", "meta")
+_TRACKED_DIRS = ("folders", "meta", "envs")
 _TRACKED_FILES = ("chain.json",)
 
 
@@ -712,6 +718,90 @@ def extract_variable(
         return _finish(original, box, summary, [])
 
 
+# ---------------------------------------------------------------- environments
+
+_CONSTANT_NAME = re.compile(r"[a-z][a-z0-9_]*(?:\.[a-z0-9_]+)+")
+
+
+def set_exception(
+    repo: ChainRepo,
+    env: str,
+    node: str,
+    attributes: Mapping[str, str | None] | None = None,
+    variables: Mapping[str, str] | None = None,
+    drop: Sequence[str] = (),
+) -> ChangeSet:
+    """Set (or ``drop``) what one environment uses for one job or folder instead of the base.
+
+    An attribute set to ``None`` is left out of that environment's export.
+    """
+    repo = load_repo(repo.root)
+    repo.load_env(env)  # an unknown environment fails first
+    ref = _require_node(repo, node)
+    attributes, variables = dict(attributes or {}), dict(variables or {})
+    if not attributes and not variables and not drop:
+        raise InvalidChange("nothing to set or drop")
+    names = set(repo.config.letter_rule.attributes) | {"FOLDER_NAME", "JOBNAME", "PARENT_FOLDER"}
+    for attribute in attributes:
+        if not _ATTRIBUTE_NAME.fullmatch(attribute):
+            raise InvalidChange(f"invalid attribute name {attribute!r}")
+        if attribute in names:
+            raise InvalidChange(
+                f"{attribute} is a name: it differs per environment by the letter only"
+            )
+    for variable in variables:
+        if not variable.startswith("%%"):
+            raise InvalidChange(f"Control-M variable names start with %%, got {variable!r}")
+    key = str(ref) if ref.job is not None else f"{ref.folder}/"
+    original = _tracked(repo.root)
+    with _sandbox(original) as box:
+        overrides = load_overrides(box, env)
+        current = overrides.get(key, Override())
+        merged = Override(
+            {k: v for k, v in {**current.attributes, **attributes}.items() if k not in drop},
+            {k: v for k, v in {**current.variables, **variables}.items() if k not in drop},
+        )
+        overrides[key] = merged
+        write_overrides(box, env, overrides)
+        parts = [f"{k}={v if v is not None else '(left out)'}" for k, v in attributes.items()]
+        parts += [f"{k}={v}" for k, v in variables.items()]
+        parts += [f"drop {name}" for name in drop]
+        return _finish(original, box, f"exception for {env} on {key}: {', '.join(parts)}", [])
+
+
+def rename_constant(repo: ChainRepo, old: str, new: str) -> ChangeSet:
+    """Rename a constant everywhere: placeholders, chain.json, environment values, exceptions."""
+    repo = load_repo(repo.root)
+    if not _CONSTANT_NAME.fullmatch(new):
+        raise InvalidChange(f"invalid constant name {new!r}: use lower-case group.name")
+    if old not in repo.config.constants:
+        raise InvalidChange(f"unknown constant {old!r}")
+    if new in repo.config.constants:
+        raise InvalidChange(f"constant {new!r} already exists")
+    before, after = "@{" + old + "}", "@{" + new + "}"
+    original = _tracked(repo.root)
+    uses = 0
+    with _sandbox(original) as box:
+        targets = [
+            p for p in sorted((box.root / "folders").rglob("*.json")) if p.name != INDEX_FILE
+        ]
+        targets += sorted((box.root / "envs").glob(f"*/{OVERRIDES_FILE}"))
+        for path in targets:
+            text = path.read_text(encoding="utf-8")
+            if before in text:
+                uses += text.count(before)
+                with path.open("w", encoding="utf-8", newline="\n") as handle:
+                    handle.write(text.replace(before, after))
+        config = box.config
+        constants = {(new if k == old else k): v for k, v in config.constants.items()}
+        box = box.save_config(replace(config, constants=constants))
+        for env in box.config.environments:
+            env_config = box.load_env(env)
+            values = {(new if k == old else k): v for k, v in env_config.constants.items()}
+            write_json(box.env_file(env), replace(env_config, constants=values).to_json())
+        return _finish(original, box, f"rename constant {old} -> {new} ({uses} uses)", [])
+
+
 # ---------------------------------------------------------------- editing operations
 
 _ATTRIBUTE_NAME = re.compile(r"[A-Z][A-Z0-9_]*")
@@ -1145,6 +1235,8 @@ OPERATIONS: dict[str, Callable[..., ChangeSet]] = {
     "move-job": move_job,
     "insert-job": insert_job,
     "extract-variable": extract_variable,
+    "set-exception": set_exception,
+    "rename-constant": lambda repo, old, new: rename_constant(repo, old, new),
 }
 
 

@@ -52,6 +52,7 @@ from controlm_chain_admin.core.links import (
     write_names,
 )
 from controlm_chain_admin.core.model import XmlComment, XmlDeclaration, XmlDocument, XmlElement
+from controlm_chain_admin.core.overrides import Override, apply_override, load_overrides
 from controlm_chain_admin.core.repo import ChainRepo, load_repo, read_json, write_json
 from controlm_chain_admin.core.xmlio import parse_xml, serialize_xml
 
@@ -475,11 +476,13 @@ def load_document(
     names: str = "original",
     jobnames: str = "deduped",
     folders: Collection[str] | None = None,
+    overrides: Mapping[str, Override] | None = None,
 ) -> tuple[XmlDocument, int]:
     """The repository as one neutral document (metadata merged, link references resolved).
 
-    ``folders`` keeps only those folders, in export order. Returns the document and the number
-    of links renamed by the name policy.
+    ``folders`` keeps only those folders, in export order; ``overrides`` are the exceptions of
+    one environment, applied per node. Returns the document and the number of links renamed by
+    the name policy.
     """
     repo = load_repo(repo.root)
     if not repo.export_meta_file.exists():
@@ -491,7 +494,9 @@ def load_document(
             f"unknown jobnames policy {jobnames!r}; use one of {', '.join(JOBNAME_POLICIES)}"
         )
     elements = tuple(
-        _from_link_refs(_read_folder(repo, name, jobnames), resolved, f"folder {name}")
+        _from_link_refs(
+            _read_folder(repo, name, jobnames, overrides or {}), resolved, f"folder {name}"
+        )
         for name in meta.get("folder_order", [])
         if folders is None or name in folders
     )
@@ -516,7 +521,8 @@ def export_document(
     """
     repo = load_repo(repo.root)
     letter = _letter(repo, env, "export")
-    document, renamed = load_document(repo, names, jobnames, folders)
+    exceptions = load_overrides(repo, env) if env is not None else {}
+    document, renamed = load_document(repo, names, jobnames, folders, exceptions)
     constants = ExportConstantsReport(0, ())
     if env is not None and repo.config.constants:
         document, constants = apply_export(
@@ -544,9 +550,15 @@ def export_xml(
     )[0]
 
 
-def _read_folder(repo: ChainRepo, name: str, jobnames: str = "deduped") -> XmlElement:
+def _read_folder(
+    repo: ChainRepo,
+    name: str,
+    jobnames: str = "deduped",
+    overrides: Mapping[str, Override] | None = None,
+) -> XmlElement:
     config = repo.config
-    folder_json: dict[str, Any] = dict(read_json(repo.folder_file(name)))
+    exceptions = overrides or {}
+    folder_json = apply_override(read_json(repo.folder_file(name)), exceptions.get(f"{name}/"))
     meta_file = repo.folder_meta_file(name)
     empty_meta: dict[str, Any] = {"attrs": {}, JOBS_KEY: {}}
     folder_meta: dict[str, Any] = read_json(meta_file) if meta_file.exists() else empty_meta
@@ -556,7 +568,9 @@ def _read_folder(repo: ChainRepo, name: str, jobnames: str = "deduped") -> XmlEl
     jobs: list[dict[str, Any]] = []
     job_order = config.attribute_order.get(JOB_TAG, ())
     for job_id in ids:
-        job_json: dict[str, Any] = dict(read_json(repo.job_file(name, job_id)))
+        job_json = apply_override(
+            read_json(repo.job_file(name, job_id)), exceptions.get(f"{name}/{job_id}")
+        )
         job_meta = folder_meta.get(JOBS_KEY, {}).get(job_id, {})
         attrs = merge_volatile(_strings(job_json), job_meta, job_order)
         original = folder_meta.get(ORIGINALS_KEY, {}).get(job_id)

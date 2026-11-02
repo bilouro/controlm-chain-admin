@@ -736,6 +736,48 @@ def _add_refactorings(commands: Any) -> None:
         ),
     )
 
+    se = commands.add_parser(
+        "set-exception", help="what one environment uses for a job or folder instead of the base"
+    )
+    se.add_argument("env")
+    se.add_argument("node", metavar="FOLDER/JOB|FOLDER/")
+    se.add_argument("--set", dest="sets", action="append", default=[], metavar="ATTR=VALUE")
+    se.add_argument(
+        "--unset", action="append", default=[], metavar="ATTR", help="leave it out there"
+    )
+    se.add_argument("--var", dest="vars", action="append", default=[], metavar="%%NAME=VALUE")
+    se.add_argument(
+        "--drop", action="append", default=[], metavar="NAME", help="back to the base value"
+    )
+    _refactor_options(se)
+    se.set_defaults(func=cmd_refactor, build=_build_exception)
+
+    rc = commands.add_parser("rename-constant", help="rename a constant everywhere it is used")
+    rc.add_argument("old")
+    rc.add_argument("new")
+    _refactor_options(rc)
+    rc.set_defaults(
+        func=cmd_refactor, build=lambda r, a: refactor_mod.rename_constant(r, a.old, a.new)
+    )
+
+
+def _pairs(items: Sequence[str], what: str) -> dict[str, str]:
+    pairs = {}
+    for item in items:
+        key, sep, value = item.partition("=")
+        if not sep or not key:
+            raise ChainError(f"expected {what}, got {item!r}")
+        pairs[key] = value
+    return pairs
+
+
+def _build_exception(repo: Any, args: argparse.Namespace) -> Any:
+    attributes: dict[str, str | None] = dict(_pairs(args.sets, "ATTR=VALUE"))
+    attributes.update(dict.fromkeys(args.unset))
+    return refactor_mod.set_exception(
+        repo, args.env, args.node, attributes, _pairs(args.vars, "%%NAME=VALUE"), args.drop
+    )
+
 
 def _add_release(commands: Any) -> None:
     """``release``: where edits go, from a release branch to the trunk."""
