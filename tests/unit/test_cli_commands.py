@@ -42,6 +42,24 @@ def test_init_takes_the_whole_letter_rule(tmp_path: Path) -> None:
     assert (rule["prefixes"], rule["leading_only"]) == (["P77", "RQ_", "RC_"], ["RQ_", "RC_"])
 
 
+def test_init_leaves_a_guide_for_claude_in_the_new_repository(tmp_path: Path) -> None:
+    args = ["init", "--repo", str(tmp_path), "--application", APP, "--envs", "uat=U,prod=P"]
+    assert main([*args, "--prefixes", "P77"]) == 0
+
+    guide = (tmp_path / "CLAUDE.md").read_text(encoding="utf-8")
+    assert guide.startswith(f"# {APP} — chain repository")
+    assert "uat (U), prod (P)" in guide and "Production is prod" in guide
+    assert "never edit `main`" in guide and "ctmchain receive" in guide
+
+
+def test_init_keeps_a_guide_that_is_already_there(tmp_path: Path) -> None:
+    (tmp_path / "CLAUDE.md").write_text("# mine\n", encoding="utf-8")
+
+    _init(tmp_path)
+
+    assert (tmp_path / "CLAUDE.md").read_text(encoding="utf-8") == "# mine\n"
+
+
 def test_init_twice_fails_with_error_exit_code(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

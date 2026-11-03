@@ -138,3 +138,16 @@ def test_a_value_only_a_job_of_the_environment_has_needs_no_value_elsewhere(
     assert not [w for w in change.warnings if "user.benchuser" in w]
     apply(repo, change)
     assert export_xml(load_repo(repo.root), "prod") == filter_applications(PROD, {APP})
+
+
+def test_production_values_naming_another_environment_stay_as_they_are(tmp_path: Path) -> None:
+    dirty = PROD.replace(b"[P77][PROD] Load failed", b"[P77][UAT] Load failed")  # prod says uat
+    dirty = job(dirty, b"PP77_D", b'NODEID="PP77_BATCH"', b'NODEID="UP77_BATCH"')
+    repo = fresh_repo(tmp_path, dirty)
+    bench = (
+        both().replace(b"UP77", b"BP77").replace(b"URQ_", b"BRQ_").replace(b"[UAT]", b"[BENCH]")
+    )
+
+    apply(repo, receive(repo, bench))
+
+    assert export_xml(load_repo(repo.root), "prod") == filter_applications(dirty, {APP})

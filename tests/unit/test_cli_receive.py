@@ -81,6 +81,21 @@ def test_receive_is_told_a_delivery_is_the_whole_environment(
     assert "  P77_INGEST_DAILY/#absent  not-here [not-here|keep]" in out
 
 
+def test_a_group_is_chosen_by_its_id_although_it_has_an_equals_sign(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plain_git_identity(monkeypatch, tmp_path)
+    root = fresh_repo(tmp_path).root
+    git(root, "switch", "-q", "-c", "release/baseline")
+    uat = tmp_path / "uat.xml"
+    uat.write_bytes(both())
+    choice = "group:NODEID=PP77_BATCH>UP77_BATCH=new:node.batch"
+
+    assert main(["receive", str(uat), "--repo", str(root), "--choose", choice, "--apply"]) == 0
+
+    assert "node.batch" in load_repo(root).config.constants
+
+
 def test_receive_applies_on_a_release_only(
     root: Path, export: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

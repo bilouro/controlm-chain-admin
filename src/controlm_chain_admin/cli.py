@@ -22,6 +22,7 @@ from controlm_chain_admin.core import compare as compare_mod
 from controlm_chain_admin.core import constants as constants_mod
 from controlm_chain_admin.core import fixes as fixes_mod
 from controlm_chain_admin.core import graph as graph_mod
+from controlm_chain_admin.core import guide as guide_mod
 from controlm_chain_admin.core import inspect as inspect_mod
 from controlm_chain_admin.core import intake as intake_mod
 from controlm_chain_admin.core import ops
@@ -388,6 +389,8 @@ def cmd_init(args: argparse.Namespace) -> int:
         f"Initialized chain repository at {repo.root} for application {repo.config.application} "
         f"with environments {', '.join(repo.config.environments)}"
     )
+    if guide_mod.write_guide(repo):
+        print(f"Wrote {guide_mod.GUIDE_FILE}: the rules of this repository, for people and agents")
     return EXIT_OK
 
 
@@ -595,7 +598,7 @@ def _print_intake(intake: intake_mod.Intake) -> None:
 def cmd_receive(args: argparse.Namespace) -> int:
     repo = load_repo(args.repo)
     data = args.xml.read_bytes()
-    choices = _pairs(args.choose, "ID=OPTION")
+    choices = _pairs(args.choose, "ID=OPTION", last=True)  # ids may hold "=", options do not
     intake = intake_mod.analyze(repo, data, args.env, args.full)
     if args.format == "text":
         _print_intake(intake)
@@ -932,10 +935,11 @@ def _add_refactorings(commands: Any) -> None:
     )
 
 
-def _pairs(items: Sequence[str], what: str) -> dict[str, str]:
+def _pairs(items: Sequence[str], what: str, *, last: bool = False) -> dict[str, str]:
+    """``KEY=VALUE`` items; split at the last ``=`` when keys may hold one."""
     pairs = {}
     for item in items:
-        key, sep, value = item.partition("=")
+        key, sep, value = item.rpartition("=") if last else item.partition("=")
         if not sep or not key:
             raise ChainError(f"expected {what}, got {item!r}")
         pairs[key] = value

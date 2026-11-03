@@ -433,15 +433,17 @@ class _Envs:
     letters: Mapping[str, str]
     displays: Mapping[str, str]
     prefixes: tuple[str, ...]
+    base: str | None = None  # the environment the repository's values are known to be from
 
     @classmethod
-    def of(cls, repo: ChainRepo) -> _Envs:
+    def of(cls, repo: ChainRepo, base: str | None = None) -> _Envs:
         configs = [repo.load_env(env) for env in repo.config.environments]
         return cls(
             tuple(repo.config.environments),
             {c.name: c.letter for c in configs if c.letter},
             {c.name: c.display for c in configs if c.display},
             tuple(repo.config.letter_rule.prefixes),
+            base,
         )
 
 
@@ -458,9 +460,11 @@ def _letter_pattern(current: str, incoming: str, env: str, envs: _Envs) -> str |
     if "{L}" not in pattern:
         return None
     values = values_from_pattern(pattern, envs.letters)
-    if values[env] != incoming or current not in [v for e, v in values.items() if e != env]:
+    if values[env] != incoming:
         return None
-    return pattern
+    if envs.base is not None:  # the repository's value is the base environment's
+        return pattern if values.get(envs.base) == current else None
+    return pattern if current in [v for e, v in values.items() if e != env] else None
 
 
 def _display_swap(site: Site, env: str, envs: _Envs) -> bool:
@@ -470,7 +474,7 @@ def _display_swap(site: Site, env: str, envs: _Envs) -> bool:
         return False
     for other, display in envs.displays.items():
         token = _token(display)
-        if other == env or not token.search(site.current):
+        if other == env or other != (envs.base or other) or not token.search(site.current):
             continue
         if token.sub(lambda _: target, site.current) == site.incoming:
             return True
@@ -727,7 +731,9 @@ def analyze(
                 name = _free_name(f"{decision.constant}_2", taken)
                 taken.add(name)
                 decisions[decisions.index(decision)] = replace(decision, suggested=name)
-        decisions = _groups(decisions, env, _Envs.of(repo), taken, elsewhere)
+        production = repo.config.git_rules.production
+        envs = _Envs.of(repo, production if elsewhere else None)
+        decisions = _groups(decisions, env, envs, taken, elsewhere)
         covered = {
             (d.field or "", d.incoming or "")
             for d in decisions

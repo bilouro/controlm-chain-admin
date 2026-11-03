@@ -117,7 +117,11 @@ All notable changes to this project are documented here. The format follows
   blocks (mails, subjects) are decisions of their own instead of one "children" decision.
   Jobs the export does not change keep their values. `ctmchain receive` prints the groups;
   the *Import* page has a section for them; decisions carry `values` and `inline`.
-- `ctmchain init --leading-only RQ_,RC_`: the whole letter rule from the start.
+- `ctmchain init --leading-only RQ_,RC_`: the whole letter rule from the start; `init` also
+  writes the new repository's `CLAUDE.md` (its rules, layout and everyday commands) unless one
+  is there.
+- The `bootstrap` skill: from the source distribution to a new chain repository built from the
+  full exports of every environment, production first, with the agreed conventions.
 - Folders and jobs that exist in some environments only: `"envs": ["uat"]` in their JSON; the
   export of another environment leaves them out, importing an export that has them adds that
   environment. Receiving a *full* export (more than half of the folders, or `--full`,
@@ -133,6 +137,11 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- `receive --choose` split a group's id at its first `=` (`group:RUN_AS=a>b=new:NAME`): the
+  choice is split at the last one.
+- In a full export of another environment, a production text naming another environment
+  (`[UAT]` in prod) or a production value with another environment's letter was taken for the
+  name or letter of production and changed production: only production's own count.
 - Conditions of a node whose children are kept in their own order (an ON block before the
   conditions, not the order of the rest of the export) were not links: `links.json` missed
   them and the export failed with "references unknown link".

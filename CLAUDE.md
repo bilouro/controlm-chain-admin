@@ -27,6 +27,7 @@ Read `DESIGN.md` (what we build and why) and `BACKLOG.md` (what comes next) befo
 | `src/controlm_chain_admin/web` API | `fastapi-api` | any API change |
 | `web/` frontend | `react-frontend` | any TS/TSX change |
 | End of every story / before a PR | `verify` | always, last step |
+| A new machine with only PyPI; a data repository from the exports | `bootstrap` | «instalar na empresa», first run of the unpacked sdist |
 
 Every story in `BACKLOG.md` ends by running the `verify` skill and pasting its PASS/FAIL report
 in the PR description.

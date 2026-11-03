@@ -30,6 +30,7 @@ def test_the_rules_skills_and_frontend_travel_with_the_code(members: set[str]) -
         ".gitignore",
         ".claude/skills/verify/verify.sh",
         ".claude/skills/python-core-tdd/SKILL.md",
+        ".claude/skills/bootstrap/SKILL.md",
         ".github/workflows/ci.yml",
         "web/package.json",
         "web/package-lock.json",

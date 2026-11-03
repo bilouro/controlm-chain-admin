@@ -41,6 +41,22 @@ pip install "controlm-chain-admin[web]"   # + local read-only web UI
 
 Requires Python 3.11 or newer.
 
+### Where only PyPI is reachable
+
+The source distribution carries the whole project (rules, skills, tests, the web sources and
+the built UI), so it can be adjusted where GitHub is out of reach:
+
+```bash
+pip download controlm-chain-admin==<version> --no-deps --no-binary :all:
+tar -xzf controlm_chain_admin-<version>.tar.gz && cd controlm_chain_admin-<version>
+git init -b main && git add -A && git commit -m "chore: controlm-chain-admin <version>"
+python -m venv .venv && .venv/bin/pip install -e ".[dev,web]"
+```
+
+The `bootstrap` skill (`.claude/skills/bootstrap/SKILL.md`) takes it from there, for a person
+or Claude Code: the gate, then a new chain repository built from the full export of each
+environment, production first.
+
 ## Quickstart
 
 ```bash
