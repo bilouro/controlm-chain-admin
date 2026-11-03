@@ -213,6 +213,9 @@ or addresses anywhere in this public repository.
     take` and the boxes of the *Compare* page; one attribute, variable, condition, group, job,
     folder, condition name, constant value or exception at a time, conflicts value by value.
 13. **PyPI release 0.1.0 — DONE (2026-11-03)**: Trusted Publishing from the `v0.1.0` tag.
+14. **Similar condition names — DONE (2026-11-03), released in 0.1.1**, asked by the author:
+    `validate` reports names that differ only by a copy's suffix or by case (`similar-names`)
+    and offers to number them (`number-similar`: `…_OK1`, `…_OK2`).
 
 Later, unordered: `envs` variants of sub-elements; second-environment import with learning; `diff`
 of environments and XML files with `xmldiffreport`; mapping editor; upstream graph explorer

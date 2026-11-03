@@ -26,10 +26,12 @@ from controlm_chain_admin.core.repo import ChainRepo, read_json
 from controlm_chain_admin.core.validate import (
     Finding,
     NameRules,
+    copy_stem,
     embeds_endpoints,
     parse_condition_name,
     replaced_words,
     resources,
+    similar_names,
     validate,
 )
 
@@ -101,6 +103,7 @@ class _Index:
     jobs: dict[str, list[str]]  # folder -> job ids
     repo: ChainRepo | None = None
     names: NameRules | None = None
+    similar: dict[str, list[Link]] = field(default_factory=dict)  # stem -> similar conditions
 
 
 def _index(repo: ChainRepo) -> _Index:
@@ -114,7 +117,16 @@ def _index(repo: ChainRepo) -> _Index:
         for job in ids:
             by_name.setdefault(job.split(DUPLICATE_SEPARATOR)[0], []).append(NodeRef(folder, job))
     used = {link.name: link.id for link in links.values()}
-    return _Index(links, standard_names(links), used, by_name, jobs, repo, NameRules.of(repo))
+    return _Index(
+        links,
+        standard_names(links),
+        used,
+        by_name,
+        jobs,
+        repo,
+        NameRules.of(repo),
+        similar_names(links),
+    )
 
 
 def _waiting(finding: Finding, link: Link, index: _Index) -> list[Fix]:
@@ -277,6 +289,50 @@ def _numbering(finding: Finding, index: _Index) -> list[Fix]:
     ]
 
 
+def _numbering_similar(finding: Finding, index: _Index) -> list[Fix]:
+    stem, family = finding.name, index.similar.get(finding.name, [])
+    kept = [link for link in family if link.external]
+    taken = {name.upper() for name in index.used}
+    renames: list[tuple[Link, str]] = []
+    number = 1
+    for link in (link for link in family if not link.external):
+        while True:
+            name = f"{stem}{number}"
+            if copy_stem(name) != name:  # the stem ends with -<letter>: keep the number apart
+                name = f"{stem}_{number}"
+            number += 1
+            if name.upper() not in taken:
+                break
+        renames.append((link, name))
+    if not renames:
+        return []
+    op, params = _operation(
+        [("rename-link", {"link": link.id, "name": name}) for link, name in renames]
+    )
+    explanation = (
+        f"Gives each condition the common name with a number at the end ({stem}1, {stem}2…), "
+        "in every job that uses it, so that no two names differ only by a suffix or by case."
+    )
+    explanation += "".join(
+        f" {link.name} keeps its name: a job outside this repository may use it." for link in kept
+    )
+    return [
+        Fix(
+            "number-similar",
+            "Number the similar names",
+            "; ".join(f"rename {link.name} -> {name}" for link, name in renames),
+            explanation,
+            op,
+            params,
+            tuple(
+                Effect(str(node), "change", "condition name", link.name, name)
+                for link, name in renames
+                for node in _users(link)
+            ),
+        )
+    ]
+
+
 def _rename_to(link: Link, name: str, index: _Index, kind: str, title: str, why: str) -> list[Fix]:
     if name == link.name or index.used.get(name, link.id) != link.id:
         return []  # nothing to do, or the name belongs to another link
@@ -367,6 +423,8 @@ def _name_fixes(finding: Finding, index: _Index) -> list[Fix]:
 def _fixes(finding: Finding, index: _Index) -> list[Fix]:
     if finding.code == "duplicate-jobname":
         return _numbering(finding, index)
+    if finding.code == "similar-names":
+        return _numbering_similar(finding, index)
     if finding.code in (
         "foreign-letter",
         "letter-for-p",

@@ -39,8 +39,9 @@ export into:
   other branch (one attribute, one job without its folder, one condition) can be taken into
   yours, conflicts shown value by value.
 - **Validation and refactorings** that the Control-M UI does not offer: dangling or stale
-  conditions, chains broken by renames, renaming a sub-application across a folder, moving
-  a job, inserting a job in a chain.
+  conditions, chains broken by renames, condition names that differ only by a copy's suffix
+  or by case (numbered as the fix), renaming a sub-application across a folder, moving a job,
+  inserting a job in a chain.
 - **Byte-identical export.** Untouched definitions export exactly as they were imported.
 
 ## Install

@@ -363,6 +363,20 @@ environment only) remain open.
   back (`restore-word`). A MEMNAME that merely differs from its JOBNAME is not reported: on the
   real chain 647 of them are script names. On the uat data: 39 replaced words, 4 letters in
   place of the P, 1 foreign letter, 2 foreign resources (107 before `leading_only`).
+- Similar names (implemented 2026-11-03, asked by the author: "detecta nomes similares no
+  validate e sugere nomes como nome1, nome2"): `similar-names` (warning, one finding per
+  family) groups the conditions whose names are equal once the suffixes a copy appended
+  (`-<letter><digits>`, repeated: `…_OK-U26-U31`) are removed and case is ignored; a family
+  whose every name is made of its own producer and consumer is left out (`A-TO-LOAD-S1`,
+  `A-TO-LOAD-S2` only look alike because the jobs do). The fix `number-similar` renames them,
+  shortest name first, to the stem of the first with a number (`…_OK1`, `…_OK2`; a number
+  another condition has is skipped) in every job that uses them; a condition with an end
+  outside the repository keeps its name, as a job outside may use it. `validate` accepts a
+  numbered standard name (`A-B_OK2`, `A-TO-B2`), so a numbered copy that still embeds the
+  original's jobs shows as `stale-name`, with its standard name offered. On the real chain:
+  51 families, 115 conditions; one family is left after the fix (its other members only have
+  a producer). Fixes that are several changes may now be resolved together: a `batch` runs a
+  batch inside it in its place.
 - `diff A B`: plain `git diff` of the base is the first-class review tool. For XML↔XML semantic
   comparison the tool depends on `xmldiffreport` (key-aligned, N-way, Markdown/HTML report).
 - `show --envs <node>`: the node resolved in every environment, side by side, differences

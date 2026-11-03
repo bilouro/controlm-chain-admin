@@ -1194,13 +1194,24 @@ def stop_emitting(repo: ChainRepo, link_id: str, producer: str) -> ChangeSet:
 _BATCH_SUMMARIES = 5
 
 
+def _flat(changes: Sequence[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
+    flat: list[Mapping[str, Any]] = []
+    for item in changes:
+        if item.get("op") == "batch":
+            flat += _flat(item.get("params", {}).get("changes", []))
+        else:
+            flat.append(item)
+    return flat
+
+
 def batch(repo: ChainRepo, changes: Sequence[Mapping[str, Any]]) -> ChangeSet:
     """Several operations as one change set, each computed on the result of the previous ones.
 
-    A repeated operation is run once; a failing one is named (``change n of m``).
+    A batch inside it runs its changes in its place (a fix that is a batch, resolved with
+    others). A repeated operation is run once; a failing one is named (``change n of m``).
     """
     unique: dict[str, Mapping[str, Any]] = {}
-    for item in changes:
+    for item in _flat(changes):
         unique.setdefault(json.dumps(item, sort_keys=True), item)
     items = list(unique.values())
     if not items:
@@ -1214,8 +1225,6 @@ def batch(repo: ChainRepo, changes: Sequence[Mapping[str, Any]]) -> ChangeSet:
         try:
             for number, item in enumerate(items, 1):
                 op = str(item.get("op", ""))
-                if op == "batch":
-                    raise InvalidChange("a batch cannot contain another batch")
                 try:
                     change = run_operation(box, op, dict(item.get("params", {})))
                 except ChainError as exc:

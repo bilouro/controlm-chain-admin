@@ -6,6 +6,26 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-03
+
+### Added
+
+- `validate` reports `similar-names` (warning): conditions whose names differ only by the
+  suffix a copy of a chain appended (`…_OK-U26`, `…_OK-U26-U31`) or by case (`_OK`, `_Ok`).
+  The fix `number-similar` gives them the common name with a number (`…_OK1`, `…_OK2`, …) in
+  every job that uses them; a condition with an end outside the repository keeps its name.
+  Names made of their own jobs (`A-TO-LOAD-S1`, `A-TO-LOAD-S2`) are not reported.
+
+### Changed
+
+- A numbered standard name (`A-B_OK2`, `A-TO-B2`) is a standard name for `validate`.
+
+### Fixed
+
+- Resolving several findings at once failed ("a batch cannot contain another batch") when a
+  fix was itself several changes (numbering repeated JOBNAMEs or similar names): a batch now
+  runs the changes of a batch inside it in its place.
+
 ## [0.1.0] - 2026-11-03
 
 First release on PyPI.
@@ -182,5 +202,6 @@ First release on PyPI.
 - On Windows, unknown `/api/...` paths and missing assets were answered with the app instead of
   404 (the static files handler sees `\` separators there).
 
-[Unreleased]: https://github.com/bilouro/controlm-chain-admin/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/bilouro/controlm-chain-admin/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/bilouro/controlm-chain-admin/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/bilouro/controlm-chain-admin/releases/tag/v0.1.0

@@ -8,7 +8,7 @@ whose other end lives outside this repository).
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, replace
 from typing import Any
 
@@ -26,9 +26,11 @@ SEVERITIES = ("error", "warning", "info")
 _RANK = {severity: index for index, severity in enumerate(SEVERITIES)}
 
 _NAME_PATTERNS = (
-    re.compile(r"^(?P<a>[^-]+)-(?P<b>[^-]+)_OK$", re.IGNORECASE),
+    re.compile(r"^(?P<a>[^-]+)-(?P<b>[^-]+)_OK\d*$", re.IGNORECASE),  # A-B_OK2: numbered
     re.compile(r"^(?P<a>[^-]+)-TO-(?P<b>[^-]+)$"),
 )
+#: What a copy of a chain gets appended to its condition names to keep them apart (``-U26``).
+_COPY_SUFFIX = re.compile(r"(?:-[A-Z]\d+)+$", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -77,7 +79,10 @@ class ValidateReport:
 
 
 def parse_condition_name(name: str) -> tuple[str, str] | None:
-    """Split ``A-B_OK`` or ``A-TO-B`` into (producer name, consumer name); None otherwise."""
+    """Split ``A-B_OK`` or ``A-TO-B`` into (producer name, consumer name); None otherwise.
+
+    A number after ``_OK`` (``A-B_OK2``, how similar names are told apart) is not part of B.
+    """
     for pattern in _NAME_PATTERNS:
         match = pattern.match(name)
         if match:
@@ -102,7 +107,49 @@ def embeds_endpoints(
     producer_names: set[str] = set()
     for node in producers:
         producer_names |= {_node_name(node), f"{node.folder}_{_node_name(node)}"}
-    return parsed[0] in producer_names and parsed[1] in {_node_name(n) for n in consumers}
+    consumer, consumer_names = parsed[1], {_node_name(n) for n in consumers}
+    numbered = any(  # A-TO-B2: B numbered among similar names
+        consumer.startswith(c) and consumer[len(c) :].isdigit() for c in consumer_names
+    )
+    return parsed[0] in producer_names and (consumer in consumer_names or numbered)
+
+
+def describes(link: Link) -> bool:
+    """Whether the name is made of the link's own producer and consumer, in any case."""
+    producers = link.all_producers
+    if len(producers) != 1 or len(link.consumers) != 1:
+        return False
+    producer, consumer = _node_name(producers[0]), _node_name(link.consumers[0])
+    own = (
+        f"{producer}-{consumer}_OK",
+        f"{producers[0].folder}_{producer}-{consumer}_OK",
+        f"{producer}-TO-{consumer}",
+    )
+    return link.name.upper() in {name.upper() for name in own}
+
+
+def copy_stem(name: str) -> str:
+    """The name without the suffixes a copy appended to it (``A-B_OK-U26-U31`` -> ``A-B_OK``)."""
+    return _COPY_SUFFIX.sub("", name)
+
+
+def similar_names(links: Mapping[str, Link]) -> dict[str, list[Link]]:
+    """Conditions whose names differ only by copy suffixes or by case, by their common stem.
+
+    The members are sorted shortest name first (the original before its copies) and the stem is
+    the first one's. A family whose every name is made of its own jobs is left out: those names
+    only look alike because the jobs do (``A-TO-LOAD-S1`` and ``A-TO-LOAD-S2``).
+    """
+    groups: dict[str, list[Link]] = {}
+    for link in links.values():
+        groups.setdefault(copy_stem(link.name).upper(), []).append(link)
+    families: dict[str, list[Link]] = {}
+    for same in groups.values():
+        if len(same) < 2 or all(describes(link) for link in same):
+            continue
+        same.sort(key=lambda link: (len(link.name), link.name))
+        families[copy_stem(same[0].name)] = same
+    return families
 
 
 def _first(*groups: tuple[NodeRef, ...]) -> str:
@@ -238,6 +285,19 @@ def validate(repo: ChainRepo, *, write_index: bool = True) -> ValidateReport:
             )
     for link in links.values():
         _check_link(link, known_names, findings)
+    for stem, family in similar_names(links).items():
+        findings.append(
+            Finding(
+                "warning",
+                "similar-names",
+                _first_user(family[0]),
+                stem,
+                f"{len(family)} conditions differ only by a suffix or by case: "
+                f"{', '.join(link.name for link in family)}; a job is easily made to wait for "
+                "the wrong one",
+                family[0].id,
+            )
+        )
     rules = NameRules.of(repo)
     if rules is not None:
         _check_names(repo, links, rules, findings)
