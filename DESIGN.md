@@ -287,6 +287,27 @@ still exports prod byte for byte; uat comes out identical in 257 of 329 folders 
 production has them, listed by `validate`). Sub-element variants (an ON block for one
 environment only) remain open.
 
+**Only the values of an environment** (2026-11-03, asked by the author for the company, where
+the full exports of uat and bench carry releases production does not have yet):
+`receive --values-only` (the *Only the values of <env>* box of the Import page) takes from an
+export what makes a constant — machines, users, mails, variables, the environment's name in a
+text — and leaves everything else out by default: differences and children ignored, jobs it
+lacks kept (*removed*: `keep`), folders it lacks kept (*absent*: `keep`), folders and jobs only
+it has left out (*added*: `skip`, also offered in any full export; with values only it is a
+decision in a delivery too); a repeated difference of another attribute is ignored rather than
+made exceptions. The releases then come from their deliveries, one release branch each (the
+`bootstrap` skill, step 6). Two decisions came with it, for every receive: *adopt* (one per
+constant) — a job no earlier export of the environment had still has production's value of a
+constant where this export has the constant, in the whole value or inside a text
+(`[P77][PROD]` for `[P77][@{env.subject}]`): using the constant leaves production as it was, so
+it is the default (it replaces the exceptions a full export made there); and values taken
+inside children whose shape is kept (a release's new condition on the job that sends the mail)
+stay taken. A job numbered by the deduplication (`P77_F2`) that another environment names
+otherwise keeps its original JOBNAME when it is kept. On the real exports: prod first, then
+uat and bench with values only, give 42 + 15 constants, no exception, prod byte for byte, uat
+identical in 234 of 329 folders (the rest are its releases and its own folders) and bench in
+287 of 341.
+
 ## 6. Import
 
 - Lossless by default: re-importing the XML produced by `export` yields no changes
@@ -700,7 +721,7 @@ the first import.
 Quality
 - `validate [--env <env>] [--strict]` — graph, naming, overlay and resolution checks; exit code = highest severity.
 - `resolve [CODE=KIND...] [--apply] [--stat]` — implemented: fixes for the findings (see §8); without arguments, the fix kinds per code.
-- `receive <xml> [--env ENV] [--full|--partial] [--choose ID=OPTION ...] [--apply] [--stat] [--format text|json]` — implemented: an export of one environment (some folders or all) taken into the checked-out release (§5): the decisions with their defaults, then the change set. A group's id holds `=`: `--choose 'group:RUN_AS=a>b=new:user.batch_user_proc'`.
+- `receive <xml> [--env ENV] [--full|--partial] [--values-only] [--choose ID=OPTION ...] [--apply] [--stat] [--format text|json]` — implemented: an export of one environment (some folders or all) taken into the checked-out release (§5): the decisions with their defaults, then the change set. `--values-only`: the environment's values and nothing else by default. A group's id holds `=`: `--choose 'group:RUN_AS=a>b=new:user.batch_user_proc'`.
 - `env learn <xml> [--env ENV] [--only PREFIX ...] [--apply]` — implemented: only the values of the constants in that environment (`--only user.` keeps some constants, e.g. when the export is anonymised).
 - `set-exception <env> <node> [--set ATTR=VALUE] [--unset ATTR] [--var %%NAME=VALUE] [--drop NAME]` — implemented: an exception of one environment for one job or folder (§5), previewed, `--apply` writes `envs/<env>/overrides.json`.
 - `rename-constant <old> <new>` — implemented: placeholders, `chain.json`, environment values and exceptions follow.

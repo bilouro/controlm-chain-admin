@@ -19,6 +19,7 @@ const STATUS_TONE = { new: "ok", changed: "warning", same: "neutral" } as const;
 function optionLabel(option: string, env: string): string {
   const labels: Record<string, string> = {
     learn: "Learn",
+    adopt: "Use the constant",
     ignore: "Ignore",
     "set-value": "Set the value",
     exceptions: "Exceptions",
@@ -31,6 +32,7 @@ function optionLabel(option: string, env: string): string {
     "only-here": `Only in ${env}`,
     everywhere: "Every environment",
     "not-here": `Not in ${env}`,
+    skip: "Leave out",
   };
   if (option.startsWith("use:")) return `Use ${option.slice(4)}`;
   return labels[option] ?? option;
@@ -57,6 +59,8 @@ function describe(decision: DecisionOut): string {
       return `${decision.constant} = ${decision.incoming} (${plural(decision.count, "use")})`;
     case "set-value":
       return `${decision.constant}: ${decision.expected} → ${decision.incoming} (${plural(decision.count, "use")})`;
+    case "adopt":
+      return `${decision.incoming} where the repository has ${decision.current} (${plural(decision.count, "use")})`;
     case "constant":
       return `${decision.node} · ${decision.field}: ${decision.incoming} instead of ${decision.expected ?? decision.current}`;
     case "value":
@@ -93,6 +97,11 @@ const SECTIONS: { kind: string[]; title: string; help: string }[] = [
     help: "Values of the constants in this environment, read from the export.",
   },
   {
+    kind: ["adopt"],
+    title: "Constants to use",
+    help: "Jobs no earlier export of this environment had still have production's value of a constant, and this export has the constant there: use it (production does not change), or keep the value as it is in every environment.",
+  },
+  {
     kind: ["constant"],
     title: "Jobs that differ from the value of a constant",
     help: "An exception keeps the constant and gives this job its own value in this environment.",
@@ -115,7 +124,7 @@ const SECTIONS: { kind: string[]; title: string; help: string }[] = [
   {
     kind: ["added"],
     title: "Only in this export",
-    help: "Folders and jobs the repository does not have: only in this environment, or in every environment.",
+    help: "Folders and jobs the repository does not have: only in this environment, in every environment, or left out (a delivery brings them later).",
   },
   {
     kind: ["absent"],
@@ -228,6 +237,7 @@ export function ImportPage() {
   const [file, setFile] = useState<{ name: string; text: string } | null>(null);
   const [env, setEnv] = useState("");
   const [full, setFull] = useState<boolean | null>(null);
+  const [valuesOnly, setValuesOnly] = useState(false);
   const [choices, setChoices] = useState<Record<string, string>>({});
   const analyze = useMutation({
     mutationFn: (body: IntakeRequest) => postApi<IntakeOut>("/api/intake", body),
@@ -240,13 +250,19 @@ export function ImportPage() {
     const chosen = event.target.files?.[0];
     analyze.reset();
     setFull(null);
+    setValuesOnly(false);
     setFile(chosen ? { name: chosen.name, text: await readText(chosen) } : null);
   };
-  const handleAnalyze = (scope: boolean | null = full) =>
-    file && analyze.mutate({ xml: file.text, env: env || null, full: scope });
+  const handleAnalyze = (scope: boolean | null = full, onlyValues: boolean = valuesOnly) =>
+    file &&
+    analyze.mutate({ xml: file.text, env: env || null, full: scope, values_only: onlyValues });
   const handleScope = (isFull: boolean) => {
     setFull(isFull);
     handleAnalyze(isFull);
+  };
+  const handleValuesOnly = (isValuesOnly: boolean) => {
+    setValuesOnly(isValuesOnly);
+    handleAnalyze(full, isValuesOnly);
   };
   const handleReview = () => {
     if (!file || !result) return;
@@ -257,7 +273,13 @@ export function ImportPage() {
     );
     propose({
       op: "receive",
-      params: { xml: file.text, env: result.env, choices: changed, full: result.full },
+      params: {
+        xml: file.text,
+        env: result.env,
+        choices: changed,
+        full: result.full,
+        values_only: result.values_only ?? false,
+      },
     });
   };
 
@@ -310,6 +332,7 @@ export function ImportPage() {
             <h2 className="text-base font-semibold">
               {result.env} export{file ? ` · ${file.name}` : ""}
               {result.full ? " · full export" : result.partial ? " · some folders only" : ""}
+              {result.values_only ? " · values only" : ""}
             </h2>
             <label className="flex items-center gap-2 text-xs">
               <input
@@ -321,6 +344,19 @@ export function ImportPage() {
               Full export of {result.env}
               <span className="text-muted">
                 (every folder it has; what it lacks or alone has is noted, production is left alone)
+              </span>
+            </label>
+            <label className="flex items-center gap-2 text-xs">
+              <input
+                type="checkbox"
+                checked={result.values_only ?? false}
+                disabled={analyze.isPending}
+                onChange={(e) => handleValuesOnly(e.target.checked)}
+              />
+              Only the values of {result.env}
+              <span className="text-muted">
+                (machines, users, mails, its name in texts; changes of the jobs and what it alone
+                has or lacks are left out: the deliveries of the releases bring them)
               </span>
             </label>
             <ul className="text-xs text-muted">

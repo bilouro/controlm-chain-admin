@@ -81,6 +81,47 @@ def test_receive_is_told_a_delivery_is_the_whole_environment(
     assert "  P77_INGEST_DAILY/#absent  not-here [not-here|keep]" in out
 
 
+def test_receive_can_take_only_the_values_of_the_environment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    plain_git_identity(monkeypatch, tmp_path)
+    root = fresh_repo(tmp_path).root
+    git(root, "switch", "-q", "-c", "release/environments")
+    uat = tmp_path / "uat.xml"
+    uat.write_bytes(job(both(), b"UP77_D", b'TASKTYPE="Command"', b'TASKTYPE="Dummy"'))
+
+    assert main(["receive", str(uat), "--repo", str(root), "--values-only", "--apply"]) == 0
+
+    out = capsys.readouterr().out
+    assert "full export, values only" in out
+    assert f"  {C}/P77_D@TASKTYPE  ignore [change|exception|ignore]" in out
+    assert "(values only)" in out and "Applied" in out
+    repo = load_repo(root)
+    assert "user.app77proc" in repo.config.constants
+    assert json.loads(repo.job_file(C, "P77_D").read_text(encoding="utf-8"))["TASKTYPE"] == (
+        "Command"
+    )
+
+
+def test_receive_shows_a_constant_to_use_where_production_has_its_value(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    plain_git_identity(monkeypatch, tmp_path)
+    root = fresh_repo(tmp_path).root
+    git(root, "switch", "-q", "-c", "release/environments")
+    uat, bench = tmp_path / "uat.xml", tmp_path / "bench.xml"
+    uat.write_bytes(ANOMALY_EXPORT)  # without P77_INGEST_DAILY
+    bench.write_bytes(both().replace(b"UP77", b"BP77").replace(b"URQ_", b"BRQ_"))
+    assert main(["receive", str(uat), "--repo", str(root), "--values-only", "--apply"]) == 0
+    capsys.readouterr()
+
+    assert main(["receive", str(bench), "--repo", str(root), "--values-only", "--stat"]) == 0
+
+    [line] = [line for line in capsys.readouterr().out.splitlines() if "adopt:" in line]
+    assert "  adopt [adopt|ignore]  @{node." in line
+    assert "} where the repository has PP77_BATCH (" in line
+
+
 def test_a_group_is_chosen_by_its_id_although_it_has_an_equals_sign(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

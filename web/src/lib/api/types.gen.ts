@@ -723,7 +723,7 @@ export interface components {
       inline: boolean;
       /**
        * Kind
-       * @description learn | set-value | constant | group | value | children | removed | added | absent | unmatched
+       * @description learn | set-value | adopt | constant | group | value | children | removed | added | absent | unmatched
        */
       kind: string;
       /** Node */
@@ -1075,6 +1075,12 @@ export interface components {
        * @description values no constant explains: they block
        */
       unresolved: string[];
+      /**
+       * Values Only
+       * @description the defaults take the values of the environment and nothing else
+       * @default false
+       */
+      values_only: boolean;
       /** Warnings */
       warnings: string[];
     };
@@ -1090,6 +1096,12 @@ export interface components {
        * @description every folder of the environment; default: more than half of them
        */
       full?: boolean | null;
+      /**
+       * Values Only
+       * @description by default take the values of the environment and nothing else
+       * @default false
+       */
+      values_only: boolean;
       /**
        * Xml
        * @description the export, as text

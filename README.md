@@ -66,8 +66,9 @@ python -m venv .venv && .venv/bin/pip install -e ".[dev,web]"
 ```
 
 The `bootstrap` skill (`.claude/skills/bootstrap/SKILL.md`) takes it from there, for a person
-or Claude Code: the gate, then a new chain repository built from the full export of each
-environment, production first.
+or Claude Code: the gate, then a new chain repository: production first, the values of the
+other environments from their full exports, then the releases on their way from their
+deliveries.
 
 ## Quickstart
 
@@ -91,6 +92,7 @@ ctmchain package main release/2026-11 --env uat --repo ./my-chains  # import fil
 ctmchain release installed uat --repo ./my-chains                   # tag uat/2026-11-1
 ctmchain receive delivery.xml --repo ./my-chains                    # a team's folders, made neutral
 ctmchain receive uat_full.xml --full --repo ./my-chains             # all of uat: constants, what only uat has
+ctmchain receive uat_full.xml --values-only --repo ./my-chains      # only uat's machines, users, mails
 ctmchain take release/2026-10 --list --repo ./my-chains             # what another release changed
 ctmchain take release/2026-10 --item job:P77_CHAIN/P77_D --repo ./my-chains   # one job of it; --apply
 ctmchain release close --repo ./my-chains                           # once installed in prod

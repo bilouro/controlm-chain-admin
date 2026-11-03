@@ -96,6 +96,7 @@ def main() -> int:
     dump_intake()
     dump_intake_groups()
     dump_intake_full()
+    dump_intake_values()
     dump_environments()
     return 0
 
@@ -167,6 +168,26 @@ def dump_intake_full() -> None:
             )
             response.raise_for_status()
             _write("intake-full.json", response.json())
+
+
+def dump_intake_values() -> None:
+    """A full uat export with changes of a release, taken for the values of uat only."""
+    from tests.support.envexports import fresh_repo
+    from tests.unit.test_intake_envs import UAT
+
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = fresh_repo(Path(tmp))
+        settings = Settings(
+            repo=repo.root, open_browser=False, token="t", allowed_hosts=["testserver"]
+        )
+        with TestClient(create_app(settings)) as client:
+            response = client.post(
+                "/api/intake",
+                json={"xml": UAT.decode(), "values_only": True},
+                headers={"X-Ctmchain-Token": "t"},
+            )
+            response.raise_for_status()
+            _write("intake-values.json", response.json())
 
 
 def _write(filename: str, body: object) -> None:

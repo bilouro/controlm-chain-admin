@@ -254,6 +254,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="some folders only, e.g. a delivery",
     )
     rec.add_argument(
+        "--values-only",
+        action="store_true",
+        help="take the values of the environment (machines, users, mails, its name in texts) "
+        "and leave the rest out by default: for an environment with releases production has not",
+    )
+    rec.add_argument(
         "--choose",
         action="append",
         default=[],
@@ -564,8 +570,8 @@ def cmd_env_help(args: argparse.Namespace) -> int:
 
 _SHOWN_PER_KIND = 20
 _DECISION_ORDER = (
-    "learn", "set-value", "group", "constant", "unmatched", "value", "children", "removed",
-    "added", "absent",
+    "learn", "set-value", "adopt", "group", "constant", "unmatched", "value", "children",
+    "removed", "added", "absent",
 )  # fmt: skip
 
 
@@ -581,6 +587,9 @@ def _decision_line(decision: intake_mod.Decision) -> str:
         return f"{head}  {decision.constant}: {decision.expected} -> {decision.incoming}{uses}"
     if decision.kind in ("value", "constant"):
         return f"{head}  {decision.current} -> {decision.incoming}"
+    if decision.kind == "adopt":
+        uses = _plural(decision.count, "use")
+        return f"{head}  {decision.incoming} where the repository has {decision.current} ({uses})"
     if decision.kind == "unmatched":
         uses = _plural(decision.count, "use")
         return (
@@ -607,6 +616,7 @@ def _print_intake(intake: intake_mod.Intake) -> None:
         f"Folders: {len(intake.folders)} ({statuses['new']} new, {statuses['changed']} changed, "
         f"{statuses['same']} unchanged)"
         + (", full export" if intake.full else ", some folders only" if intake.partial else "")
+        + (", values only" if intake.values_only else "")
     )
     if intake.decisions:
         print(
@@ -630,12 +640,12 @@ def cmd_receive(args: argparse.Namespace) -> int:
     repo = load_repo(args.repo)
     data = args.xml.read_bytes()
     choices = _pairs(args.choose, "ID=OPTION", last=True)  # ids may hold "=", options do not
-    intake = intake_mod.analyze(repo, data, args.env, args.full)
+    intake = intake_mod.analyze(repo, data, args.env, args.full, args.values_only)
     if args.format == "text":
         _print_intake(intake)
     if args.apply:
         workspace_mod.ensure_editable(repo)
-    change = intake_mod.receive(repo, data, intake.env, choices, intake.full)
+    change = intake_mod.receive(repo, data, intake.env, choices, intake.full, args.values_only)
     if args.format == "json":
         result = refactor_mod.apply(repo, change) if args.apply and change.edits else None
         body = {"intake": intake.to_json(), "change": change.to_json(), "applied": bool(result)}

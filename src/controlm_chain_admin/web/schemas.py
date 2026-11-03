@@ -461,13 +461,16 @@ class IntakeRequest(BaseModel):
     full: bool | None = Field(
         None, description="every folder of the environment; default: more than half of them"
     )
+    values_only: bool = Field(
+        False, description="by default take the values of the environment and nothing else"
+    )
 
 
 class DecisionOut(BaseModel):
     id: str
     kind: str = Field(
-        description="learn | set-value | constant | group | value | children | removed | added "
-        "| absent | unmatched"
+        description="learn | set-value | adopt | constant | group | value | children | removed "
+        "| added | absent | unmatched"
     )
     options: list[str]
     default: str
@@ -498,6 +501,9 @@ class IntakeOut(BaseModel):
     evidence: list[str]
     partial: bool = Field(description="some folders of the repository are not in the export")
     full: bool = Field(False, description="taken as every folder of the environment")
+    values_only: bool = Field(
+        False, description="the defaults take the values of the environment and nothing else"
+    )
     folders: list[FolderIntakeOut]
     decisions: list[DecisionOut]
     unresolved: list[str] = Field(description="values no constant explains: they block")

@@ -68,25 +68,32 @@ git add -A && git commit -m "chore: production baseline"
 This first commit is the only one made on `main` by hand: from now on `main` mirrors
 production and every change goes through a release.
 
-### 3. The other environments, one release
+### 3. The values of the other environments, one release
+
+The full exports of the other environments also carry the releases that are installed there
+but not in production yet. Take only their *values* from them (machines, users, mails, the
+environment's name in texts, variables): the jobs stay as production has them, and the
+releases come later from their deliveries (step 6).
 
 ```bash
-ctmchain release start baseline
-ctmchain receive ../exports/uat/<uat>.xml --full        # preview: the decisions
+ctmchain release start environments
+ctmchain receive ../exports/uat/<uat>.xml --values-only   # preview: the decisions
 ```
 
-A full export of an environment other than production leaves production alone by default.
 Read the decisions with the person, by section, before `--apply`:
 
-- **groups** (the same difference in many jobs, or a machine, user, mail or variable): a new
+- **groups** (a machine, user, mail or variable, or the environment's name in a text): a new
   constant with a value per environment. Give them readable names with
-  `--choose 'group:...=new:<name>'`, or in the *Import* page of `ctmchain serve`.
-- **exceptions** (a value that differs in one job), **children** (conditions or ON blocks
-  that differ: ignored by default), **removed / added / absent** (jobs and folders only one
-  environment has or lacks).
+  `--choose 'group:...=new:<name>'`, or in the *Import* page of `ctmchain serve` (box *Only
+  the values of <env>*).
+- everything else is left out by default: changes of jobs (**differences**, **children**),
+  jobs the environment lacks (**removed**: kept) and folders or jobs only it has
+  (**added**: left out). A difference the person knows is the environment's own (a job that
+  is Dummy there, another command line) may be made an **exception** instead.
 
-Then `--apply`, `ctmchain export --env uat` to look at the result, and commit. Same for bench
-and test. Receiving the same export again shows what still differs.
+Then `--apply`, look at `ctmchain export --env uat`, and commit. Same for bench and test (they
+only learn the values of the constants that exist by now). Production is untouched:
+`ctmchain export --env prod --jobnames original` is still byte for byte the prod export.
 
 ### 4. The conventions agreed for these chains
 
@@ -104,12 +111,32 @@ and test. Receiving the same export again shows what still differs.
   environment, a letter in place of the application's first letter): not fixed on the way
   in. `ctmchain validate` lists them with suggested fixes, to correct in later releases.
 
-### 5. Close the baseline
+### 5. Close the environments release
 
 ```bash
-ctmchain release installed prod     # nothing to install: the baseline only describes them
+ctmchain release installed prod     # nothing to install: it only describes the environments
 ctmchain release close
 ```
+
+### 6. The releases already on their way, from their deliveries
+
+For each release installed somewhere but not in production yet, ask, numbered: its name,
+the delivery XML of each of its parts, and the environments it is installed in. Then, from
+`main`, one release each:
+
+```bash
+ctmchain release start <name>
+ctmchain receive ../exports/deliveries/<name>.xml --stat   # a delivery: its differences
+ctmchain receive ../exports/deliveries/<name>.xml --apply  # are the release's changes
+ctmchain commit -m "feat: release <name>"
+ctmchain release installed uat                             # each environment it is in
+```
+
+A folder two releases both changed comes whole in each delivery: when the first one is closed
+into `main`, *Update from main* in the other merges them. Check each release with
+`ctmchain receive ../exports/<env>/<env>.xml` (preview only) on the release branch: what is
+left is what differs for another reason (often conditions whose names differ per
+environment).
 
 Then the everyday flow of the data repository's own `CLAUDE.md` (written by `init`):
 deliveries through `ctmchain receive`, a full prod export now and then to catch up with

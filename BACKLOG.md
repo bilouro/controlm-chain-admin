@@ -216,6 +216,10 @@ or addresses anywhere in this public repository.
 14. **Similar condition names — DONE (2026-11-03), released in 0.1.1**, asked by the author:
     `validate` reports names that differ only by a copy's suffix or by case (`similar-names`)
     and offers to number them (`number-similar`: `…_OK1`, `…_OK2`).
+15. **Only the values of an environment — DONE (2026-11-03), released in 0.1.2**, asked by
+    the author for the company (uat and bench carry releases production does not have yet):
+    `receive --values-only`, `skip` for added folders and jobs, *adopt* decisions; the
+    `bootstrap` skill builds the releases on their way from their deliveries.
 
 Later, unordered: `envs` variants of sub-elements; second-environment import with learning; `diff`
 of environments and XML files with `xmldiffreport`; mapping editor; upstream graph explorer

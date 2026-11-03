@@ -517,7 +517,7 @@
             "type": "boolean"
           },
           "kind": {
-            "description": "learn | set-value | constant | group | value | children | removed | added | absent | unmatched",
+            "description": "learn | set-value | adopt | constant | group | value | children | removed | added | absent | unmatched",
             "title": "Kind",
             "type": "string"
           },
@@ -1325,6 +1325,12 @@
             "title": "Unresolved",
             "type": "array"
           },
+          "values_only": {
+            "default": false,
+            "description": "the defaults take the values of the environment and nothing else",
+            "title": "Values Only",
+            "type": "boolean"
+          },
           "warnings": {
             "items": {
               "type": "string"
@@ -1371,6 +1377,12 @@
             ],
             "description": "every folder of the environment; default: more than half of them",
             "title": "Full"
+          },
+          "values_only": {
+            "default": false,
+            "description": "by default take the values of the environment and nothing else",
+            "title": "Values Only",
+            "type": "boolean"
           },
           "xml": {
             "description": "the export, as text",

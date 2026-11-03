@@ -1,0 +1,253 @@
+{
+  "env": "uat",
+  "evidence": [
+    "13 folder and job names carry the letter U of uat"
+  ],
+  "partial": false,
+  "full": true,
+  "values_only": true,
+  "folders": [
+    {
+      "name": "P77_INGEST_DAILY",
+      "status": "changed",
+      "jobs_added": [],
+      "jobs_removed": [],
+      "jobs_changed": [
+        "P77_INGEST_INIT",
+        "P77_INGEST_LOAD"
+      ]
+    },
+    {
+      "name": "P77_CHAIN",
+      "status": "changed",
+      "jobs_added": [
+        "P77_UATONLY"
+      ],
+      "jobs_removed": [
+        "P77_E"
+      ],
+      "jobs_changed": [
+        "P77_A",
+        "P77_B",
+        "P77_D",
+        "P77_C",
+        "P77_F",
+        "P77_F~2"
+      ]
+    }
+  ],
+  "decisions": [
+    {
+      "id": "group:RUN_AS=app77proc>aup77proc",
+      "kind": "group",
+      "options": [
+        "new",
+        "exceptions",
+        "change",
+        "ignore"
+      ],
+      "default": "new",
+      "node": null,
+      "field": "RUN_AS",
+      "constant": "user.app77proc",
+      "current": "app77proc",
+      "expected": null,
+      "incoming": "aup77proc",
+      "count": 10,
+      "suggested": "user.app77proc",
+      "values": {
+        "test": "app77proc",
+        "uat": "aup77proc",
+        "bench": "app77proc",
+        "prod": "app77proc"
+      },
+      "inline": false
+    },
+    {
+      "id": "group:VARIABLE[NAME=%%GEIENV]/@VALUE=x>u",
+      "kind": "group",
+      "options": [
+        "new",
+        "exceptions",
+        "change",
+        "ignore"
+      ],
+      "default": "new",
+      "node": null,
+      "field": "VARIABLE[NAME=%%GEIENV]/@VALUE",
+      "constant": "var.geienv",
+      "current": "x",
+      "expected": null,
+      "incoming": "u",
+      "count": 1,
+      "suggested": "var.geienv",
+      "values": {
+        "test": "x",
+        "uat": "u",
+        "bench": "x",
+        "prod": "x"
+      },
+      "inline": false
+    },
+    {
+      "id": "group:NODEID=PP77_BATCH>UP77_BATCH",
+      "kind": "group",
+      "options": [
+        "new",
+        "exceptions",
+        "change",
+        "ignore"
+      ],
+      "default": "new",
+      "node": null,
+      "field": "NODEID",
+      "constant": "node.p77_batch",
+      "current": "PP77_BATCH",
+      "expected": null,
+      "incoming": "UP77_BATCH",
+      "count": 8,
+      "suggested": "node.p77_batch",
+      "values": {
+        "test": "TP77_BATCH",
+        "uat": "UP77_BATCH",
+        "bench": "BP77_BATCH",
+        "prod": "PP77_BATCH"
+      },
+      "inline": false
+    },
+    {
+      "id": "group:DOMAIL/@DEST=ops-prod@example.com>ops@example.com",
+      "kind": "group",
+      "options": [
+        "new",
+        "change",
+        "ignore"
+      ],
+      "default": "new",
+      "node": null,
+      "field": "DOMAIL/@DEST",
+      "constant": "mail.ops_prod",
+      "current": "ops-prod@example.com",
+      "expected": null,
+      "incoming": "ops@example.com",
+      "count": 1,
+      "suggested": "mail.ops_prod",
+      "values": {
+        "test": "ops-prod@example.com",
+        "uat": "ops@example.com",
+        "bench": "ops-prod@example.com",
+        "prod": "ops-prod@example.com"
+      },
+      "inline": false
+    },
+    {
+      "id": "group:DOMAIL/@SUBJECT~env",
+      "kind": "group",
+      "options": [
+        "new",
+        "change",
+        "ignore"
+      ],
+      "default": "new",
+      "node": null,
+      "field": "DOMAIL/@SUBJECT",
+      "constant": "env.subject",
+      "current": null,
+      "expected": null,
+      "incoming": "UAT",
+      "count": 1,
+      "suggested": "env.subject",
+      "values": {
+        "test": "TEST",
+        "uat": "UAT",
+        "bench": "BENCH",
+        "prod": "PROD"
+      },
+      "inline": true
+    },
+    {
+      "id": "P77_CHAIN/P77_B#children",
+      "kind": "children",
+      "options": [
+        "change",
+        "ignore"
+      ],
+      "default": "ignore",
+      "node": "P77_CHAIN/P77_B",
+      "field": null,
+      "constant": null,
+      "current": null,
+      "expected": null,
+      "incoming": null,
+      "count": 1,
+      "suggested": null,
+      "values": null,
+      "inline": false
+    },
+    {
+      "id": "P77_CHAIN/P77_D@TASKTYPE",
+      "kind": "value",
+      "options": [
+        "change",
+        "exception",
+        "ignore"
+      ],
+      "default": "ignore",
+      "node": "P77_CHAIN/P77_D",
+      "field": "TASKTYPE",
+      "constant": null,
+      "current": "Command",
+      "expected": null,
+      "incoming": "Dummy",
+      "count": 1,
+      "suggested": null,
+      "values": null,
+      "inline": false
+    },
+    {
+      "id": "P77_CHAIN/P77_E#removed",
+      "kind": "removed",
+      "options": [
+        "not-here",
+        "remove",
+        "keep"
+      ],
+      "default": "keep",
+      "node": "P77_CHAIN/P77_E",
+      "field": null,
+      "constant": null,
+      "current": null,
+      "expected": null,
+      "incoming": null,
+      "count": 1,
+      "suggested": null,
+      "values": null,
+      "inline": false
+    },
+    {
+      "id": "P77_CHAIN/P77_UATONLY#added",
+      "kind": "added",
+      "options": [
+        "only-here",
+        "everywhere",
+        "skip"
+      ],
+      "default": "skip",
+      "node": "P77_CHAIN/P77_UATONLY",
+      "field": null,
+      "constant": null,
+      "current": null,
+      "expected": null,
+      "incoming": null,
+      "count": 1,
+      "suggested": null,
+      "values": null,
+      "inline": false
+    }
+  ],
+  "unresolved": [],
+  "warnings": [],
+  "skipped": [
+    "UOTH_HOUSEKEEPING"
+  ]
+}

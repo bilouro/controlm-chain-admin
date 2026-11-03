@@ -6,6 +6,8 @@ repository, folder by folder and job by job. What still differs is a decision:
 
 * ``learn``: the repository has ``@{c}`` where the export has a value and ``c`` has no value in
   that environment yet: it is its value there (one decision for every job that agrees);
+* ``adopt``: the repository still has production's value of ``c`` where the export has ``c``
+  (a job no earlier export of the environment had): use ``c`` there, production is unchanged;
 * ``constant``: the value differs from the one ``c`` has (or is learning) there: an exception for
   this job, the new value of ``c``, or ignore;
 * ``value``: a plain attribute or variable differs: a change of the base (every environment),
@@ -19,7 +21,7 @@ repository, folder by folder and job by job. What still differs is a decision:
 * ``removed``: a job of the repository is not in the export: remove it or keep it (or, in a
   full export, note that this environment does not have it);
 * ``added`` (full exports): a folder or job the repository does not have: only in this
-  environment, or everywhere;
+  environment, everywhere, or left out;
 * ``absent`` (full exports): a folder of the repository the export does not have: note that
   this environment does not have it, or keep it.
 
@@ -27,11 +29,18 @@ An export of more than half of the folders is *full* unless told otherwise. A fu
 an environment other than production leaves production alone by default: exceptions instead
 of changes, children ignored, what only it has or lacks noted on the folder or job
 (``"envs"``). Folders and jobs that do not exist in the environment are not compared.
+
+*Values only* takes from an export the values of its environment and nothing else, for an
+environment whose jobs carry releases production does not have yet: what makes a constant
+(machines, users, mails, the environment's name in a text) is created or learned; changes of
+the jobs, conditions, jobs it lacks and folders or jobs only it has are left out by default
+(the deliveries of the releases bring them).
 """
 
 from __future__ import annotations
 
 import re
+import shutil
 from collections import Counter
 from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass, field, replace
@@ -49,7 +58,14 @@ from controlm_chain_admin.core.constants import (
 from controlm_chain_admin.core.errors import InvalidChange, ModelError
 from controlm_chain_admin.core.membership import ENVS_KEY, belongs, environments_of, with_envs
 from controlm_chain_admin.core.model import XmlDocument
-from controlm_chain_admin.core.ops import JOB_TAG, JOBS_KEY, TAG_KEY, import_xml, only_application
+from controlm_chain_admin.core.ops import (
+    JOB_TAG,
+    JOBS_KEY,
+    ORIGINALS_KEY,
+    TAG_KEY,
+    import_xml,
+    only_application,
+)
 from controlm_chain_admin.core.overrides import Override, load_overrides, write_overrides
 from controlm_chain_admin.core.repo import ChainRepo, load_repo, read_json, write_json
 from controlm_chain_admin.core.xmlio import parse_xml
@@ -157,6 +173,7 @@ class Intake:
     warnings: tuple[str, ...]
     skipped: tuple[str, ...]  # folders of other applications
     full: bool = False  # every folder of the environment, not a delivery of some
+    values_only: bool = False  # the values of the environment, nothing else, by default
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -164,6 +181,7 @@ class Intake:
             "evidence": list(self.evidence),
             "partial": self.partial,
             "full": self.full,
+            "values_only": self.values_only,
             "folders": [f.to_json() for f in self.folders],
             "decisions": [d.to_json() for d in self.decisions],
             "unresolved": list(self.unresolved),
@@ -277,7 +295,10 @@ class _Collector:
     overrides: Mapping[str, Override]
     volatile: frozenset[str] = frozenset()
     elsewhere: bool = False  # a full export of another environment than production
+    values_only: bool = False  # only the values of the environment: the rest is ignored
+    base: Mapping[str, str | None] = field(default_factory=dict)  # production's constants
     decisions: list[Decision] = field(default_factory=list)
+    adopting: dict[str, list[Site]] = field(default_factory=dict)
     contradicted: dict[str, dict[str, list[Site]]] = field(default_factory=dict)
     learning: dict[str, dict[str, list[Site]]] = field(default_factory=dict)
 
@@ -294,9 +315,15 @@ class _Collector:
             pending = self.learning if self.known.get(constant) is None else self.contradicted
             pending.setdefault(constant, {}).setdefault(site.incoming, []).append(site)
             return
+        adopted = self.adopts(site.current, site.incoming)
+        if adopted:
+            self.adopting.setdefault(adopted, []).append(site)  # production's value of it
+            return
         options = ("change", "exception", "ignore") if site.can_except else ("change", "ignore")
         default = "change"
-        if self.elsewhere:
+        if self.values_only:
+            default = "ignore"
+        elif self.elsewhere:
             default = "exception" if site.can_except else "ignore"
         self.decisions.append(_site_decision(site, "value", options, default))
 
@@ -318,23 +345,37 @@ class _Collector:
                 continue
             current, incoming = _get(bc, path), _get(ac, path)
             site = Site(node, _path_text(path), "child", path, current, incoming, _tag(bc, path))
-            if PLACEHOLDER.fullmatch(current) and not PLACEHOLDER.fullmatch(incoming):
+            if (
+                PLACEHOLDER.fullmatch(current) and not PLACEHOLDER.fullmatch(incoming)
+            ) or self.adopts(current, incoming):
                 self.classify(site)
             elif PLACEHOLDER.search(current) or PLACEHOLDER.search(incoming):
                 structural = True
             else:
                 self.classify(site)  # a mail, a subject, a sign...: a value like the others
         if structural:
-            default = "ignore" if self.elsewhere else "change"
+            default = "ignore" if self.elsewhere or self.values_only else "change"
             self.decisions.append(
                 Decision(f"{node}#children", "children", ("change", "ignore"), default, node)
             )
         return size != self._size()
 
+    def adopts(self, current: str | None, incoming: str | None) -> str | None:
+        """The constant the export has where the repository still has production's value of
+        it, in the whole value or inside a text (``[P77][PROD] Load failed``)."""
+        if current is None or incoming is None or PLACEHOLDER.search(current):
+            return None
+        names = PLACEHOLDER.findall(incoming)
+        if not names or any(self.base.get(name) is None for name in names):
+            return None
+        production = PLACEHOLDER.sub(lambda m: str(self.base[m[1]]), incoming)
+        return str(names[0]) if production == current else None
+
     def _size(self) -> int:
         learning = sum(len(s) for by in self.learning.values() for s in by.values())
         contradicted = sum(len(s) for by in self.contradicted.values() for s in by.values())
-        return len(self.decisions) + learning + contradicted
+        adopting = sum(len(s) for s in self.adopting.values())
+        return len(self.decisions) + learning + contradicted + adopting
 
     def finish(self, agreeing: Mapping[str, int]) -> list[Decision]:
         """Learn decisions (one per constant), values the whole export contradicts (one per
@@ -384,6 +425,14 @@ class _Collector:
                             "exception" if site.can_except else "ignore", constant, value,
                         )
                     )  # fmt: skip
+        for constant, sites in self.adopting.items():
+            grouped.append(
+                Decision(
+                    f"adopt:{constant}", "adopt", ("adopt", "ignore"), "adopt",
+                    constant=constant, current=self.base.get(constant),
+                    incoming="@{" + constant + "}", count=len(sites), sites=tuple(sites),
+                )
+            )  # fmt: skip
         return [*grouped, *disagree, *self.decisions]
 
 
@@ -482,10 +531,16 @@ def _display_swap(site: Site, env: str, envs: _Envs) -> bool:
 
 
 def _groups(
-    decisions: list[Decision], env: str, envs: _Envs, taken: set[str], elsewhere: bool = False
+    decisions: list[Decision],
+    env: str,
+    envs: _Envs,
+    taken: set[str],
+    elsewhere: bool = False,
+    values_only: bool = False,
 ) -> list[Decision]:
     """The value decisions that repeat one difference, or concern a value of the environment
-    (machine, user, mail, variable), as one decision each, before the others."""
+    (machine, user, mail, variable), as one decision each, before the others; with
+    ``values_only`` a repeated difference of another attribute is ignored by default."""
     keyed: dict[tuple[str, str | None, str | None], list[Site]] = {}
     for decision in decisions:
         if decision.kind != "value":
@@ -544,6 +599,8 @@ def _groups(
         )
         if clean and (inline or environmental):
             default = "new"
+        elif values_only and not (inline or environmental):
+            default = "ignore"
         else:
             default = "exceptions" if except_all else ("ignore" if elsewhere else "change")
         suggested = _free_name(name, taken)
@@ -627,12 +684,17 @@ def _bound(selector: Selector, tag: str, element: Mapping[str, Any]) -> bool:
 
 
 def analyze(
-    repo: ChainRepo, data: bytes, env: str | None = None, full: bool | None = None
+    repo: ChainRepo,
+    data: bytes,
+    env: str | None = None,
+    full: bool | None = None,
+    values_only: bool = False,
 ) -> Intake:
     """Compare an export with the repository: its environment and every decision it needs.
 
     ``full`` tells whether the export has every folder of its environment (default: more than
-    half of them)."""
+    half of them); ``values_only`` makes every default take the values of the environment and
+    nothing else."""
     from controlm_chain_admin.core.refactor import _sandbox, _tracked  # avoids an import cycle
 
     repo = load_repo(repo.root)
@@ -662,14 +724,26 @@ def analyze(
         if full is None:
             full = len(exported & present) * 2 > len(present) if present else True
         elsewhere = full and env != repo.config.git_rules.production
-        collector = _Collector(env, known, load_overrides(repo, env), volatile, elsewhere)
-        placed = ("only-here", "everywhere"), "only-here" if elsewhere else "everywhere"
+        production = repo.config.git_rules.production
+        base = (
+            repo.load_env(production).constants
+            if production in repo.config.environments and repo.env_file(production).is_file()
+            else {}
+        )
+        collector = _Collector(
+            env, known, load_overrides(repo, env), volatile, elsewhere, values_only, base
+        )
+        placed = (
+            ("only-here", "everywhere", "skip"),
+            ("skip" if values_only else "only-here" if elsewhere else "everywhere"),
+        )
+        asked = full or values_only  # whether a new folder or job is a decision
         for name in report.folders:
             after_folder = read_json(box.folder_file(name))
             ids_after = [str(j) for j in after_folder.get(JOBS_KEY, [])]
             if not repo.folder_file(name).is_file():
                 folders.append(FolderIntake(name, "new", tuple(ids_after)))
-                if full:
+                if asked:
                     collector.decisions.append(
                         Decision(f"{name}/#added", "added", *placed, f"{name}/")
                     )
@@ -702,11 +776,13 @@ def analyze(
                 if full
                 else (("remove", "keep"), "remove")
             )
+            if values_only:
+                gone = gone[0], "keep"
             for job_id in removed:
                 collector.decisions.append(
                     Decision(f"{name}/{job_id}#removed", "removed", *gone, f"{name}/{job_id}")
                 )
-            for job_id in added if full else ():
+            for job_id in added if asked else ():
                 collector.decisions.append(
                     Decision(f"{name}/{job_id}#added", "added", *placed, f"{name}/{job_id}")
                 )
@@ -731,9 +807,8 @@ def analyze(
                 name = _free_name(f"{decision.constant}_2", taken)
                 taken.add(name)
                 decisions[decisions.index(decision)] = replace(decision, suggested=name)
-        production = repo.config.git_rules.production
         envs = _Envs.of(repo, production if elsewhere else None)
-        decisions = _groups(decisions, env, envs, taken, elsewhere)
+        decisions = _groups(decisions, env, envs, taken, elsewhere, values_only)
         covered = {
             (d.field or "", d.incoming or "")
             for d in decisions
@@ -744,7 +819,7 @@ def analyze(
             decisions += [
                 Decision(
                     f"{name}/#absent", "absent", ("not-here", "keep"),
-                    "not-here" if elsewhere else "keep", f"{name}/",
+                    "not-here" if elsewhere and not values_only else "keep", f"{name}/",
                 )
                 for name in sorted(present - exported)
             ]  # fmt: skip
@@ -757,6 +832,7 @@ def analyze(
     return Intake(
         env, evidence, bool(present - exported), tuple(folders), tuple(decisions),
         tuple(unresolved), tuple(warnings), tuple(s.folder for s in report.skipped), full,
+        values_only,
     )  # fmt: skip
 
 
@@ -863,6 +939,13 @@ def _except(overrides: dict[str, Override], site: Site) -> None:
         )
 
 
+def _undone(decision: Decision, option: str) -> bool:
+    """Whether the option puts the repository's value back at the decision's sites."""
+    return option in ("ignore", "exception", "exceptions") or (
+        decision.kind == "learn" and option != "learn"
+    )
+
+
 def _keep_children(repo: ChainRepo, box: ChainRepo, node: str) -> None:
     before = read_json(_node_file(repo, node))
     path = _node_file(box, node)
@@ -884,10 +967,14 @@ def _keep_job(repo: ChainRepo, box: ChainRepo, node: str) -> None:
     write_json(box.folder_file(folder), folder_json)
     meta_before = repo.folder_meta_file(folder)
     if meta_before.is_file():
-        old_jobs = read_json(meta_before).get(JOBS_KEY, {})
+        old_meta = read_json(meta_before)
+        old_jobs = old_meta.get(JOBS_KEY, {})
         meta = dict(read_json(box.folder_meta_file(folder)))
         jobs = meta.get(JOBS_KEY, {})
         meta[JOBS_KEY] = {j: jobs.get(j, old_jobs.get(j, {})) for j in ids}  # folder order
+        original = old_meta.get(ORIGINALS_KEY, {}).get(job_id)
+        if original is not None:  # a numbered JOBNAME (P77_F2) keeps the one it stands for
+            meta[ORIGINALS_KEY] = {**meta.get(ORIGINALS_KEY, {}), job_id: original}
         write_json(box.folder_meta_file(folder), meta)
 
 
@@ -1005,6 +1092,37 @@ def _place(box: ChainRepo, node: str, envs: Iterable[str]) -> None:
     write_json(path, with_envs(read_json(path), envs, box.config.environments))
 
 
+def _leave_out(box: ChainRepo, node: str) -> None:
+    """Take a folder or job the export added back out of the repository."""
+    folder, _, job_id = node.partition("/")
+    meta_file = box.folder_meta_file(folder)
+    if not job_id:
+        shutil.rmtree(box.folder_dir(folder))
+        meta_file.unlink(missing_ok=True)
+        meta = dict(read_json(box.export_meta_file))
+        meta["folder_order"] = [f for f in meta.get("folder_order", []) if f != folder]
+        write_json(box.export_meta_file, meta)
+        return
+    folder_json = dict(read_json(box.folder_file(folder)))
+    folder_json[JOBS_KEY] = [j for j in folder_json.get(JOBS_KEY, []) if str(j) != job_id]
+    write_json(box.folder_file(folder), folder_json)
+    box.job_file(folder, job_id).unlink()
+    if meta_file.is_file():
+        meta = dict(read_json(meta_file))
+        meta[JOBS_KEY] = {j: v for j, v in meta.get(JOBS_KEY, {}).items() if j != job_id}
+        originals = {j: v for j, v in meta.get(ORIGINALS_KEY, {}).items() if j != job_id}
+        if originals:
+            meta[ORIGINALS_KEY] = originals
+        else:
+            meta.pop(ORIGINALS_KEY, None)
+        write_json(meta_file, meta)
+
+
+def _inside(node: str, nodes: set[str]) -> bool:
+    """Whether the node is one of ``nodes`` or a job of one of their folders."""
+    return node in nodes or node.partition("/")[0] + "/" in nodes
+
+
 def _without(repo: ChainRepo, node: str, env: str) -> list[str]:
     """The environments of a node of ``repo``, but ``env``."""
     envs = environments_of(read_json(_node_file(repo, node))) or repo.config.environments
@@ -1017,13 +1135,14 @@ def receive(
     env: str | None = None,
     choices: Mapping[str, str] | None = None,
     full: bool | None = None,
+    values_only: bool = False,
 ) -> ChangeSet:
     """The export taken into the repository, with ``choices`` (decision id -> option) applied
     over the defaults of :func:`analyze`, as one change set to preview and apply."""
     from controlm_chain_admin.core.refactor import _finish, _sandbox, _tracked
 
     repo = load_repo(repo.root)
-    intake = analyze(repo, data, env, full)
+    intake = analyze(repo, data, env, full, values_only)
     choices = dict(choices or {})
     unknown = sorted(set(choices) - {d.id for d in intake.decisions})
     if unknown:
@@ -1034,6 +1153,18 @@ def receive(
         named = option.startswith("new:") and "new" in decision.options
         if option not in decision.options and not named:
             raise InvalidChange(f"{decision.id}: choose one of {', '.join(decision.options)}")
+    left_out = {
+        d.node for d in intake.decisions if d.kind == "added" and chosen[d.id] == "skip" and d.node
+    }
+    if left_out:  # the values of what is left out are no decision
+        intake = replace(
+            intake,
+            decisions=tuple(
+                d
+                for d in intake.decisions
+                if not (d.sites and all(_inside(site.node, left_out) for site in d.sites))
+            ),
+        )
     creations = _creations(repo, intake.env, intake.decisions, chosen)
     values: dict[str, str] = {}
     for decision in intake.decisions:
@@ -1062,7 +1193,7 @@ def receive(
             write_json(box.env_file(env), replace(env_config, constants=constants).to_json())
         import_xml(box, data, env)
         box = load_repo(box.root)
-        if intake.full and env != repo.config.git_rules.production:
+        if (intake.full and env != repo.config.git_rules.production) or values_only:
             # production's header and job order stay; the export only adds what it has
             meta = read_json(repo.export_meta_file)
             order = read_json(box.export_meta_file).get("folder_order", [])
@@ -1074,11 +1205,24 @@ def receive(
             _keep_unchanged(repo, box, intake, creations)
         overrides = load_overrides(box, env)
         exceptions = 0
+        taken = [
+            site
+            for d in intake.decisions
+            if d.kind != "children" and not _undone(d, chosen[d.id])
+            for site in d.sites
+            if site.scope == "child"
+        ]  # values inside children that stay, although the children are the repository's
         for decision in intake.decisions:
             option = chosen[decision.id]
             if decision.kind == "children":
                 if option == "ignore" and decision.node:
+                    node_data = read_json(_node_file(box, decision.node))
+                    inside = [
+                        (s, _get(node_data, s.path)) for s in taken if s.node == decision.node
+                    ]
                     _keep_children(repo, box, decision.node)
+                    for child, value in inside:
+                        _put(box, child, value)
                 continue
             if decision.kind == "removed":
                 if option in ("keep", "not-here") and decision.node:
@@ -1106,6 +1250,8 @@ def receive(
                 for site in decision.sites:
                     _restore(box, site)
         write_overrides(box, env, overrides)
+        for node in sorted(left_out):
+            _leave_out(box, node)
         others = [e for e in box.config.environments if e != env]
         here = {
             d.node for d in intake.decisions if d.kind == "added" and chosen[d.id] == "only-here"
@@ -1145,4 +1291,8 @@ def receive(
         )
         if creations:
             summary += f", {len(creations)} new constant(s)"
+        if left_out:
+            summary += f", {len(left_out)} folder(s) or job(s) left out"
+        if values_only:
+            summary += " (values only)"
         return _finish(original, box, summary, warnings)

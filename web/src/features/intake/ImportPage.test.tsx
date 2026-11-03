@@ -7,6 +7,7 @@ import { calls, server } from "@/test/server";
 import intake from "@/test/fixtures/intake.json";
 import intakeFull from "@/test/fixtures/intake-full.json";
 import intakeGroups from "@/test/fixtures/intake-groups.json";
+import intakeValues from "@/test/fixtures/intake-values.json";
 import { ImportPage } from "./ImportPage";
 
 const XML = '<?xml version="1.0" encoding="utf-8"?>\n<DEFTABLE />\n';
@@ -29,7 +30,7 @@ describe("ImportPage", () => {
   it("analyzes the export: environment, folders and the decisions with their defaults", async () => {
     await analyzed();
 
-    expect(calls.intake).toEqual([{ xml: XML, env: null, full: null }]);
+    expect(calls.intake).toEqual([{ xml: XML, env: null, full: null, values_only: false }]);
     expect(
       screen.getByText(/13 folder and job names carry the letter P of prod/),
     ).toBeInTheDocument();
@@ -63,6 +64,7 @@ describe("ImportPage", () => {
           env: "prod",
           choices: { "P77_CHAIN/P77_E@TASKTYPE": "exception" },
           full: true,
+          values_only: false,
         },
       }),
     );
@@ -191,5 +193,66 @@ describe("ImportPage, a full export", () => {
     await waitFor(() =>
       expect(calls.preview[0]).toMatchObject({ params: { env: "uat", full: true } }),
     );
+  });
+});
+
+describe("ImportPage, only the values of the environment", () => {
+  it("is asked for values only, then leaves the rest out by default", async () => {
+    const asked: unknown[] = [];
+    server.use(
+      http.post("/api/intake", async ({ request }) => {
+        const body = (await request.json()) as { values_only?: boolean };
+        asked.push(body);
+        if (body.values_only) return HttpResponse.json(intakeValues);
+        return HttpResponse.json({ ...intakeValues, values_only: false });
+      }),
+    );
+    const user = await analyzed(/uat export/);
+    const values = screen.getByRole("checkbox", { name: /Only the values of uat/ });
+    expect(values).not.toBeChecked();
+
+    await user.click(values);
+
+    await waitFor(() => expect(asked.at(-1)).toMatchObject({ values_only: true }));
+    expect(screen.getByRole("checkbox", { name: /Only the values of uat/ })).toBeChecked();
+    expect(screen.getByRole("heading", { name: /values only/ })).toBeInTheDocument();
+    const added = screen.getByRole("radiogroup", { name: "P77_CHAIN/P77_UATONLY#added" });
+    expect(within(added).getByRole("radio", { name: "Leave out" })).toBeChecked();
+    const value = screen.getByRole("radiogroup", { name: "P77_CHAIN/P77_D@TASKTYPE" });
+    expect(within(value).getByRole("radio", { name: "Ignore" })).toBeChecked();
+    await user.click(screen.getByRole("button", { name: "Review change" }));
+    await waitFor(() =>
+      expect(calls.preview[0]).toMatchObject({
+        params: { env: "uat", full: true, values_only: true },
+      }),
+    );
+  });
+});
+
+describe("ImportPage, a constant production already has the value of", () => {
+  it("offers to use the constant where the repository still has that value", async () => {
+    const adopt = {
+      id: "adopt:node.p77_batch",
+      kind: "adopt",
+      options: ["adopt", "ignore"],
+      default: "adopt",
+      constant: "node.p77_batch",
+      current: "PP77_BATCH",
+      incoming: "@{node.p77_batch}",
+      count: 4,
+    };
+    server.use(
+      http.post("/api/intake", () =>
+        HttpResponse.json({ ...intakeValues, decisions: [adopt, ...intakeValues.decisions] }),
+      ),
+    );
+    await analyzed(/uat export/);
+
+    const region = screen.getByRole("region", { name: "Constants to use" });
+    expect(region).toHaveTextContent(
+      "@{node.p77_batch} where the repository has PP77_BATCH (4 uses)",
+    );
+    const choice = within(region).getByRole("radiogroup", { name: "adopt:node.p77_batch" });
+    expect(within(choice).getByRole("radio", { name: "Use the constant" })).toBeChecked();
   });
 });

@@ -71,7 +71,7 @@ def test_a_full_export_of_another_environment_leaves_production_alone(repo: Chai
     assert (removed.options, removed.default) == (("not-here", "remove", "keep"), "not-here")
     added = by_id[f"{C}/P77_UATONLY#added"]
     assert (added.kind, added.options, added.default) == (
-        "added", ("only-here", "everywhere"), "only-here",
+        "added", ("only-here", "everywhere", "skip"), "only-here",
     )  # fmt: skip
     assert by_id[f"{C}/P77_D@TASKTYPE"].default == "exception"
     assert by_id[f"{C}/P77_B#children"].default == "ignore"

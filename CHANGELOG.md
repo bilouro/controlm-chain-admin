@@ -6,6 +6,32 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-11-03
+
+### Added
+
+- `receive --values-only` and the *Only the values of <env>* box of the Import page: an export
+  of an environment whose jobs carry releases production does not have yet gives its
+  machines, users, mails, variables and its name in texts (new constants or their values) and
+  nothing else by default (differences and children ignored, jobs and folders it lacks kept,
+  folders and jobs only it has left out).
+- *added* decisions have the option `skip` ("Leave out"): the folder or job does not enter the
+  repository.
+- *adopt* decisions: where the repository still has production's value of a constant and the
+  export has the constant (a job no earlier export of that environment had), use the
+  constant; production does not change. Also inside texts (`[P77][PROD]` and
+  `@{env.subject}`).
+- The `bootstrap` skill takes only the values from the full exports, then builds the releases
+  on their way from their deliveries; the data repository's `CLAUDE.md` mentions
+  `--values-only`.
+
+### Fixed
+
+- A job numbered by `--dedupe-jobnames` (`X2`) that a full export of another environment names
+  otherwise lost its original JOBNAME when kept: production's export changed.
+- Values taken inside the children of a job (a mail of an ON block) were put back when the
+  job's children were kept as they were.
+
 ## [0.1.1] - 2026-11-03
 
 ### Added
@@ -202,6 +228,7 @@ First release on PyPI.
 - On Windows, unknown `/api/...` paths and missing assets were answered with the app instead of
   404 (the static files handler sees `\` separators there).
 
-[Unreleased]: https://github.com/bilouro/controlm-chain-admin/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/bilouro/controlm-chain-admin/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/bilouro/controlm-chain-admin/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/bilouro/controlm-chain-admin/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/bilouro/controlm-chain-admin/releases/tag/v0.1.0

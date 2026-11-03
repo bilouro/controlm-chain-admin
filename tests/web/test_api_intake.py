@@ -96,3 +96,22 @@ def test_the_export_can_be_told_full(tmp_path: Path, monkeypatch: pytest.MonkeyP
         "P77_INGEST_DAILY/#absent"
     ]
     assert any(f["path"] == "folders/P77_INGEST_DAILY/folder.json" for f in preview["files"])
+
+
+def test_the_export_can_give_only_its_values(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plain_git_identity(monkeypatch, tmp_path)
+    repo = fresh_repo(tmp_path)
+    git(repo.root, "switch", "-q", "-c", "release/environments")
+    settings = Settings(repo=repo.root, open_browser=False, token="t", allowed_hosts=["testserver"])
+    uat = job(both(), b"UP77_D", b'TASKTYPE="Command"', b'TASKTYPE="Dummy"').decode()
+    with TestClient(create_app(settings)) as fresh:
+        body = {"xml": uat, "values_only": True}
+        intake = fresh.post("/api/intake", json=body, headers=TOKEN).json()
+        request = {"op": "receive", "params": body}
+        preview = fresh.post("/api/changes/preview", json=request, headers=TOKEN).json()
+
+    assert intake["values_only"] is True
+    assert {d["id"]: d["default"] for d in intake["decisions"]}[f"{C}/P77_D@TASKTYPE"] == "ignore"
+    assert "(values only)" in preview["summary"]
