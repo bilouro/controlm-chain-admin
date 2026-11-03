@@ -48,6 +48,7 @@ ctmchain release status                        # branch, releases, what may be e
 ctmchain receive exports/uat/delivery.xml      # preview the decisions of an export
 ctmchain receive exports/uat/delivery.xml --apply
 ctmchain receive exports/uat/full.xml --values-only   # machines, users, mails of uat only
+ctmchain check exports/uat/full.xml --env uat  # what the repository's uat export still lacks
 ctmchain take release/<other> --list           # what another release changed, item by item
 ctmchain validate                              # broken chains, dirty names, suggested fixes
 ctmchain export --env uat -o uat.xml

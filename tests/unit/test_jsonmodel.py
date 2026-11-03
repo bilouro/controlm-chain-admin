@@ -2,17 +2,16 @@
 
 from __future__ import annotations
 
-import pytest
-
-from controlm_chain_admin.core.errors import OrderConflict
 from controlm_chain_admin.core.jsonmodel import (
     GROUPED_PARENTS,
+    OWN_ORDER_KEY,
     element_to_json,
     json_to_element,
     merge_orders,
     merge_volatile,
-    observe_orders,
+    observe_sequences,
     split_volatile,
+    with_own_order,
 )
 from controlm_chain_admin.core.model import XmlComment, XmlElement
 from controlm_chain_admin.core.xmlio import parse_xml
@@ -86,8 +85,9 @@ def test_element_with_a_comment_falls_back_to_the_ordered_list() -> None:
     assert json_to_element("JOB", data, CHILD_ORDER) == element
 
 
-def test_observe_orders_from_the_sample() -> None:
-    attr_order, child_order = observe_orders(parse_xml(SAMPLE_EXPORT))
+def test_the_orders_of_the_sample() -> None:
+    attr_seen, child_seen = observe_sequences(parse_xml(SAMPLE_EXPORT))
+    attr_order, child_order = merge_orders({}, attr_seen), merge_orders({}, child_seen)
 
     assert attr_order["INCOND"] == ("NAME", "ODATE", "AND_OR")
     assert attr_order["JOB"][:5] == (
@@ -108,7 +108,7 @@ def test_observe_orders_from_the_sample() -> None:
     assert set(child_order) <= set(GROUPED_PARENTS), "ON and other parents are never grouped"
 
 
-def test_observe_orders_leaves_out_grouped_parents_with_contradictory_child_order() -> None:
+def test_observe_sequences_leaves_out_grouped_parents_with_contradictory_child_order() -> None:
     data = (
         b'<?xml version="1.0" encoding="utf-8"?>\n<DEFTABLE>\n'
         b"    <SMART_FOLDER>\n        <JOB />\n        <VARIABLE />\n    </SMART_FOLDER>\n"
@@ -116,21 +116,76 @@ def test_observe_orders_leaves_out_grouped_parents_with_contradictory_child_orde
         b"</DEFTABLE>\n"
     )
 
-    _, child_order = observe_orders(parse_xml(data))
+    _, child_seen = observe_sequences(parse_xml(data))
 
-    assert "SMART_FOLDER" not in child_order
-    assert child_order["DEFTABLE"] == ("SMART_FOLDER",)
+    assert "SMART_FOLDER" not in child_seen
+    assert child_seen["DEFTABLE"] == (("SMART_FOLDER",),)
+
+
+def test_observe_sequences_keeps_what_each_element_shows() -> None:
+    data = (
+        b'<?xml version="1.0" encoding="utf-8"?>\n<DEFTABLE>\n'
+        b'    <JOB A="1" W="2" />\n    <JOB A="1" D="3" />\n    <JOB A="1" W="4" />\n'
+        b"</DEFTABLE>\n"
+    )
+
+    attr_seen, _ = observe_sequences(parse_xml(data))
+
+    assert attr_seen["JOB"] == (("A", "W"), ("A", "D"))
+
+
+def test_observe_sequences_keeps_both_orders_of_an_export_written_two_ways() -> None:
+    data = (
+        b'<?xml version="1.0" encoding="utf-8"?>\n<DEFTABLE>\n'
+        b'    <JOB A="1" B="2" />\n    <JOB B="2" A="1" />\n'
+        b"</DEFTABLE>\n"
+    )
+
+    attr_seen, _ = observe_sequences(parse_xml(data))
+
+    assert attr_seen["JOB"] == (("A", "B"), ("B", "A"))
 
 
 def test_merge_orders_extends_without_contradiction() -> None:
-    merged = merge_orders({"JOB": ("A", "C")}, {"JOB": ("A", "B", "C"), "X": ("P",)})
+    merged = merge_orders({"JOB": ("A", "C")}, {"JOB": (("A", "B", "C"),), "X": (("P",),)})
 
     assert merged == {"JOB": ("A", "B", "C"), "X": ("P",)}
 
 
-def test_merge_orders_raises_on_contradiction() -> None:
-    with pytest.raises(OrderConflict):
-        merge_orders({"JOB": ("A", "B")}, {"JOB": ("B", "A")})
+def test_merge_orders_keeps_the_recorded_order_against_an_element_written_another_way() -> None:
+    # that element keeps its own order in its metadata (with_own_order)
+    merged = merge_orders({"JOB": ("A", "B")}, {"JOB": (("B", "A"), ("A", "C"), ("B", "X", "A"))})
+
+    assert merged == {"JOB": ("A", "B", "C", "X")}
+
+
+def test_merge_orders_keeps_the_place_of_names_that_never_meet() -> None:
+    # W and D are never in one element: no export says which comes first, so the order recorded
+    # stays, although this export alone would put D first (it shows D first)
+    merged = merge_orders(
+        {"JOB": ("A", "W", "D", "Z")}, {"JOB": (("A", "D", "Z"), ("A", "W", "Z"))}
+    )
+
+    assert merged == {"JOB": ("A", "W", "D", "Z")}
+
+
+def test_an_element_in_the_canonical_order_needs_no_order_of_its_own() -> None:
+    attrs = (("JOBISN", "3"), ("JOBNAME", "J"), ("RUN_AS", "u"))
+
+    assert with_own_order(attrs, {"JOBISN": "3"}, ("JOBISN", "JOBNAME", "RUN_AS")) == {
+        "JOBISN": "3"
+    }
+
+
+def test_an_element_written_another_way_is_merged_back_in_its_own_order() -> None:
+    attrs = (("JOBISN", "3"), ("RUN_AS", "u"), ("JOBNAME", "J"))
+    order = ("JOBISN", "JOBNAME", "RUN_AS")
+    kept, meta = split_volatile(attrs, ("JOBISN",))
+
+    meta = with_own_order(attrs, meta, order)
+
+    assert meta == {"JOBISN": "3", OWN_ORDER_KEY: "JOBISN RUN_AS JOBNAME"}
+    assert merge_volatile(dict(kept), meta, order) == attrs
 
 
 def test_split_and_merge_volatile_restore_the_original_attribute_tuple() -> None:

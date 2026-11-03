@@ -34,6 +34,8 @@ export into:
   of each other environment is grouped into a few decisions (a machine, a user, a mail, the
   environment's name in a subject becomes a constant with a value per environment; what only
   one environment has or lacks is noted), and production stays byte for byte as it was.
+  `ctmchain check` then counts, field by field, what the repository's export of each
+  environment still differs in.
 - **Releases and comparison.** The trunk mirrors production; a release is installed
   environment by environment; two branches compare in Control-M terms, and any change of the
   other branch (one attribute, one job without its folder, one condition) can be taken into
@@ -93,6 +95,7 @@ ctmchain release installed uat --repo ./my-chains                   # tag uat/20
 ctmchain receive delivery.xml --repo ./my-chains                    # a team's folders, made neutral
 ctmchain receive uat_full.xml --full --repo ./my-chains             # all of uat: constants, what only uat has
 ctmchain receive uat_full.xml --values-only --repo ./my-chains      # only uat's machines, users, mails
+ctmchain check uat_full.xml --env uat --repo ./my-chains            # what our uat export still differs in
 ctmchain take release/2026-10 --list --repo ./my-chains             # what another release changed
 ctmchain take release/2026-10 --item job:P77_CHAIN/P77_D --repo ./my-chains   # one job of it; --apply
 ctmchain release close --repo ./my-chains                           # once installed in prod

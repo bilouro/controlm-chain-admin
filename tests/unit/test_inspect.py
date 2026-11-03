@@ -73,6 +73,19 @@ def test_show_returns_job_json_with_its_metadata(tmp_path: Path) -> None:
     assert folder["meta"] == {"JOBISN": "1"}
 
 
+def test_show_leaves_out_the_own_order_of_a_job_written_another_way(tmp_path: Path) -> None:
+    repo = _import(tmp_path)
+    canonical = (
+        b'RUN_AS="aup77proc" TASKTYPE="Command" NODEID="UP77_BATCH" CMDLINE="/opt/p77/bin/load'
+    )
+    written = (
+        b'TASKTYPE="Command" RUN_AS="aup77proc" NODEID="UP77_BATCH" CMDLINE="/opt/p77/bin/load'
+    )
+    import_xml(repo, SAMPLE_EXPORT.replace(canonical, written), env="uat")
+
+    assert show_node(repo, "P77_INGEST_DAILY/P77_INGEST_LOAD")["meta"] == {"JOBISN": "3"}
+
+
 def test_show_unknown_node_raises_model_error(tmp_path: Path) -> None:
     repo = _import(tmp_path)
 

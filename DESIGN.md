@@ -58,7 +58,10 @@ one line per job; a job move is a rename plus two `links.json` edits.
 ### 4.1 Rules common to every file
 
 - Keys follow a fixed order per element type (the export attribute order), so files are stable
-  and diffs show only real changes. Arrays keep document order.
+  and diffs show only real changes. Arrays keep document order. The order in `chain.json` is
+  built from what the exports show (attributes that never meet in one element may come
+  either way); a job or folder written in another order keeps its own (`@order` in its
+  metadata), so the export stays byte for byte and no order stops an import.
 - Names in **whitelisted attributes** are stored **without the environment letter**:
   `P77_INGEST_INIT`, `RQ_AM`, `RC_INIT` (export writes `UP77_INGEST_INIT`, `URQ_AM`, `URC_INIT`
   for `uat`). Whitelist: `FOLDER_NAME`, `JOBNAME`, `MEMNAME`, `PARENT_FOLDER`,
@@ -722,6 +725,7 @@ Quality
 - `validate [--env <env>] [--strict]` — graph, naming, overlay and resolution checks; exit code = highest severity.
 - `resolve [CODE=KIND...] [--apply] [--stat]` — implemented: fixes for the findings (see §8); without arguments, the fix kinds per code.
 - `receive <xml> [--env ENV] [--full|--partial] [--values-only] [--choose ID=OPTION ...] [--apply] [--stat] [--format text|json]` — implemented: an export of one environment (some folders or all) taken into the checked-out release (§5): the decisions with their defaults, then the change set. `--values-only`: the environment's values and nothing else by default. A group's id holds `=`: `--choose 'group:RUN_AS=a>b=new:user.batch_user_proc'`.
+- `check <xml> [--env ENV] [--format text|json]` — implemented: the export of one environment against the repository's export of it, folder by folder and job by job (paired by their names without the letter; a name twice in one folder by its place), field by field (every attribute but the volatile ones, child elements by their path such as `ON/DOMAIL`): per field, the nodes where the repository's export still differs and, for an environment other than production, how many differ from production's export; whether it is byte for byte, the nodes on one side only, the constants and exceptions of the environment. Text shows counts only (`--format json` names the nodes), never values. Exit 1 when anything but volatile attributes, order or layout differs.
 - `env learn <xml> [--env ENV] [--only PREFIX ...] [--apply]` — implemented: only the values of the constants in that environment (`--only user.` keeps some constants, e.g. when the export is anonymised).
 - `set-exception <env> <node> [--set ATTR=VALUE] [--unset ATTR] [--var %%NAME=VALUE] [--drop NAME]` — implemented: an exception of one environment for one job or folder (§5), previewed, `--apply` writes `envs/<env>/overrides.json`.
 - `rename-constant <old> <new>` — implemented: placeholders, `chain.json`, environment values and exceptions follow.

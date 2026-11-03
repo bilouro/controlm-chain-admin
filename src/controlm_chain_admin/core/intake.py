@@ -297,7 +297,9 @@ class _Collector:
     elsewhere: bool = False  # a full export of another environment than production
     values_only: bool = False  # only the values of the environment: the rest is ignored
     base: Mapping[str, str | None] = field(default_factory=dict)  # production's constants
+    full: bool = False  # the export has the whole environment
     decisions: list[Decision] = field(default_factory=list)
+    confirming: dict[str, list[Site]] = field(default_factory=dict)  # uses the export confirms
     adopting: dict[str, list[Site]] = field(default_factory=dict)
     contradicted: dict[str, dict[str, list[Site]]] = field(default_factory=dict)
     learning: dict[str, dict[str, list[Site]]] = field(default_factory=dict)
@@ -333,10 +335,14 @@ class _Collector:
         for key in [*b, *(k for k in a if k not in b)]:
             if b.get(key) != a.get(key):
                 self.classify(Site(node, key, "attribute", (), b.get(key), a.get(key)))
+            else:
+                self.confirm(Site(node, key, "attribute", (), b[key], a[key]))
         bv, av = _variables(before), _variables(after)
         for key in [*bv, *(k for k in av if k not in bv)]:
             if bv.get(key) != av.get(key):
                 self.classify(Site(node, key, "variable", (), bv.get(key), av.get(key)))
+            else:
+                self.confirm(Site(node, key, "variable", (), bv[key], av[key]))
         bc, ac = _children(before), _children(after)
         structural = False
         for path in _leaves(bc, ac):
@@ -360,6 +366,14 @@ class _Collector:
             )
         return size != self._size()
 
+    def confirm(self, site: Site) -> None:
+        """Note a use of a constant whose value this whole export confirms, with that value:
+        it becomes an exception if most of the export says another value (``finish``)."""
+        whole = PLACEHOLDER.fullmatch(site.current or "")
+        if self.full and whole and self.known.get(whole[1]) is not None:
+            confirmed = replace(site, incoming=self.known[whole[1]])
+            self.confirming.setdefault(whole[1], []).append(confirmed)
+
     def adopts(self, current: str | None, incoming: str | None) -> str | None:
         """The constant the export has where the repository still has production's value of
         it, in the whole value or inside a text (``[P77][PROD] Load failed``)."""
@@ -378,15 +392,26 @@ class _Collector:
         return len(self.decisions) + learning + contradicted + adopting
 
     def finish(self, agreeing: Mapping[str, int]) -> list[Decision]:
-        """Learn decisions (one per constant), values the whole export contradicts (one per
-        constant), then the sites that disagree; ``agreeing`` counts the uses of each constant
-        whose value the export confirms."""
+        """Learn decisions (one per constant), values the whole export contradicts or most of
+        an export of the whole environment has (one per constant: the uses that keep the old
+        value become exceptions), then the sites that disagree; ``agreeing`` counts the uses
+        of each constant whose value the export confirms."""
         grouped: list[Decision] = []
         disagree: list[Decision] = []
         for constant, by_value in self.contradicted.items():
             known = self.known[constant]
+            ranked = sorted(by_value.items(), key=lambda item: -len(item[1]))
+            value, sites = ranked[0]
+            confirming = self.confirming.get(constant, [])
             if not agreeing.get(constant) and len(by_value) == 1:
-                [(value, sites)] = by_value.items()
+                ranked, confirming = [], []
+            elif not (
+                len(sites) > agreeing.get(constant, 0) == len(confirming)
+                and all(site.can_except for site in confirming)
+            ):
+                confirming = []  # the value stays: the sites that differ are the exceptions
+                value, sites = "", []
+            if sites:  # most of the export has another value: it becomes the constant's
                 grouped.append(
                     Decision(
                         f"value:{constant}", "set-value", ("set-value", "exceptions", "ignore"),
@@ -394,14 +419,18 @@ class _Collector:
                         expected=known, incoming=value, count=len(sites), sites=tuple(sites),
                     )
                 )  # fmt: skip
-                continue
-            for sites in by_value.values():
+                ranked = ranked[1:]
+            for site in confirming:  # they keep the value the repository had
+                disagree.append(
+                    _site_decision(site, "constant", _KNOWN_OPTIONS, "exception", constant, value)
+                )
+            for _, sites in ranked:
                 for site in sites:
                     options = _KNOWN_OPTIONS if site.can_except else ("new", "set-value", "ignore")
                     disagree.append(
                         _site_decision(
                             site, "constant", options,
-                            "exception" if site.can_except else "ignore", constant, known,
+                            "exception" if site.can_except else "ignore", constant, value or known,
                         )
                     )  # fmt: skip
         for constant, learning in self.learning.items():
@@ -731,7 +760,7 @@ def analyze(
             else {}
         )
         collector = _Collector(
-            env, known, load_overrides(repo, env), volatile, elsewhere, values_only, base
+            env, known, load_overrides(repo, env), volatile, elsewhere, values_only, base, full
         )
         placed = (
             ("only-here", "everywhere", "skip"),

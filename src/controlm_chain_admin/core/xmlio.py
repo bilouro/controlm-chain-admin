@@ -2,13 +2,15 @@
 
 Parsing uses the standard-library expat parser with namespace processing off, so the root's
 ``xmlns:xsi`` / ``xsi:noNamespaceSchemaLocation`` are plain attributes and the source attribute
-order is kept. Serialization reproduces the layout written by the Control-M client: UTF-8, LF,
-four-space indentation, ``<X ... />`` for empty elements, ``&amp; &lt; &gt; &quot;`` and
-``&#x9; &#xA; &#xD;`` escapes inside attribute values, apostrophes literal.
+order is kept. Serialization reproduces the layout written by the Control-M client: UTF-8
+(with the byte order mark when the export had one), LF or CRLF as read, four-space
+indentation, ``<X ... />`` for empty elements, ``&amp; &lt; &gt; &quot;`` and ``&#x9; &#xA;
+&#xD;`` escapes inside attribute values, apostrophes literal.
 """
 
 from __future__ import annotations
 
+import codecs
 import xml.parsers.expat
 from dataclasses import dataclass, field, replace
 
@@ -107,6 +109,8 @@ def parse_xml(data: bytes) -> XmlDocument:
     first = data.find(b"\n")
     if first > 0 and data[first - 1 : first] == b"\r":
         document = replace(document, newline="\r\n")
+    if data.startswith(codecs.BOM_UTF8):
+        document = replace(document, bom=True)
     return document
 
 
@@ -148,4 +152,4 @@ def serialize_xml(document: XmlDocument) -> bytes:
     text = "".join(out)  # line breaks inside values are escaped: every "\n" ends a line
     if document.newline != "\n":
         text = text.replace("\n", document.newline)
-    return text.encode("utf-8")
+    return (codecs.BOM_UTF8 if document.bom else b"") + text.encode("utf-8")

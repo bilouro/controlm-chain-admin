@@ -27,10 +27,6 @@ class DuplicateName(ChainError):
     """Two elements share an identity that must be unique (e.g. two jobs with one JOBNAME)."""
 
 
-class OrderConflict(ChainError):
-    """Observed attribute or child order contradicts the order recorded in ``chain.json``."""
-
-
 class ModelError(ChainError):
     """The JSON in the repository does not match the expected shape."""
 

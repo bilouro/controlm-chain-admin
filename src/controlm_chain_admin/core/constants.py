@@ -155,6 +155,33 @@ def apply_import(
     return rewritten, ImportConstantsReport(replaced, {k: tuple(v) for k, v in unmapped.items()})
 
 
+def keep_equivalent(new: Any, old: Any, env_values: Mapping[str, str | None]) -> Any:
+    """``new`` (a JSON value just imported) with the repository's ``old`` value kept wherever
+    both have constants and stand for the same text in this environment.
+
+    One machine of the environment may stand for two of production (two constants with one
+    value there): reading its export cannot tell which constant a job has, the repository can.
+    """
+    if isinstance(new, str) and isinstance(old, str):
+        if new == old or not (PLACEHOLDER.search(new) and PLACEHOLDER.search(old)):
+            return new
+        names = {*PLACEHOLDER.findall(new), *PLACEHOLDER.findall(old)}
+        if any(env_values.get(name) is None for name in names):
+            return new
+        text = {name: str(env_values[name]) for name in names}
+        same = PLACEHOLDER.sub(lambda m: text[m[1]], new) == PLACEHOLDER.sub(
+            lambda m: text[m[1]], old
+        )
+        return old if same else new
+    if isinstance(new, dict) and isinstance(old, dict):
+        return {
+            key: keep_equivalent(value, old.get(key), env_values) for key, value in new.items()
+        }
+    if isinstance(new, list) and isinstance(old, list) and len(new) == len(old):
+        return [keep_equivalent(n, o, env_values) for n, o in zip(new, old, strict=True)]
+    return new
+
+
 @dataclass(frozen=True)
 class ExportConstantsReport:
     resolved: int

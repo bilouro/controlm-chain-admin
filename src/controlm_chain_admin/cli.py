@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from controlm_chain_admin import __version__
+from controlm_chain_admin.core import check as check_mod
 from controlm_chain_admin.core import commit as commit_mod
 from controlm_chain_admin.core import compare as compare_mod
 from controlm_chain_admin.core import constants as constants_mod
@@ -268,6 +269,24 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _refactor_options(rec)
     rec.set_defaults(func=cmd_receive)
+
+    chk = commands.add_parser(
+        "check",
+        help="an environment's export against the repository's export of it, field by field; "
+        "exit 1 if anything but volatile attributes differs",
+    )
+    chk.add_argument("xml", type=Path, help="the full export of the environment")
+    chk.add_argument("--env", help="its environment (default: told by the letter of the names)")
+    chk.add_argument(
+        "--repo", type=Path, default=Path("."), help="repository directory (default: .)"
+    )
+    chk.add_argument(
+        "--format",
+        choices=("text", "json"),
+        default="text",
+        help="text: counts only; json: also the nodes of each field",
+    )
+    chk.set_defaults(func=cmd_check)
 
     cmp_ = commands.add_parser("compare", help="what changed in the chains between two git refs")
     cmp_.add_argument("base", help="base ref, e.g. develop")
@@ -653,6 +672,43 @@ def cmd_receive(args: argparse.Namespace) -> int:
         return EXIT_OK
     args.build = lambda _r, _a: change
     return cmd_refactor(args)
+
+
+def cmd_check(args: argparse.Namespace) -> int:
+    check = check_mod.check_export(load_repo(args.repo), args.xml.read_bytes(), args.env)
+    if args.format == "json":
+        print(json.dumps(check.to_json(), indent=2, ensure_ascii=False))
+        return EXIT_OK if check.clean else EXIT_FINDINGS
+    env = check.env
+    print(f"{env} export: {'; '.join(check.evidence)}")
+    for warning in check.warnings:
+        print(f"warning: {warning}")
+    same = "the same" if check.identical else "not the same"
+    print(f"The repository's export of {env} is {same} byte for byte")
+    print(
+        f"Folders and jobs: {check.nodes} in the export, {check.both} in both, "
+        f"{len(check.only_export)} only in the export, "
+        f"{len(check.only_repository)} only in the repository"
+    )
+    print(
+        f"Constants: {check.constants} with a value in {env}, {len(check.unresolved)} needed "
+        f"without one; exceptions of {env}: {check.exceptions}"
+    )
+    if not check.fields:
+        print("No field differs.")
+        return EXIT_OK if check.clean else EXIT_FINDINGS
+    width = max(24, *(len(f.field) for f in check.fields))
+    columns = [f"{env} vs {check.production}"] if check.production else []
+    columns.append(f"repository vs {env}")
+    print(f"{'field':<{width}}" + "".join(f"  {c}" for c in columns))
+    for f in check.fields:
+        counts = [] if f.from_production is None else [f.from_production]
+        counts.append(len(f.differs))
+        cells = "".join(f"  {n:>{len(c)}}" for n, c in zip(counts, columns, strict=True))
+        print(f"{f.field:<{width}}{cells}")
+    if not check.clean:
+        print("The nodes of each field: --format json")
+    return EXIT_OK if check.clean else EXIT_FINDINGS
 
 
 def cmd_env_learn(args: argparse.Namespace) -> int:

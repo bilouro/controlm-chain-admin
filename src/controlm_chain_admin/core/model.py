@@ -65,3 +65,4 @@ class XmlDocument:
     declaration: XmlDeclaration = field(default_factory=XmlDeclaration)
     prolog_comments: tuple[str, ...] = ()
     newline: str = "\n"  # "\r\n" for exports saved on Windows
+    bom: bool = False  # a UTF-8 byte order mark before the declaration

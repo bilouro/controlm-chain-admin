@@ -194,3 +194,70 @@ def test_a_text_with_production_s_name_inside_takes_the_inline_constant(tmp_path
     repo = load_repo(repo.root)
     assert b'SUBJECT="[P77][BENCH] D failed"' in export_xml(repo, "bench")
     assert export_xml(repo, "prod") == filter_applications(prod, {APP})
+
+
+def _machines(data: bytes, env: bytes, b: bytes) -> bytes:
+    """``data`` with the machines of ``env`` (no letter in them): P77_B on ``b``, the rest on 1."""
+    data = data.replace(b'NODEID="PP77_BATCH"', b'NODEID="srv' + env + b'-bat1"')
+    return job(data, b"PP77_B", b"-bat1", b"-" + b)
+
+
+def _as(env_letter: bytes, data: bytes) -> bytes:
+    """A prod export as the environment of ``env_letter`` has it (its letter in names)."""
+    for prefix in (b"P77", b"RQ_", b"RC_"):
+        data = data.replace(b"P" + prefix, env_letter + prefix)
+    return data
+
+
+@pytest.mark.parametrize("uat_first", [False, True], ids=["new constants", "known constants"])
+def test_two_machines_of_production_that_are_one_in_test_stay_two(
+    tmp_path: Path, uat_first: bool
+) -> None:
+    prod = _machines(PROD, b"p", b"bat2")
+    repo = fresh_repo(tmp_path, prod)
+    if uat_first:  # two machines in uat as well: the constants exist when test comes
+        apply(repo, receive(repo, _as(b"U", _machines(PROD, b"u", b"bat2")), values_only=True))
+    test = _as(b"T", _machines(PROD, b"t", b"bat1"))  # one machine in test for both
+
+    apply(repo, receive(load_repo(repo.root), test, values_only=True))
+
+    repo = load_repo(repo.root)
+    assert export_xml(repo, "prod") == filter_applications(prod, {APP})
+    assert export_xml(repo, "test") == filter_applications(test, {APP})
+
+
+def test_the_machine_most_jobs_have_becomes_the_value_and_the_guess_an_exception(
+    repo: ChainRepo,
+) -> None:
+    apply(repo, receive(repo, _as(b"U", PROD), values_only=True))  # guesses TP77_BATCH for test
+    repo = load_repo(repo.root)
+    [node] = [n for n, s in repo.config.constants.items() if s.attribute == "NODEID"]
+    test = _as(b"T", PROD).replace(b'NODEID="TP77_BATCH"', b'NODEID="srvt-main"')
+    test = job(test, b"TP77_A", b'NODEID="srvt-main"', b'NODEID="TP77_BATCH"')  # one job on it
+
+    intake = analyze(repo, test, values_only=True)
+    apply(repo, receive(repo, test, values_only=True))
+
+    by_id = {d.id: d for d in intake.decisions}
+    value = by_id[f"value:{node}"]
+    assert (value.kind, value.incoming, value.default) == ("set-value", "srvt-main", "set-value")
+    [guess] = [d for d in intake.decisions if d.kind == "constant"]
+    assert (guess.node, guess.incoming, guess.default) == (f"{C}/P77_A", "TP77_BATCH", "exception")
+    repo = load_repo(repo.root)
+    assert repo.load_env("test").constants[node] == "srvt-main"
+    assert list(load_overrides(repo, "test")) == [f"{C}/P77_A"]
+    assert export_xml(repo, "test") == filter_applications(test, {APP})
+    assert export_xml(repo, "prod") == filter_applications(PROD, {APP})
+
+
+def test_a_delivery_does_not_move_the_value_of_a_constant(repo: ChainRepo) -> None:
+    apply(repo, receive(repo, _as(b"U", PROD), values_only=True))
+    repo = load_repo(repo.root)
+    delivery = _as(b"T", ANOMALY_EXPORT.replace(b"UP77", b"PP77"))  # one folder of two
+    delivery = delivery.replace(b'NODEID="TP77_BATCH"', b'NODEID="srvt-main"')
+    delivery = job(delivery, b"TP77_A", b'NODEID="srvt-main"', b'NODEID="TP77_BATCH"')
+
+    intake = analyze(repo, delivery)
+
+    assert not intake.full
+    assert not [d for d in intake.decisions if d.kind == "set-value"]

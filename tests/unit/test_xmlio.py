@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import codecs
+
 import pytest
 
 from controlm_chain_admin.core.errors import XmlFormatError
@@ -133,6 +135,15 @@ def test_serialize_writes_non_ascii_as_utf8() -> None:
 
     assert 'D="Préparation"'.encode() in serialize_xml(doc)
     assert parse_xml(serialize_xml(doc)).root.get("D") == "Préparation"
+
+
+def test_a_byte_order_mark_is_read_and_written_back() -> None:
+    with_bom = codecs.BOM_UTF8 + SAMPLE_EXPORT
+
+    doc = parse_xml(with_bom)
+
+    assert doc.bom and not parse_xml(SAMPLE_EXPORT).bom
+    assert serialize_xml(doc) == with_bom
 
 
 def test_windows_line_endings_are_read_and_written_back() -> None:

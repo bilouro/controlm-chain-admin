@@ -60,8 +60,7 @@ mkdir chains && cd chains && git init -b main
 ctmchain init --application <APP> --envs test=T,uat=U,bench=B,prod=P \
     --prefixes P77,RQ_,RC_ --leading-only RQ_,RC_
 ctmchain import ../exports/prod/<prod>.xml --env prod --dedupe-jobnames
-ctmchain export --env prod --jobnames original -o /tmp/prod-check.xml
-cmp /tmp/prod-check.xml ../exports/prod/<prod>.xml && echo "prod: byte for byte"
+ctmchain check ../exports/prod/<prod>.xml --env prod   # "the same byte for byte", exit 0
 git add -A && git commit -m "chore: production baseline"
 ```
 
@@ -91,9 +90,21 @@ Read the decisions with the person, by section, before `--apply`:
   (**added**: left out). A difference the person knows is the environment's own (a job that
   is Dummy there, another command line) may be made an **exception** instead.
 
-Then `--apply`, look at `ctmchain export --env uat`, and commit. Same for bench and test (they
-only learn the values of the constants that exist by now). Production is untouched:
-`ctmchain export --env prod --jobnames original` is still byte for byte the prod export.
+Then `--apply` and check, before the commit:
+
+```bash
+ctmchain check ../exports/uat/<uat>.xml --env uat     # counts per field, never values
+ctmchain check ../exports/prod/<prod>.xml --env prod  # must still be "the same byte for byte"
+```
+
+The *repository vs uat* column is what the repository's uat export still differs in: the
+machines and users (`NODEID`, `RUN_AS`) should be 0, mails nearly 0. What is left is what
+values-only leaves out on purpose: conditions named per environment (`INCOND`, `OUTCOND`),
+jobs that are Dummy there (`TASKTYPE`), another command line (`CMDLINE`), variables only one
+side has, and the folders and jobs only in the export (the releases' business, step 6).
+`--format json` names the nodes of each field. Report the counts to the person; if production
+is not byte for byte any more, stop and say so. Then commit, and the same for bench and test
+(they only learn the values of the constants that exist by now).
 
 ### 4. The conventions agreed for these chains
 
@@ -134,9 +145,9 @@ ctmchain release installed uat                             # each environment it
 
 A folder two releases both changed comes whole in each delivery: when the first one is closed
 into `main`, *Update from main* in the other merges them. Check each release with
-`ctmchain receive ../exports/<env>/<env>.xml` (preview only) on the release branch: what is
-left is what differs for another reason (often conditions whose names differ per
-environment).
+`ctmchain check ../exports/<env>/<env>.xml --env <env>` on the release branch (and
+`ctmchain receive ../exports/<env>/<env>.xml`, preview only, for the decisions): what is left
+is what differs for another reason (often conditions whose names differ per environment).
 
 Then the everyday flow of the data repository's own `CLAUDE.md` (written by `init`):
 deliveries through `ctmchain receive`, a full prod export now and then to catch up with

@@ -8,6 +8,7 @@ from typing import Any
 
 from controlm_chain_admin.core import ops
 from controlm_chain_admin.core.errors import ModelError
+from controlm_chain_admin.core.jsonmodel import OWN_ORDER_KEY
 from controlm_chain_admin.core.links import NodeRef
 from controlm_chain_admin.core.model import XmlDocument, XmlElement
 from controlm_chain_admin.core.repo import ChainRepo, read_json
@@ -97,9 +98,14 @@ def show_node(repo: ChainRepo, node: str) -> dict[str, Any]:
     )
     if ref.job is None:
         data = dict(read_json(repo.folder_file(ref.folder)))
-        return {**data, "meta": meta.get("attrs", {})}
+        return {**data, "meta": _shown(meta.get("attrs", {}))}
     job_file = repo.job_file(ref.folder, ref.job)
     if not job_file.is_file():
         raise ModelError(f"unknown job {ref.job!r} in folder {ref.folder!r}")
     data = dict(read_json(job_file))
-    return {**data, "meta": meta.get("jobs", {}).get(ref.job, {})}
+    return {**data, "meta": _shown(meta.get("jobs", {}).get(ref.job, {}))}
+
+
+def _shown(meta: dict[str, str]) -> dict[str, str]:
+    """The volatile attributes of a node, without the order it was written in."""
+    return {key: value for key, value in meta.items() if key != OWN_ORDER_KEY}

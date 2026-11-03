@@ -18,11 +18,13 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
-from controlm_chain_admin.core.errors import ModelError, OrderConflict
+from controlm_chain_admin.core.errors import ModelError
 from controlm_chain_admin.core.model import XmlComment, XmlDocument, XmlElement
 
 JsonDict = dict[str, Any]
 Order = Mapping[str, Sequence[str]]
+Seen = Mapping[str, Sequence[tuple[str, ...]]]  # the sequences an export shows, per tag
+OWN_ORDER_KEY = "@order"  # metadata of an element written in an order of its own
 
 COMMENT_TAG = "#comment"
 CHILDREN_KEY = "children"
@@ -160,14 +162,17 @@ def _child_runs(element: XmlElement) -> tuple[str, ...] | None:
     return None if len(runs) != len(set(runs)) else tuple(runs)
 
 
-def observe_orders(
+def observe_sequences(
     document: XmlDocument,
-) -> tuple[dict[str, tuple[str, ...]], dict[str, tuple[str, ...]]]:
-    """Derive (attribute order per tag, child order per grouped parent) from a document.
+) -> tuple[dict[str, tuple[tuple[str, ...], ...]], dict[str, tuple[tuple[str, ...], ...]]]:
+    """What a document shows: the distinct attribute sequences of each tag, and the distinct
+    child-tag runs of each grouped parent, in order of first appearance.
 
-    Attribute orders must be consistent (they always are in Control-M exports); a contradiction
-    raises :class:`OrderConflict`. A grouped parent whose children do not follow one global
-    order is left out of the child order, so its children are stored as an ordered list.
+    Only these are facts. One order derived from them also places names that never meet in
+    one element (``DAYS`` and ``WEEKDAYS`` of a job), and that place is arbitrary: two exports
+    may put them either way, so :func:`merge_orders` takes the sequences, not such an order.
+    A grouped parent whose children do not follow one global order is left out, so its
+    children are stored as an ordered list.
     """
     attr_seqs: dict[str, list[tuple[str, ...]]] = {}
     child_seqs: dict[str, list[tuple[str, ...]]] = {}
@@ -191,35 +196,31 @@ def observe_orders(
 
     walk(document.root)
 
-    attr_order: dict[str, tuple[str, ...]] = {}
-    for tag, seqs in attr_seqs.items():
-        order = _topological(seqs)
-        if order is None:
-            raise OrderConflict(f"attribute order of <{tag}> is not consistent across the export")
-        attr_order[tag] = order
-    child_order: dict[str, tuple[str, ...]] = {}
-    for tag, seqs in child_seqs.items():
-        if tag in ungroupable:
-            continue
-        order = _topological(seqs)
-        if order is not None:
-            child_order[tag] = order
-    return attr_order, child_order
+    children = {
+        tag: tuple(seqs)
+        for tag, seqs in child_seqs.items()
+        if tag not in ungroupable and _topological(seqs) is not None
+    }
+    return {tag: tuple(seqs) for tag, seqs in attr_seqs.items()}, children
 
 
-def merge_orders(existing: Order, observed: Order) -> dict[str, tuple[str, ...]]:
-    """Merge two order tables; raises :class:`OrderConflict` when they contradict each other."""
+def merge_orders(existing: Order, seen: Seen) -> dict[str, tuple[str, ...]]:
+    """Extend the recorded orders with the sequences an export shows (:func:`observe_sequences`).
+
+    The recorded order stays as it is; a name new to it goes where the sequences put it. A
+    sequence that contradicts the order (an element written another way, by another client)
+    does not change it: that element keeps its own order in its metadata
+    (:func:`with_own_order`), and the names only it has go last.
+    """
     merged: dict[str, tuple[str, ...]] = {}
-    for tag in [*existing, *(t for t in observed if t not in existing)]:
-        sequences = [tuple(existing[tag])] if tag in existing else []
-        if tag in observed:
-            sequences.append(tuple(observed[tag]))
-        order = _topological(sequences)
-        if order is None:
-            raise OrderConflict(
-                f"order of <{tag}> in this export contradicts the order recorded in chain.json"
-            )
-        merged[tag] = order
+    for tag in [*existing, *(t for t in seen if t not in existing)]:
+        accepted = [tuple(existing[tag])] if tag in existing else []
+        for sequence in seen.get(tag, ()):
+            if _topological([*accepted, sequence]) is not None:
+                accepted.append(sequence)
+        order = _topological(accepted) or ()
+        rest = (name for sequence in seen.get(tag, ()) for name in sequence if name not in order)
+        merged[tag] = (*order, *dict.fromkeys(rest))
     return merged
 
 
@@ -236,13 +237,28 @@ def split_volatile(
     return kept, meta
 
 
+def with_own_order(
+    attrs: Sequence[tuple[str, str]], meta: Mapping[str, str], order: Sequence[str]
+) -> dict[str, str]:
+    """The metadata of an element, with its own attribute order (``OWN_ORDER_KEY``) when the
+    canonical order would write its attributes another way."""
+    names = [key for key, _ in attrs]
+    if [key for key, _ in merge_volatile(dict(attrs), {}, order)] == names:
+        return dict(meta)
+    return {**meta, OWN_ORDER_KEY: " ".join(names)}
+
+
 def merge_volatile(
     attrs: Mapping[str, str], meta: Mapping[str, str], order: Sequence[str]
 ) -> tuple[tuple[str, str], ...]:
-    """Recombine functional attributes and metadata in the canonical attribute order.
+    """Recombine functional attributes and metadata in the canonical attribute order, or in
+    the element's own order when its metadata has one (:func:`with_own_order`).
 
     Attributes unknown to the order (added by hand after the import) go last, in their order.
     """
+    if OWN_ORDER_KEY in meta:
+        order = meta[OWN_ORDER_KEY].split(" ")
+        meta = {key: value for key, value in meta.items() if key != OWN_ORDER_KEY}
     clash = sorted(set(attrs) & set(meta))
     if clash:
         raise ModelError(f"attributes present both in the element and in its metadata: {clash}")

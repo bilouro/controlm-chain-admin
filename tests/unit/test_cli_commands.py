@@ -50,6 +50,7 @@ def test_init_leaves_a_guide_for_claude_in_the_new_repository(tmp_path: Path) ->
     assert guide.startswith(f"# {APP} — chain repository")
     assert "uat (U), prod (P)" in guide and "Production is prod" in guide
     assert "never edit `main`" in guide and "ctmchain receive" in guide
+    assert "ctmchain check exports/uat/full.xml --env uat" in guide
 
 
 def test_init_keeps_a_guide_that_is_already_there(tmp_path: Path) -> None:

@@ -23,6 +23,7 @@ from controlm_chain_admin.core.constants import (
     ImportConstantsReport,
     apply_export,
     apply_import,
+    keep_equivalent,
 )
 from controlm_chain_admin.core.errors import (
     DuplicateName,
@@ -36,8 +37,9 @@ from controlm_chain_admin.core.jsonmodel import (
     json_to_element,
     merge_orders,
     merge_volatile,
-    observe_orders,
+    observe_sequences,
     split_volatile,
+    with_own_order,
 )
 from controlm_chain_admin.core.letter import LetterReport, add_letter, strip_letter
 from controlm_chain_admin.core.links import (
@@ -330,11 +332,11 @@ def import_xml(
     repo = load_repo(repo.root)
     letter = _letter(repo, env, "import")
     document = parse_xml(data)
-    attr_observed, child_observed = observe_orders(document)
+    attr_seen, child_seen = observe_sequences(document)
     config = replace(
         repo.config,
-        attribute_order=merge_orders(repo.config.attribute_order, attr_observed),
-        child_order=merge_orders(repo.config.child_order, child_observed),
+        attribute_order=merge_orders(repo.config.attribute_order, attr_seen),
+        child_order=merge_orders(repo.config.child_order, child_seen),
     )
     if dedupe_jobnames is not None:
         config = replace(config, dedupe_jobnames=dedupe_jobnames)
@@ -433,22 +435,28 @@ def _write_folder(
 
     folder_dir = repo.folder_dir(name)
     memberships: dict[str, tuple[str, ...] | None] = {}
+    earlier: dict[str, dict[str, Any]] = {}  # the repository's folder ("") and jobs
     if repo.folder_file(name).is_file():
-        before = read_json(repo.folder_file(name))
-        memberships[""] = environments_of(before)
-        for job_id in (str(j) for j in before.get(JOBS_KEY, [])):
+        earlier[""] = read_json(repo.folder_file(name))
+        for job_id in (str(j) for j in earlier[""].get(JOBS_KEY, [])):
             if repo.job_file(name, job_id).is_file():
-                memberships[job_id] = environments_of(read_json(repo.job_file(name, job_id)))
+                earlier[job_id] = read_json(repo.job_file(name, job_id))
+        memberships = {key: environments_of(data) for key, data in earlier.items()}
     if folder_dir.exists():
         shutil.rmtree(folder_dir)  # drop jobs that disappeared since the previous import
+    env_values = repo.load_env(env).constants if env is not None and config.constants else {}
 
     def member(data: dict[str, Any], key: str) -> dict[str, Any]:
+        if env_values and key in earlier:
+            data = keep_equivalent(data, earlier[key], env_values)
         envs = memberships.get(key)
         if envs is None:
             return data
         return with_envs(data, (*envs, *((env,) if env else ())), config.environments)
 
     kept_attrs, folder_meta = split_volatile(folder.attrs, config.volatile_attributes)
+    folder_order = config.attribute_order.get(folder.tag, ())
+    folder_meta = with_own_order(folder.attrs, folder_meta, folder_order)
     without_jobs = replace(
         folder,
         attrs=kept_attrs,
@@ -466,9 +474,10 @@ def _write_folder(
     )
 
     jobs_meta: dict[str, dict[str, str]] = {}
+    job_order = config.attribute_order.get(JOB_TAG, ())
     for job_id, job in zip(ids, job_elements, strict=True):
         job_attrs, job_meta = split_volatile(job.attrs, config.volatile_attributes)
-        jobs_meta[job_id] = job_meta
+        jobs_meta[job_id] = with_own_order(job.attrs, job_meta, job_order)
         job_json = element_to_json(replace(job, attrs=job_attrs), config.child_order)
         write_json(repo.job_file(name, job_id), member(job_json, job_id))
     meta: dict[str, Any] = {"attrs": folder_meta, JOBS_KEY: jobs_meta}
@@ -511,6 +520,8 @@ def _export_meta(repo: ChainRepo, document: XmlDocument, imported: list[str]) ->
     }
     if document.newline != "\n":
         header["newline"] = document.newline
+    if document.bom:
+        header["bom"] = True
     return {**header, "folder_order": order}
 
 
@@ -564,7 +575,8 @@ def load_document(
     root = XmlElement(str(meta["root_tag"]), tuple(dict(meta["root_attrs"]).items()), elements)
     declaration = XmlDeclaration(**meta["declaration"])
     comments = tuple(meta.get("prolog_comments", []))
-    return XmlDocument(root, declaration, comments, str(meta.get("newline", "\n"))), renamed
+    newline = str(meta.get("newline", "\n"))
+    return XmlDocument(root, declaration, comments, newline, bool(meta.get("bom"))), renamed
 
 
 def export_document(

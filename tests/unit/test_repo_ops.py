@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import codecs
 import json
 from pathlib import Path
 
@@ -192,6 +193,62 @@ def test_windows_line_endings_survive_import_and_export(tmp_path: Path) -> None:
 
     assert _read(tmp_path / "meta/export.json")["newline"] == "\r\n"
     assert export_xml(repo) == filter_applications(SAMPLE_EXPORT, {APP}).replace(b"\n", b"\r\n")
+
+
+def test_a_byte_order_mark_survives_import_and_export(tmp_path: Path) -> None:
+    repo = init_repo(tmp_path, APP, ENVS)
+    import_xml(repo, codecs.BOM_UTF8 + SAMPLE_EXPORT)
+
+    assert _read(tmp_path / "meta/export.json")["bom"] is True
+    assert export_xml(repo) == codecs.BOM_UTF8 + filter_applications(SAMPLE_EXPORT, {APP})
+
+
+def _calendar(first: bytes, second: bytes) -> bytes:
+    """The sample with one calendar attribute on each of two jobs: no job has both."""
+    return SAMPLE_EXPORT.replace(
+        b'CMDLINE="/opt/p77/bin/init.ksh', first + b' CMDLINE="/opt/p77/bin/init.ksh'
+    ).replace(b'CMDLINE="/opt/p77/bin/load.ksh', second + b' CMDLINE="/opt/p77/bin/load.ksh')
+
+
+def test_attributes_never_in_one_job_take_either_order_in_a_later_export(tmp_path: Path) -> None:
+    repo = init_repo(tmp_path, APP, ENVS)
+    import_xml(repo, _calendar(b'WEEKDAYS="1"', b'DAYS="ALL"'))
+    later = _calendar(b'DAYS="ALL"', b'WEEKDAYS="1"')  # alone, it would put DAYS first
+
+    import_xml(repo, later)
+
+    assert export_xml(repo) == filter_applications(later, {APP})
+
+
+@pytest.mark.parametrize(
+    ("written", "node"),
+    [
+        (b'TASKTYPE="Command" RUN_AS="aup77proc" NODEID="UP77_BATCH" CMDLINE="/opt/p77/bin/init',
+         "UP77_INGEST_INIT"),
+        (b'RUN_AS="aup77proc" CREATED_BY="user01" TASKTYPE="SMART Table" FOLDER_NAME="UP77_INGEST',
+         None),
+    ],
+    ids=["job", "folder"],
+)  # fmt: skip
+def test_an_element_written_another_way_is_exported_as_it_came(
+    tmp_path: Path, written: bytes, node: str | None
+) -> None:
+    repo = init_repo(tmp_path, APP, ENVS)
+    import_xml(repo, SAMPLE_EXPORT)
+    canonical = written.replace(
+        b'TASKTYPE="Command" RUN_AS="aup77proc"', b'RUN_AS="aup77proc" TASKTYPE="Command"'
+    ).replace(b'RUN_AS="aup77proc" CREATED_BY="user01"', b'CREATED_BY="user01" RUN_AS="aup77proc"')
+    assert canonical in SAMPLE_EXPORT
+    later = SAMPLE_EXPORT.replace(canonical, written)  # another client, another order
+
+    import_xml(repo, later)
+
+    assert export_xml(repo) == filter_applications(later, {APP})
+    meta = _read(tmp_path / "meta/folders/UP77_INGEST_DAILY.json")
+    own = meta["jobs"][node] if node else meta["attrs"]
+    assert "@order" in own
+    others = [m for j, m in meta["jobs"].items() if j != node]
+    assert all("@order" not in m for m in others), "only the element written another way"
 
 
 def test_a_partial_export_keeps_the_header_of_the_full_one(tmp_path: Path) -> None:

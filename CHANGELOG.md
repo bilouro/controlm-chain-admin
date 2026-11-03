@@ -6,6 +6,38 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-11-03
+
+### Added
+
+- `ctmchain check <xml> [--env ENV]`: the export of one environment against the repository's
+  export of it, folder by folder, job by job and field by field (every attribute but the
+  volatile ones, child elements such as `INCOND` or `ON/DOMAIL`). Per field: how many nodes the
+  environment differs in from production, and in how many the repository's export still
+  differs; whether it is byte for byte, the nodes on one side only, the constants and the
+  exceptions of the environment. Counts only, never values (`--format json` names the nodes);
+  exit 1 when anything but volatile attributes differs. The `bootstrap` skill and the guide
+  of a new data repository check every environment with it.
+
+### Fixed
+
+- Receiving the export of another environment no longer stops with "order of <JOB> in this
+  export contradicts the order recorded in chain.json". The order of two attributes that
+  never meet in one job (`DAYS` and `WEEKDAYS`) was taken from the first export as if it
+  were a rule; only what the exports show counts now. An element really written in another
+  order (another client) keeps its own order in its metadata, so no attribute order stops an
+  import any more and the export stays byte for byte.
+- An export that starts with a UTF-8 byte order mark is exported with it again (production
+  was no longer byte for byte).
+- Two constants with one value in an environment (one machine of test for two of production)
+  no longer move the jobs of one constant to the other when that environment's export is
+  received: the job keeps the constant the repository has, and production stays as it was.
+- When the full export of an environment shows most uses of a constant on another value than
+  the one the repository has there (a value guessed from the letter when the constant was
+  made), that value becomes the constant's (`set-value`) and only the jobs that keep the old
+  one become exceptions: test went from 1529 exceptions to 12 on a real rehearsal. A partial
+  export (a delivery) never moves the value of a constant.
+
 ## [0.1.2] - 2026-11-03
 
 ### Added
@@ -228,7 +260,8 @@ First release on PyPI.
 - On Windows, unknown `/api/...` paths and missing assets were answered with the app instead of
   404 (the static files handler sees `\` separators there).
 
-[Unreleased]: https://github.com/bilouro/controlm-chain-admin/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/bilouro/controlm-chain-admin/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/bilouro/controlm-chain-admin/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/bilouro/controlm-chain-admin/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/bilouro/controlm-chain-admin/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/bilouro/controlm-chain-admin/releases/tag/v0.1.0
