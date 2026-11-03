@@ -328,3 +328,96 @@ describe("ComparePage", () => {
     );
   });
 });
+
+describe("ComparePage, taking changes into the checked-out branch", () => {
+  const path = "/compare?base=feature/demo&head=develop";
+
+  it("offers a box per item only when base is the checked-out branch", async () => {
+    const user = userEvent.setup();
+    renderAt(<ComparePage />, { path: "/compare?base=develop&head=feature/demo" });
+    await user.click(await screen.findByRole("button", { name: "P77_C modified" }));
+    expect(screen.queryByRole("checkbox", { name: /Take DESCRIPTION/ })).toBeNull();
+    expect(screen.getByText(/To take changes of develop into feature\/demo/)).toBeInTheDocument();
+  });
+
+  it("takes one attribute and a whole job, reviewed as one change", async () => {
+    const user = userEvent.setup();
+    renderAt(<ComparePage />, { path });
+    await user.click(await screen.findByRole("button", { name: "P77_C modified" }));
+
+    await user.click(screen.getByRole("checkbox", { name: "Take DESCRIPTION" }));
+    await user.click(screen.getByRole("button", { name: "P77_CHECK added" }));
+    await user.click(
+      screen.getByRole("checkbox", { name: "Take the whole job P77_CHAIN/P77_CHECK" }),
+    );
+    await user.click(screen.getByRole("button", { name: "Take 2 changes into feature/demo" }));
+
+    await screen.findByRole("dialog", { name: "Review change" });
+    expect(calls.preview.at(-1)).toEqual({
+      op: "take",
+      params: {
+        base: "feature/demo",
+        head: "develop",
+        items: ["attr:P77_CHAIN/P77_C@DESCRIPTION", "job:P77_CHAIN/P77_CHECK"],
+        theirs: [],
+        commits: null,
+        merge_base: true,
+      },
+    });
+  });
+
+  it("asks, item by item, whether to keep the checkout's value or take theirs", async () => {
+    let tries = 0;
+    server.use(
+      http.post("/api/changes/preview", async ({ request }) => {
+        calls.preview.push(await request.json());
+        tries += 1;
+        if (tries === 1) {
+          return HttpResponse.json(
+            {
+              error: "TakeConflict",
+              message: "1 item(s) changed in the checkout too",
+              detail: {
+                conflicts: [
+                  {
+                    item: "attr:P77_CHAIN/P77_C@DESCRIPTION",
+                    mine: "Mine",
+                    before: "Loaded",
+                    theirs: "Loaded nightly",
+                  },
+                ],
+              },
+            },
+            { status: 409 },
+          );
+        }
+        return HttpResponse.json({
+          summary: "take",
+          warnings: [],
+          files: [],
+          diff: "",
+          fingerprint: "f",
+        });
+      }),
+    );
+    const user = userEvent.setup();
+    renderAt(<ComparePage />, { path });
+    await user.click(await screen.findByRole("button", { name: "P77_C modified" }));
+    await user.click(screen.getByRole("checkbox", { name: "Take DESCRIPTION" }));
+    await user.click(screen.getByRole("button", { name: "Take 1 change into feature/demo" }));
+
+    const conflicts = await screen.findByRole("region", { name: "Conflicts" });
+    expect(conflicts).toHaveTextContent("Mine");
+    expect(conflicts).toHaveTextContent("Loaded nightly");
+    await user.click(within(conflicts).getByRole("radio", { name: "Take theirs" }));
+    await user.click(within(conflicts).getByRole("button", { name: "Continue" }));
+
+    await screen.findByRole("dialog", { name: "Review change" });
+    expect(calls.preview.at(-1)).toMatchObject({
+      params: {
+        items: ["attr:P77_CHAIN/P77_C@DESCRIPTION"],
+        theirs: ["attr:P77_CHAIN/P77_C@DESCRIPTION"],
+      },
+    });
+  });
+});

@@ -1258,7 +1258,23 @@ OPERATIONS: dict[str, Callable[..., ChangeSet]] = {
     "receive": lambda repo, xml, env=None, choices=None, full=None: _receive(
         repo, xml, env, choices, full
     ),
+    "take": lambda repo, base, head, items, **kw: _take(repo, base, head, items, **kw),
 }
+
+
+def _take(
+    repo: ChainRepo,
+    base: str,
+    head: str,
+    items: Sequence[str],
+    *,
+    theirs: Sequence[str] = (),
+    commits: Sequence[str] | None = None,
+    merge_base: bool = True,
+) -> ChangeSet:
+    from controlm_chain_admin.core.take import take  # take builds on this module
+
+    return take(repo, base, head, items, theirs=theirs, commits=commits, use_merge_base=merge_base)
 
 
 def _receive(

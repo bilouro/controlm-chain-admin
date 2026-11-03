@@ -210,7 +210,13 @@ class TableOut(BaseModel):
 
 
 class ChangeRequest(BaseModel):
-    op: str = Field(description="operation name, e.g. set-attributes, link, unlink, rename-job")
+    op: str = Field(
+        description="operation name, e.g. set-attributes, link, unlink, rename-job, receive, "
+        "take (params: base, the checked-out branch; head; items such as job:F/J, "
+        "attr:F/J@ATTR, var:F/J@%%NAME, rel:F/J@LINK, group:F/J@TAG, folder:F, link:LINK, "
+        "const:ENV@NAME, exception:ENV@F/J; theirs, conflicting items to take anyway; commits; "
+        "merge_base)"
+    )
     params: dict[str, Any] = {}
 
 
@@ -329,6 +335,15 @@ class ConstantChangeOut(BaseModel):
     after: str | None = None
 
 
+class ExceptionChangeOut(BaseModel):
+    env: str
+    node: str = Field(description="FOLDER/ or FOLDER/JOB")
+    before: dict[str, Any] | None = Field(
+        None, description='{"set": {ATTR: value}, "variables": {%%NAME: value}}'
+    )
+    after: dict[str, Any] | None = None
+
+
 class ComparisonOut(BaseModel):
     base: RefOut
     head: RefOut
@@ -344,6 +359,7 @@ class ComparisonOut(BaseModel):
     selected: list[str] | None = Field(
         None, description="commits compared, newest first; null when every commit is"
     )
+    exceptions: list[ExceptionChangeOut] = []
 
 
 class PackageFolderOut(BaseModel):

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from controlm_chain_admin.core.compare import compare
+from controlm_chain_admin.core.compare import compare, render_text
 from controlm_chain_admin.core.constants import Selector, define_constant
 from controlm_chain_admin.core.errors import GitError
 from controlm_chain_admin.core.history import WORKTREE
@@ -19,6 +19,7 @@ from controlm_chain_admin.core.refactor import (
     rename_job,
     rename_link,
     set_attributes,
+    set_exception,
     set_variables,
     unlink_nodes,
     update_relation,
@@ -201,6 +202,20 @@ def test_constant_values_per_environment(tmp_path: Path) -> None:
     assert [(c.env, c.name, c.before, c.after) for c in result.constants] == [
         ("prod", "node.batch", "PP77_BATCH", "PP77_BATCH_NEW")
     ]
+
+
+def test_exceptions_per_environment(tmp_path: Path) -> None:
+    repo = _feature(tmp_path)
+    apply(repo, set_exception(repo, "prod", f"{C}/P77_E", {"TASKTYPE": "Dummy"}))
+    commit_all(repo.root, "an exception")
+
+    result = compare(repo.root, "main", "feature")
+
+    [change] = result.exceptions
+    assert (change.env, change.node, change.before) == ("prod", f"{C}/P77_E", None)
+    assert change.after == {"set": {"TASKTYPE": "Dummy"}, "variables": {}}
+    assert result.summary()["exceptions"] == 1
+    assert "exception prod P77_CHAIN/P77_E: (none) -> TASKTYPE=Dummy" in render_text(result)
 
 
 def test_volatile_metadata_alone_is_not_a_node_change(tmp_path: Path) -> None:

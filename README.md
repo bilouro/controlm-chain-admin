@@ -10,9 +10,12 @@ XML export, keep the links between jobs explicit, hold one environment-neutral d
 test/uat/bench/prod, validate the chains, refactor safely, and export the XML back for the
 environment you choose.
 
-> Status: proof of concept complete (import, byte-identical export, environment letter,
-> links, validate, read-only web UI). The design is in [`DESIGN.md`](DESIGN.md) and the plan
-> in [`BACKLOG.md`](BACKLOG.md). Nothing is published to PyPI yet; install from source.
+> Status: alpha. Byte-identical import and export, environments (letter rule, constants,
+> exceptions, folders and jobs of some environments) learned from the exports themselves,
+> releases with installations per environment, comparison of branches and taking their
+> changes item by item, validation with fixes, an editing web UI. The design is in
+> [`DESIGN.md`](DESIGN.md) and the plan in [`BACKLOG.md`](BACKLOG.md). Nothing is published to
+> PyPI yet; install from source.
 
 ## Why
 
@@ -27,6 +30,14 @@ export into:
 - **One base, many environments.** The environment letter in names, hosts, users, mail
   recipients and other per-environment values become tokens and constants; each environment
   is a small file. Exporting for another environment is one flag.
+- **Environments learned from their exports.** Start from the production export; the export
+  of each other environment is grouped into a few decisions (a machine, a user, a mail, the
+  environment's name in a subject becomes a constant with a value per environment; what only
+  one environment has or lacks is noted), and production stays byte for byte as it was.
+- **Releases and comparison.** The trunk mirrors production; a release is installed
+  environment by environment; two branches compare in Control-M terms, and any change of the
+  other branch (one attribute, one job without its folder, one condition) can be taken into
+  yours, conflicts shown value by value.
 - **Validation and refactorings** that the Control-M UI does not offer: dangling or stale
   conditions, chains broken by renames, renaming a sub-application across a folder, moving
   a job, inserting a job in a chain.
@@ -62,7 +73,7 @@ environment, production first.
 ```bash
 # a git repository (new or existing) becomes a chain repository
 ctmchain init --repo ./my-chains --application P77_RISK_ENGINE \
-    --envs test=T,uat=U,bench=B,prod=P --prefixes P77,RQ_,RC_
+    --envs test=T,uat=U,bench=B,prod=P --prefixes P77,RQ_,RC_ --leading-only RQ_,RC_
 
 ctmchain distinct NODEID RUN_AS DOMAIL/@DEST --xml uat_export.xml   # what varies per environment
 ctmchain import uat_export.xml --env uat --repo ./my-chains         # XML -> JSON, with a report
@@ -78,6 +89,9 @@ ctmchain compare main release/2026-11 --repo ./my-chains            # what the r
 ctmchain package main release/2026-11 --env uat --repo ./my-chains  # import file, changed folders
 ctmchain release installed uat --repo ./my-chains                   # tag uat/2026-11-1
 ctmchain receive delivery.xml --repo ./my-chains                    # a team's folders, made neutral
+ctmchain receive uat_full.xml --full --repo ./my-chains             # all of uat: constants, what only uat has
+ctmchain take release/2026-10 --list --repo ./my-chains             # what another release changed
+ctmchain take release/2026-10 --item job:P77_CHAIN/P77_D --repo ./my-chains   # one job of it; --apply
 ctmchain release close --repo ./my-chains                           # once installed in prod
 ```
 
@@ -112,7 +126,9 @@ cd web && npm ci && npm run build        # builds the web UI into the package
 | Node | A folder or a job, identified as `FOLDER/JOB` without the environment letter |
 | Link | A dependency edge: producer `OUTCOND +` → consumer `INCOND` with the same condition name |
 | Constant | A logical value `@{name}` resolved per environment (hosts, users, recipients) |
-| Override | A per-job, per-environment whole-value replacement |
+| Exception | A per-job, per-environment whole-value replacement (`envs/<env>/overrides.json`) |
+| Environments of a node | `"envs": [...]` on a folder or job that exists in some environments only |
+| Release | A branch `release/<name>` started from the trunk (production), installed per environment, closed into the trunk |
 
 ## Contributing
 

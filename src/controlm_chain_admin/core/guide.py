@@ -45,6 +45,7 @@ Environments: {environments}. Production is {production}: `{trunk}` mirrors it.
 ctmchain release status                        # branch, releases, what may be edited
 ctmchain receive exports/uat/delivery.xml      # preview the decisions of an export
 ctmchain receive exports/uat/delivery.xml --apply
+ctmchain take release/<other> --list           # what another release changed, item by item
 ctmchain validate                              # broken chains, dirty names, suggested fixes
 ctmchain export --env uat -o uat.xml
 ctmchain serve                                 # the web UI

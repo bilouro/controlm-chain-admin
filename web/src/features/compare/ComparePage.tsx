@@ -16,6 +16,8 @@ import { CommitPicker } from "./CommitPicker";
 import { CopyMarkdownButton } from "./CopyMarkdownButton";
 import { PackagePanel } from "./PackagePanel";
 import { defaultRefs, WORKTREE } from "./refs";
+import { TakeContext } from "./take-context";
+import { TakeBar, TakeBox } from "./TakeBar";
 import {
   Badge,
   Button,
@@ -87,7 +89,16 @@ function RefSelect({
   );
 }
 
-function ValuesTable({ title, rows }: { title: string; rows: ValueChangeOut[] }) {
+function ValuesTable({
+  title,
+  rows,
+  item,
+}: {
+  title: string;
+  rows: ValueChangeOut[];
+  /** The id of the item that takes one row, when rows can be taken one by one. */
+  item: ((row: ValueChangeOut) => string) | null;
+}) {
   if (rows.length === 0) return null;
   return (
     <section>
@@ -103,7 +114,10 @@ function ValuesTable({ title, rows }: { title: string; rows: ValueChangeOut[] })
         <tbody className="divide-y divide-border/60 font-mono">
           {rows.map((row) => (
             <tr key={row.name}>
-              <td className="py-1">{row.name}</td>
+              <td className="py-1">
+                {item && <TakeBox item={item(row)} label={`Take ${row.name}`} />}
+                {row.name}
+              </td>
               <td
                 className={cn("break-all pr-2", row.before === null ? "text-muted" : "text-error")}
               >
@@ -133,7 +147,16 @@ function Peers({ nodes, folder }: { nodes: string[]; folder: string }) {
   );
 }
 
-function RelationsTable({ rows, folder }: { rows: RelationChangeOut[]; folder: string }) {
+function RelationsTable({
+  rows,
+  folder,
+  node,
+}: {
+  rows: RelationChangeOut[];
+  folder: string;
+  /** The node whose relations can be taken one by one, else null. */
+  node: string | null;
+}) {
   if (rows.length === 0) return null;
   return (
     <section>
@@ -154,7 +177,13 @@ function RelationsTable({ rows, folder }: { rows: RelationChangeOut[]; folder: s
         <tbody className="divide-y divide-border/60">
           {rows.map((row) => (
             <tr key={`${row.direction}-${row.link}`}>
-              <td className="py-1 pr-3 align-top">
+              <td className="whitespace-nowrap py-1 pr-3 align-top">
+                {node && (
+                  <TakeBox
+                    item={`rel:${node}@${row.link}`}
+                    label={`Take the condition ${row.name}`}
+                  />
+                )}
                 <ChangeBadge change={row.change} />
               </td>
               <td className="whitespace-nowrap pr-3 align-top">
@@ -181,6 +210,17 @@ function RelationsTable({ rows, folder }: { rows: RelationChangeOut[]; folder: s
       </table>
     </section>
   );
+}
+
+function exceptionText(value: Record<string, unknown> | null | undefined): string {
+  if (!value) return "—";
+  const pairs = {
+    ...((value.set ?? {}) as Record<string, unknown>),
+    ...((value.variables ?? {}) as Record<string, unknown>),
+  };
+  return Object.entries(pairs)
+    .map(([key, v]) => `${key}=${v === null ? "(removed)" : String(v)}`)
+    .join(", ");
 }
 
 function ChangedBy({ shas, commits }: { shas: string[]; commits: Map<string, CommitOut> }) {
@@ -213,9 +253,12 @@ function NodeDetail({
   commits: Map<string, CommitOut>;
 }) {
   const folder = parseNode(node.node).folder;
+  const whole = node.kind === "folder" ? `folder:${folder}` : `job:${node.node}`;
+  const parts = node.change !== "added" && node.change !== "removed"; // else they come whole
   return (
     <div className="space-y-4" data-testid="node-detail">
       <header className="flex flex-wrap items-center gap-2">
+        <TakeBox item={whole} label={`Take the whole ${node.kind} ${node.node}`} />
         <ChangeBadge change={node.change} />
         <span className="text-xs text-muted">{node.kind}</span>
         <h2 className="font-mono text-base font-semibold">{node.node}</h2>
@@ -230,13 +273,27 @@ function NodeDetail({
           ))}
       </header>
       <ChangedBy shas={node.commits ?? []} commits={commits} />
-      <ValuesTable title="Attributes" rows={node.attributes} />
-      <ValuesTable title="Variables" rows={node.variables} />
-      <RelationsTable rows={node.relations} folder={folder} />
+      <ValuesTable
+        title="Attributes"
+        rows={node.attributes}
+        item={parts ? (row) => `attr:${node.node}@${row.name}` : null}
+      />
+      <ValuesTable
+        title="Variables"
+        rows={node.variables}
+        item={parts ? (row) => `var:${node.node}@${row.name}` : null}
+      />
+      <RelationsTable rows={node.relations} folder={folder} node={parts ? node.node : null} />
       {node.groups.length > 0 && (
         <p className="text-xs">
-          Also changed: <span className="font-mono">{node.groups.join(", ")}</span> (see the JSON
-          below)
+          Also changed:{" "}
+          {node.groups.map((tag) => (
+            <span key={tag} className="mr-2 font-mono">
+              {parts && <TakeBox item={`group:${node.node}@${tag}`} label={`Take ${tag}`} />}
+              {tag}
+            </span>
+          ))}
+          (see the JSON below)
         </p>
       )}
       {(node.jobs_added.length > 0 || node.jobs_removed.length > 0) && (
@@ -465,6 +522,7 @@ export function ComparePage() {
   const [chosenEnv, setChosenEnv] = useState<string | null>(null);
   const env = chosenEnv ?? (environments.includes("uat") ? "uat" : (environments[0] ?? ""));
   const [isPackageOpen, setIsPackageOpen] = useState(false);
+  const [chosen, setChosen] = useState<string[]>([]);
 
   const update = (changes: Record<string, string | null>) => {
     const next = new URLSearchParams(params);
@@ -475,6 +533,9 @@ export function ComparePage() {
       else next.set(key, value);
     }
     setParams(next, { replace: true });
+    if ("base" in changes || "head" in changes || "commits" in changes || "mb" in changes) {
+      setChosen([]); // the items belong to one comparison
+    }
   };
   const select = (commits: string[] | null) =>
     update({ commits: commits === null ? null : commits.join(","), node: null });
@@ -495,213 +556,289 @@ export function ComparePage() {
         { id: "nodes", label: `Folders & jobs (${result.folders.length + result.jobs.length})` },
         { id: "links", label: `Conditions (${result.links.length})` },
         { id: "constants", label: `Constants (${result.constants.length})` },
+        { id: "exceptions", label: `Exceptions (${(result.exceptions ?? []).length})` },
       ]
     : [];
+  const current = git.data.current;
+  const canTake = !!current && base === current && head !== WORKTREE && head !== base;
+  const takeApi = {
+    isEnabled: canTake && workspace.data?.editable !== false,
+    chosen: canTake ? chosen : [],
+    toggle: (item: string) =>
+      setChosen((items) =>
+        items.includes(item) ? items.filter((i) => i !== item) : [...items, item],
+      ),
+  };
+  const takeRequest = (items: string[], theirs: string[]) => ({
+    op: "take",
+    params: { base, head, items, theirs, commits: selection, merge_base: mergeBase },
+  });
 
   return (
-    <div className="mx-auto max-w-7xl space-y-4 p-4">
-      <header className="flex flex-wrap items-end gap-3">
-        <h1 className="mr-2 text-xl font-semibold">Compare</h1>
-        <RefSelect
-          label="Base"
-          value={base}
-          git={git.data}
-          onChange={(v) => update({ base: v, node: null })}
-        />
-        <span className="pb-1 text-muted">←</span>
-        <RefSelect
-          label="Head"
-          value={head}
-          git={git.data}
-          onChange={(v) => update({ head: v, node: null })}
-        />
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => update({ base: head, head: base, node: null })}
-          disabled={head === WORKTREE}
-        >
-          Swap
-        </Button>
-        <label className="flex items-center gap-1 pb-1 text-xs text-muted">
-          <input
-            type="checkbox"
-            checked={mergeBase}
-            onChange={(e) => update({ mb: e.target.checked ? null : "0" })}
+    <TakeContext.Provider value={takeApi}>
+      <div className="mx-auto max-w-7xl space-y-4 p-4">
+        <header className="flex flex-wrap items-end gap-3">
+          <h1 className="mr-2 text-xl font-semibold">Compare</h1>
+          <RefSelect
+            label="Base"
+            value={base}
+            git={git.data}
+            onChange={(v) => update({ base: v, node: null })}
           />
-          only what head changed (from the merge base)
-        </label>
-        <span className="ml-auto flex items-end gap-2">
-          <label className="text-xs text-muted">
-            Environment
-            <SelectInput
-              aria-label="Environment"
-              value={env}
-              onChange={(e) => setChosenEnv(e.target.value)}
-              className="block"
-            >
-              {environments.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </SelectInput>
-          </label>
+          <span className="pb-1 text-muted">←</span>
+          <RefSelect
+            label="Head"
+            value={head}
+            git={git.data}
+            onChange={(v) => update({ head: v, node: null })}
+          />
           <Button
-            onClick={() => setIsPackageOpen(true)}
-            disabled={!result || !env}
-            title="The Control-M import file with every folder these changes touch, whole"
+            variant="ghost"
+            size="sm"
+            onClick={() => update({ base: head, head: base, node: null })}
+            disabled={head === WORKTREE}
           >
-            Generate XML
+            Swap
           </Button>
-        </span>
-      </header>
-
-      {commitList.length > 0 || everything.data ? (
-        <CommitPicker
-          commits={commitList}
-          selected={selection}
-          disabledReason={
-            head === WORKTREE
-              ? "uncommitted changes cannot be selected; pick a branch as head"
-              : null
-          }
-          onChange={select}
-        />
-      ) : null}
-
-      {isPackageOpen && result && (
-        <PackagePanel
-          key={`${env}-${base}-${head}`}
-          params={packageParams}
-          release={workspace.data?.releases.find((r) => r.branch === head) ?? null}
-          isSelection={selection !== null}
-          onClose={() => setIsPackageOpen(false)}
-        />
-      )}
-
-      {comparison.isPending && <Loading what="comparison" />}
-      {comparison.isError &&
-        (comparison.error instanceof ApiError && comparison.error.code === "SelectionConflict" ? (
-          <SelectionConflict
-            error={comparison.error}
-            onInclude={include}
-            onSelectAll={() => select(null)}
-          />
-        ) : (
-          <ErrorBox error={comparison.error} />
-        ))}
-      {result && (
-        <>
-          {result.selected && (
-            <p className="rounded-md border border-accent/40 bg-accent-soft px-3 py-1.5 text-sm">
-              Showing the changes of {result.selected.length} of{" "}
-              {result.commits.filter((c) => !c.merge).length} commits, applied on the base in their
-              order; the XML holds these changes only.
-            </p>
-          )}
-          <div className="flex flex-wrap items-start gap-2">
-            <p className="flex-1 text-sm text-muted">
-              {result.base.name} <span className="font-mono">{result.base.sha?.slice(0, 7)}</span> →{" "}
-              {result.head.name}{" "}
-              <span className="font-mono">{result.head.sha?.slice(0, 7) ?? "uncommitted"}</span> ·{" "}
-              {result.commits.length} commit(s)
-              {result.merge_base && (
-                <>
-                  {" "}
-                  · compared from the merge base{" "}
-                  <span className="font-mono">{result.merge_base.slice(0, 7)}</span>
-                </>
-              )}
-              {result.metadata_files_changed > 0 && (
-                <> · {result.metadata_files_changed} metadata file(s) changed</>
-              )}
-            </p>
-            <CopyMarkdownButton params={compareParams(base, head, mergeBase, selection)} />
-          </div>
-          <SummaryCards result={result} />
-          <Card className="p-4">
-            <Tabs
-              tabs={tabs}
-              active={tab}
-              onChange={(id) => update({ tab: id })}
-              label="Comparison sections"
+          <label className="flex items-center gap-1 pb-1 text-xs text-muted">
+            <input
+              type="checkbox"
+              checked={mergeBase}
+              onChange={(e) => update({ mb: e.target.checked ? null : "0" })}
             />
-            {tab === "nodes" && (
-              <TabPanel id="nodes">
-                <ChangesBrowser
-                  result={result}
-                  selected={params.get("node")}
-                  onSelect={(node) => update({ node })}
-                  head={head}
-                  openable={head === WORKTREE || head === git.data.current}
-                />
-              </TabPanel>
+            only what head changed (from the merge base)
+          </label>
+          <span className="ml-auto flex items-end gap-2">
+            <label className="text-xs text-muted">
+              Environment
+              <SelectInput
+                aria-label="Environment"
+                value={env}
+                onChange={(e) => setChosenEnv(e.target.value)}
+                className="block"
+              >
+                {environments.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </SelectInput>
+            </label>
+            <Button
+              onClick={() => setIsPackageOpen(true)}
+              disabled={!result || !env}
+              title="The Control-M import file with every folder these changes touch, whole"
+            >
+              Generate XML
+            </Button>
+          </span>
+        </header>
+
+        {!canTake && current && head === current && base !== WORKTREE && base !== current && (
+          <p className="text-xs text-muted">
+            To take changes of {base} into {current}, item by item:{" "}
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => update({ base: head, head: base, node: null })}
+            >
+              compare {current} with {base}
+            </Button>
+          </p>
+        )}
+        {commitList.length > 0 || everything.data ? (
+          <CommitPicker
+            commits={commitList}
+            selected={selection}
+            disabledReason={
+              head === WORKTREE
+                ? "uncommitted changes cannot be selected; pick a branch as head"
+                : null
+            }
+            onChange={select}
+          />
+        ) : null}
+
+        {isPackageOpen && result && (
+          <PackagePanel
+            key={`${env}-${base}-${head}`}
+            params={packageParams}
+            release={workspace.data?.releases.find((r) => r.branch === head) ?? null}
+            isSelection={selection !== null}
+            onClose={() => setIsPackageOpen(false)}
+          />
+        )}
+
+        {comparison.isPending && <Loading what="comparison" />}
+        {comparison.isError &&
+          (comparison.error instanceof ApiError && comparison.error.code === "SelectionConflict" ? (
+            <SelectionConflict
+              error={comparison.error}
+              onInclude={include}
+              onSelectAll={() => select(null)}
+            />
+          ) : (
+            <ErrorBox error={comparison.error} />
+          ))}
+        {result && (
+          <>
+            {result.selected && (
+              <p className="rounded-md border border-accent/40 bg-accent-soft px-3 py-1.5 text-sm">
+                Showing the changes of {result.selected.length} of{" "}
+                {result.commits.filter((c) => !c.merge).length} commits, applied on the base in
+                their order; the XML holds these changes only.
+              </p>
             )}
-            {tab === "links" && (
-              <TabPanel id="links">
-                {result.links.length === 0 ? (
-                  <Empty>No condition was added, removed or renamed.</Empty>
-                ) : (
-                  <table className="w-full text-xs" aria-label="Condition changes">
-                    <thead className="text-left text-[11px] text-muted">
-                      <tr>
-                        <th className="py-1">Change</th>
-                        <th>Before</th>
-                        <th>After</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border/60 font-mono">
-                      {result.links.map((link) => (
-                        <tr key={link.link}>
-                          <td className="py-1">
-                            <ChangeBadge change={link.change} />
-                          </td>
-                          <td className="text-error">{link.before ?? "—"}</td>
-                          <td className="text-ok">{link.after ?? "—"}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+            <div className="flex flex-wrap items-start gap-2">
+              <p className="flex-1 text-sm text-muted">
+                {result.base.name} <span className="font-mono">{result.base.sha?.slice(0, 7)}</span>{" "}
+                → {result.head.name}{" "}
+                <span className="font-mono">{result.head.sha?.slice(0, 7) ?? "uncommitted"}</span> ·{" "}
+                {result.commits.length} commit(s)
+                {result.merge_base && (
+                  <>
+                    {" "}
+                    · compared from the merge base{" "}
+                    <span className="font-mono">{result.merge_base.slice(0, 7)}</span>
+                  </>
                 )}
-              </TabPanel>
-            )}
-            {tab === "constants" && (
-              <TabPanel id="constants">
-                {result.constants.length === 0 ? (
-                  <Empty>No constant value changed.</Empty>
-                ) : (
-                  <table className="w-full text-xs" aria-label="Constant changes">
-                    <thead className="text-left text-[11px] text-muted">
-                      <tr>
-                        <th className="py-1">Environment</th>
-                        <th>Constant</th>
-                        <th>Before</th>
-                        <th>After</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border/60 font-mono">
-                      {result.constants.map((c) => (
-                        <tr key={`${c.env}-${c.name}`}>
-                          <td className="py-1">{c.env}</td>
-                          <td>{c.name}</td>
-                          <td className="text-error">{c.before ?? "—"}</td>
-                          <td className="text-ok">{c.after ?? "—"}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                {result.metadata_files_changed > 0 && (
+                  <> · {result.metadata_files_changed} metadata file(s) changed</>
                 )}
-              </TabPanel>
-            )}
+              </p>
+              <CopyMarkdownButton params={compareParams(base, head, mergeBase, selection)} />
+            </div>
+            <SummaryCards result={result} />
+            <Card className="p-4">
+              <Tabs
+                tabs={tabs}
+                active={tab}
+                onChange={(id) => update({ tab: id })}
+                label="Comparison sections"
+              />
+              {tab === "nodes" && (
+                <TabPanel id="nodes">
+                  <ChangesBrowser
+                    result={result}
+                    selected={params.get("node")}
+                    onSelect={(node) => update({ node })}
+                    head={head}
+                    openable={head === WORKTREE || head === git.data.current}
+                  />
+                </TabPanel>
+              )}
+              {tab === "links" && (
+                <TabPanel id="links">
+                  {result.links.length === 0 ? (
+                    <Empty>No condition was added, removed or renamed.</Empty>
+                  ) : (
+                    <table className="w-full text-xs" aria-label="Condition changes">
+                      <thead className="text-left text-[11px] text-muted">
+                        <tr>
+                          <th className="py-1">Change</th>
+                          <th>Before</th>
+                          <th>After</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border/60 font-mono">
+                        {result.links.map((link) => (
+                          <tr key={link.link}>
+                            <td className="py-1">
+                              {link.change === "renamed" && (
+                                <TakeBox
+                                  item={`link:${link.link}`}
+                                  label={`Take the name ${link.after ?? link.link}`}
+                                />
+                              )}
+                              <ChangeBadge change={link.change} />
+                            </td>
+                            <td className="text-error">{link.before ?? "—"}</td>
+                            <td className="text-ok">{link.after ?? "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </TabPanel>
+              )}
+              {tab === "constants" && (
+                <TabPanel id="constants">
+                  {result.constants.length === 0 ? (
+                    <Empty>No constant value changed.</Empty>
+                  ) : (
+                    <table className="w-full text-xs" aria-label="Constant changes">
+                      <thead className="text-left text-[11px] text-muted">
+                        <tr>
+                          <th className="py-1">Environment</th>
+                          <th>Constant</th>
+                          <th>Before</th>
+                          <th>After</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border/60 font-mono">
+                        {result.constants.map((c) => (
+                          <tr key={`${c.env}-${c.name}`}>
+                            <td className="py-1">
+                              <TakeBox
+                                item={`const:${c.env}@${c.name}`}
+                                label={`Take ${c.name} in ${c.env}`}
+                              />
+                              {c.env}
+                            </td>
+                            <td>{c.name}</td>
+                            <td className="text-error">{c.before ?? "—"}</td>
+                            <td className="text-ok">{c.after ?? "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </TabPanel>
+              )}
+              {tab === "exceptions" && (
+                <TabPanel id="exceptions">
+                  {(result.exceptions ?? []).length === 0 ? (
+                    <Empty>No exception of a job or folder changed.</Empty>
+                  ) : (
+                    <table className="w-full text-xs" aria-label="Exception changes">
+                      <thead className="text-left text-[11px] text-muted">
+                        <tr>
+                          <th className="py-1">Environment</th>
+                          <th>Folder or job</th>
+                          <th>Before</th>
+                          <th>After</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border/60 font-mono">
+                        {(result.exceptions ?? []).map((e) => (
+                          <tr key={`${e.env}-${e.node}`}>
+                            <td className="py-1">
+                              <TakeBox
+                                item={`exception:${e.env}@${e.node}`}
+                                label={`Take the exceptions of ${e.node} in ${e.env}`}
+                              />
+                              {e.env}
+                            </td>
+                            <td>{e.node}</td>
+                            <td className="text-error">{exceptionText(e.before)}</td>
+                            <td className="text-ok">{exceptionText(e.after)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </TabPanel>
+              )}
+            </Card>
+            <TakeBar into={current ?? base} request={takeRequest} onDone={() => setChosen([])} />
+          </>
+        )}
+        {!result && !comparison.isPending && !comparison.isError && (
+          <Card>
+            <CardHeader title="Pick two refs to compare" />
           </Card>
-        </>
-      )}
-      {!result && !comparison.isPending && !comparison.isError && (
-        <Card>
-          <CardHeader title="Pick two refs to compare" />
-        </Card>
-      )}
-    </div>
+        )}
+      </div>
+    </TakeContext.Provider>
   );
 }

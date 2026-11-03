@@ -28,8 +28,9 @@ from controlm_chain_admin.core import intake as intake_mod
 from controlm_chain_admin.core import ops
 from controlm_chain_admin.core import package as package_mod
 from controlm_chain_admin.core import refactor as refactor_mod
+from controlm_chain_admin.core import take as take_mod
 from controlm_chain_admin.core import workspace as workspace_mod
-from controlm_chain_admin.core.errors import ChainError, NotAChainRepo
+from controlm_chain_admin.core.errors import ChainError, NotAChainRepo, TakeConflict
 from controlm_chain_admin.core.history import WORKTREE
 from controlm_chain_admin.core.links import NodeRef, folder_names
 from controlm_chain_admin.core.repo import init_repo, load_repo, read_json, write_json
@@ -280,6 +281,36 @@ def build_parser() -> argparse.ArgumentParser:
     )
     cmp_.add_argument("--format", choices=("text", "md", "json"), default="text")
     cmp_.set_defaults(func=cmd_compare)
+
+    tk = commands.add_parser(
+        "take", help="take changes of another branch into the checked-out one, item by item"
+    )
+    tk.add_argument("head", help="the branch (tag, sha) to take from")
+    tk.add_argument("--base", default="HEAD", help="the checked-out branch (default: HEAD)")
+    tk.add_argument(
+        "--item",
+        action="append",
+        default=[],
+        metavar="ID",
+        help="an item of the comparison, e.g. job:F/J or attr:F/J@TIMEFROM (repeatable); "
+        "--list shows them",
+    )
+    tk.add_argument(
+        "--theirs",
+        action="append",
+        default=[],
+        metavar="ID",
+        help="a conflicting item to take anyway (repeatable)",
+    )
+    tk.add_argument("--list", action="store_true", help="list the items that can be taken")
+    tk.add_argument(
+        "--no-merge-base",
+        action="store_true",
+        help="take differences of the two tips, not only what head changed since they parted",
+    )
+    _commit_option(tk)
+    _refactor_options(tk)
+    tk.set_defaults(func=cmd_take)
 
     pkg = commands.add_parser(
         "package",
@@ -726,6 +757,37 @@ def _commit_option(parser: argparse.ArgumentParser) -> None:
         metavar="SHA",
         help="only this commit of head (repeat it); the others are left out, cherry-pick style",
     )
+
+
+def cmd_take(args: argparse.Namespace) -> int:
+    repo = load_repo(args.repo)
+    merge_base = not args.no_merge_base
+    if args.list:
+        result = compare_mod.compare(
+            repo.root, args.base, args.head, use_merge_base=merge_base, commits=args.commits
+        )
+        print(f"Items {result.head.name} changed that can be taken into {result.base.name}:")
+        for item, label in take_mod.items_of(result):
+            print(f"  {item}  {label}")
+        return EXIT_OK
+    if args.apply:
+        workspace_mod.ensure_editable(repo)
+    try:
+        change = take_mod.take(
+            repo, args.base, args.head, args.item, theirs=args.theirs,
+            use_merge_base=merge_base, commits=args.commits,
+        )  # fmt: skip
+    except TakeConflict as conflict:
+        for c in conflict.conflicts:
+            print(
+                f"conflict {c['item']}: mine {take_mod.shown(c['mine'])}, before "
+                f"{take_mod.shown(c['before'])}, theirs {take_mod.shown(c['theirs'])} "
+                f"(take it with --theirs {c['item']}, or leave it out)",
+                file=sys.stderr,
+            )
+        raise
+    args.build = lambda _r, _a: change
+    return cmd_refactor(args)
 
 
 def cmd_compare(args: argparse.Namespace) -> int:

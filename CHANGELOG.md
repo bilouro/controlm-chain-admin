@@ -120,6 +120,14 @@ All notable changes to this project are documented here. The format follows
 - `ctmchain init --leading-only RQ_,RC_`: the whole letter rule from the start; `init` also
   writes the new repository's `CLAUDE.md` (its rules, layout and everyday commands) unless one
   is there.
+- Taking changes of another branch into the checked-out one, item by item: `ctmchain take`
+  (`--list`, `--item`, `--theirs`) and the boxes of the *Compare* page (base: the checked-out
+  branch). One attribute, variable, predecessor or successor (both ends), group of children,
+  job without its folder, folder, condition name, constant value or exception at a time,
+  applied cherry-pick style; a value the checkout changed too is a conflict (`TakeConflict`,
+  409) shown value by value, kept or taken; constants the taken content uses come along.
+- The comparison lists the exceptions per environment (`exceptions`, an *Exceptions* tab, the
+  text and Markdown reports).
 - The `bootstrap` skill: from the source distribution to a new chain repository built from the
   full exports of every environment, production first, with the agreed conventions.
 - Folders and jobs that exist in some environments only: `"envs": ["uat"]` in their JSON; the

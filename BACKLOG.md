@@ -199,10 +199,23 @@ or addresses anywhere in this public repository.
     `JOBS_IN_GROUP` volatile, `node.bat1`/`node.bat2`, bench and prod values of users,
     machines and `%%GEIENV`), `env learn --only`, validations of dirty names with fixes.
     Exceptions in the UI (*Environments* tab of jobs and folders) done too.
-    Next, agreed: folders that exist in some environments only; the prod baseline into the trunk is done at the company with real
-    exports (these are anonymised).
+    **DONE (2026-11-03)**: folders and jobs of some environments (`envs`), full exports of
+    another environment leaving production alone, repeated differences grouped into constants
+    (letter patterns, the environment's name in texts, values inside ON blocks), so a new
+    repository is built from the exports alone. The prod baseline into the trunk is done at the
+    company with real exports (these are anonymised), with the `bootstrap` skill.
+11. **Working where only PyPI is reachable — DONE (2026-11-03)**, asked by the author: the
+    sdist carries the whole project (rules, skills, tests, web sources, the built UI); the
+    `bootstrap` skill takes it from there to a new chain repository; `init` writes the data
+    repository's `CLAUDE.md`. Rehearsed here with the 4 exports: prod byte for byte after uat
+    and bench came in.
+12. **Taking changes of another branch — DONE (2026-11-03)**, asked by the author: `ctmchain
+    take` and the boxes of the *Compare* page; one attribute, variable, condition, group, job,
+    folder, condition name, constant value or exception at a time, conflicts value by value.
+13. **PyPI release 0.1.0 — next**: the pending publisher is configured on PyPI.
 
 Later, unordered: `envs` variants of sub-elements; second-environment import with learning; `diff`
 of environments and XML files with `xmldiffreport`; mapping editor; upstream graph explorer
 (paused by the author); cycle detection in `validate`; a check for one condition name used by
-two links; PyPI release and bilingual docs.
+two links; bilingual docs; per-environment variants of children (conditions or ON blocks that
+differ in one environment).

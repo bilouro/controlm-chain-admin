@@ -44,7 +44,7 @@
             "type": "string"
           },
           "op": {
-            "description": "operation name, e.g. set-attributes, link, unlink, rename-job",
+            "description": "operation name, e.g. set-attributes, link, unlink, rename-job, receive, take (params: base, the checked-out branch; head; items such as job:F/J, attr:F/J@ATTR, var:F/J@%%NAME, rel:F/J@LINK, group:F/J@TAG, folder:F, link:LINK, const:ENV@NAME, exception:ENV@F/J; theirs, conflicting items to take anyway; commits; merge_base)",
             "title": "Op",
             "type": "string"
           },
@@ -104,7 +104,7 @@
       "ChangeRequest": {
         "properties": {
           "op": {
-            "description": "operation name, e.g. set-attributes, link, unlink, rename-job",
+            "description": "operation name, e.g. set-attributes, link, unlink, rename-job, receive, take (params: base, the checked-out branch; head; items such as job:F/J, attr:F/J@ATTR, var:F/J@%%NAME, rel:F/J@LINK, group:F/J@TAG, folder:F, link:LINK, const:ENV@NAME, exception:ENV@F/J; theirs, conflicting items to take anyway; commits; merge_base)",
             "title": "Op",
             "type": "string"
           },
@@ -249,6 +249,14 @@
               "$ref": "#/components/schemas/ConstantChangeOut"
             },
             "title": "Constants",
+            "type": "array"
+          },
+          "exceptions": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ExceptionChangeOut"
+            },
+            "title": "Exceptions",
             "type": "array"
           },
           "folders": {
@@ -730,6 +738,50 @@
           "message"
         ],
         "title": "ErrorOut",
+        "type": "object"
+      },
+      "ExceptionChangeOut": {
+        "properties": {
+          "after": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "After"
+          },
+          "before": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "{\"set\": {ATTR: value}, \"variables\": {%%NAME: value}}",
+            "title": "Before"
+          },
+          "env": {
+            "title": "Env",
+            "type": "string"
+          },
+          "node": {
+            "description": "FOLDER/ or FOLDER/JOB",
+            "title": "Node",
+            "type": "string"
+          }
+        },
+        "required": [
+          "env",
+          "node"
+        ],
+        "title": "ExceptionChangeOut",
         "type": "object"
       },
       "ExceptionOut": {

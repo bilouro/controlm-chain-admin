@@ -523,7 +523,7 @@ export interface components {
       fingerprint: string;
       /**
        * Op
-       * @description operation name, e.g. set-attributes, link, unlink, rename-job
+       * @description operation name, e.g. set-attributes, link, unlink, rename-job, receive, take (params: base, the checked-out branch; head; items such as job:F/J, attr:F/J@ATTR, var:F/J@%%NAME, rel:F/J@LINK, group:F/J@TAG, folder:F, link:LINK, const:ENV@NAME, exception:ENV@F/J; theirs, conflicting items to take anyway; commits; merge_base)
        */
       op: string;
       /**
@@ -551,7 +551,7 @@ export interface components {
     ChangeRequest: {
       /**
        * Op
-       * @description operation name, e.g. set-attributes, link, unlink, rename-job
+       * @description operation name, e.g. set-attributes, link, unlink, rename-job, receive, take (params: base, the checked-out branch; head; items such as job:F/J, attr:F/J@ATTR, var:F/J@%%NAME, rel:F/J@LINK, group:F/J@TAG, folder:F, link:LINK, const:ENV@NAME, exception:ENV@F/J; theirs, conflicting items to take anyway; commits; merge_base)
        */
       op: string;
       /**
@@ -614,6 +614,11 @@ export interface components {
       commits: components["schemas"]["CommitOut"][];
       /** Constants */
       constants: components["schemas"]["ConstantChangeOut"][];
+      /**
+       * Exceptions
+       * @default []
+       */
+      exceptions: components["schemas"]["ExceptionChangeOut"][];
       /** Folders */
       folders: components["schemas"]["NodeChangeOut"][];
       head: components["schemas"]["RefOut"];
@@ -800,6 +805,27 @@ export interface components {
       error: string;
       /** Message */
       message: string;
+    };
+    /** ExceptionChangeOut */
+    ExceptionChangeOut: {
+      /** After */
+      after?: {
+        [key: string]: unknown;
+      } | null;
+      /**
+       * Before
+       * @description {"set": {ATTR: value}, "variables": {%%NAME: value}}
+       */
+      before?: {
+        [key: string]: unknown;
+      } | null;
+      /** Env */
+      env: string;
+      /**
+       * Node
+       * @description FOLDER/ or FOLDER/JOB
+       */
+      node: string;
     };
     /** ExceptionOut */
     ExceptionOut: {

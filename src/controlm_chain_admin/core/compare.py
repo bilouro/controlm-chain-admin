@@ -20,6 +20,7 @@ from typing import Any
 
 from controlm_chain_admin.core.history import CommitInfo, RefInfo
 from controlm_chain_admin.core.links import LINK_KEY, folder_names, load_links
+from controlm_chain_admin.core.overrides import load_overrides
 from controlm_chain_admin.core.relations import NodeRelations, Relation, all_relations
 from controlm_chain_admin.core.repo import CHAIN_FILE, EnvConfig, load_repo, read_json
 from controlm_chain_admin.core.selection import Sides, open_sides
@@ -128,6 +129,19 @@ class ConstantChange:
 
 
 @dataclass(frozen=True)
+class ExceptionChange:
+    """The exceptions of one folder or job in one environment, before and after."""
+
+    env: str
+    node: str
+    before: dict[str, Any] | None  # {"set": {ATTR: value}, "variables": {%%NAME: value}}
+    after: dict[str, Any] | None
+
+    def to_json(self) -> dict[str, Any]:
+        return {"env": self.env, "node": self.node, "before": self.before, "after": self.after}
+
+
+@dataclass(frozen=True)
 class Comparison:
     base: RefInfo
     head: RefInfo
@@ -140,6 +154,7 @@ class Comparison:
     rules_changed: bool
     metadata_files_changed: int
     selected: tuple[str, ...] | None = None  # commits compared when not all of them
+    exceptions: tuple[ExceptionChange, ...] = ()
 
     def summary(self) -> dict[str, Any]:
         def count(
@@ -154,6 +169,7 @@ class Comparison:
             "links": count(self.links, ("added", "removed", "renamed")),
             "relations": count(relations, ("added", "removed", "modified")),
             "constants": len(self.constants),
+            "exceptions": len(self.exceptions),
             "commits": len(self.commits),
         }
 
@@ -171,6 +187,7 @@ class Comparison:
             "rules_changed": self.rules_changed,
             "metadata_files_changed": self.metadata_files_changed,
             "selected": None if self.selected is None else list(self.selected),
+            "exceptions": [e.to_json() for e in self.exceptions],
         }
 
 
@@ -185,6 +202,7 @@ class _Side:
     relations: dict[str, NodeRelations] = field(default_factory=dict)
     names: dict[str, str] = field(default_factory=dict)  # link id -> export name
     constants: dict[str, dict[str, str | None]] = field(default_factory=dict)
+    exceptions: dict[str, dict[str, dict[str, Any]]] = field(default_factory=dict)  # env, node
     meta: dict[str, str] = field(default_factory=dict)
     rules: dict[str, Any] = field(default_factory=dict)
 
@@ -215,6 +233,10 @@ def _load(root: Path) -> _Side:
             side.constants[env] = dict(
                 EnvConfig.from_json(read_json(repo.env_file(env))).constants
             )
+        side.exceptions[env] = {
+            node: {"set": dict(o.attributes), "variables": dict(o.variables)}
+            for node, o in load_overrides(repo, env).items()
+        }
     meta_dir = root / "meta"
     if meta_dir.is_dir():
         side.meta = {
@@ -545,6 +567,13 @@ def diff_snapshots(base_root: Path, head_root: Path) -> tuple[Any, ...]:
             if b.get(name) != a.get(name):
                 constants.append(ConstantChange(env, name, b.get(name), a.get(name)))
 
+    exceptions: list[ExceptionChange] = []
+    for env in [*head.exceptions, *(e for e in base.exceptions if e not in head.exceptions)]:
+        was, now = base.exceptions.get(env, {}), head.exceptions.get(env, {})
+        for where in [*now, *(n for n in was if n not in now)]:
+            if was.get(where) != now.get(where):
+                exceptions.append(ExceptionChange(env, where, was.get(where), now.get(where)))
+
     meta_changed = sum(
         1 for path in set(base.meta) | set(head.meta) if base.meta.get(path) != head.meta.get(path)
     )
@@ -555,6 +584,7 @@ def diff_snapshots(base_root: Path, head_root: Path) -> tuple[Any, ...]:
         tuple(constants),
         base.rules != head.rules,
         meta_changed,
+        tuple(exceptions),
     )
 
 
@@ -610,11 +640,13 @@ def compare(
 
 def comparison(sides: Sides) -> Comparison:
     """The :class:`Comparison` of two opened sides."""
-    folders, jobs, links, constants, rules, meta = diff_snapshots(sides.base_root, sides.head_root)
+    folders, jobs, links, constants, rules, meta, exceptions = diff_snapshots(
+        sides.base_root, sides.head_root
+    )
     return Comparison(
         sides.base, sides.head, sides.merge_base, sides.commits,
         _attribute(folders, sides), _attribute(jobs, sides),
-        links, constants, rules, meta, sides.selected,
+        links, constants, rules, meta, sides.selected, exceptions,
     )  # fmt: skip
 
 
@@ -690,7 +722,7 @@ def render_text(result: Comparison) -> str:
         for c in result.commits
     ]
     nodes = (*result.folders, *result.jobs)
-    if not (nodes or result.links or result.constants):
+    if not (nodes or result.links or result.constants or result.exceptions):
         lines.append(f"No changes between {result.base.name} and {result.head.name}.")
         return "\n".join(lines) + "\n"
     lines.append("")
@@ -703,11 +735,22 @@ def render_text(result: Comparison) -> str:
             lines.append(f"condition {link.change} {link.after or link.before}")
     for c in result.constants:
         lines.append(f"constant {c.env} {c.name}: {_value(c.before)} -> {_value(c.after)}")
+    for e in result.exceptions:
+        lines.append(
+            f"exception {e.env} {e.node}: {_exception(e.before)} -> {_exception(e.after)}"
+        )
     if result.metadata_files_changed:
         lines.append(
             f"({result.metadata_files_changed} export metadata file(s) changed, not shown)"
         )
     return "\n".join(lines) + "\n"
+
+
+def _exception(value: Mapping[str, Any] | None) -> str:
+    if not value:
+        return "(none)"
+    pairs = {**value.get("set", {}), **value.get("variables", {})}
+    return ", ".join(f"{k}={'(removed)' if v is None else v}" for k, v in pairs.items())
 
 
 def _cell(text: str) -> str:
@@ -741,6 +784,14 @@ def render_markdown(result: Comparison) -> str:
         lines += [
             f"| {c.env} | {_cell(c.name)} | {_cell(_value(c.before))} | {_cell(_value(c.after))} |"
             for c in result.constants
+        ]
+        lines.append("")
+    if result.exceptions:
+        lines += ["### Exceptions", "", "| env | node | before | after |", "|---|---|---|---|"]
+        lines += [
+            f"| {e.env} | {_cell(e.node)} | {_cell(_exception(e.before))} | "
+            f"{_cell(_exception(e.after))} |"
+            for e in result.exceptions
         ]
         lines.append("")
     if result.commits:

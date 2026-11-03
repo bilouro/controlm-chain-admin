@@ -113,3 +113,19 @@ class MergeConflict(GitError):
     @property
     def detail(self) -> dict[str, object]:
         return {"paths": list(self.paths)}
+
+
+class TakeConflict(InvalidChange):
+    """Changes taken from another branch meet values the checkout changed too; nothing was taken.
+
+    Each conflict says what the checkout has (``mine``), what the change starts from
+    (``before``) and what it brings (``theirs``); take them anyway by naming them in ``theirs``.
+    """
+
+    def __init__(self, message: str, conflicts: tuple[dict[str, object], ...]) -> None:
+        super().__init__(message)
+        self.conflicts = conflicts
+
+    @property
+    def detail(self) -> dict[str, object]:
+        return {"conflicts": list(self.conflicts)}

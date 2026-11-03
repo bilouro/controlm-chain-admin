@@ -255,6 +255,38 @@ folders rewritten neutral with the base kept where a value is ignored or excepte
 restored, new constants declared. It is previewed, applied and committed like any edit,
 so it goes to the checked-out release. `ctmchain env learn` takes the values only.
 
+**A new repository learns its environments from their exports** (2026-11-03, asked by the
+author: elsewhere only PyPI is reachable, so nothing of the data travels, and the same
+exports are imported again). The same difference in many jobs, and a machine, user, mail or
+variable even once, is one *group* decision: a new constant (default for those), an
+exception in every job (default for the other attributes: time windows, MAXWAIT, TASKTYPE...),
+a change of the base, or ignore. The new constant gets a value in every environment: from the
+letter of the environment when the value carries it before a prefix of the letter rule
+(`{L}P77_BATCH`), the base's value elsewhere until their exports come. The name of the
+environment inside a text (`[UAT] Load failed`, the display names of `envs/<env>/env.json`)
+becomes an inline constant. One value of an environment is one constant: when a value pairs
+with several others, only the pair most jobs share becomes it; jobs the export does not change
+keep their values even when a new constant takes that value elsewhere. Values inside ON blocks
+(mails, subjects) are decisions of their own; only a different shape of the children
+(conditions, number of elements) is one *children* decision. On the real exports, uat's 3,523
+job-by-job differences become 18 groups covering 97%.
+
+**Folders and jobs of some environments** (2026-11-03): a folder or job may carry
+`"envs": ["uat"]` (no key: every environment). The export of another environment leaves it
+out; importing an export that has it adds that environment. An export of more than half of the
+folders of its environment is *full* (`--full`, `--partial`, the *Full export* box of the
+Import page decide otherwise). A full export of an environment other than production
+(`git.production`) leaves production alone by default: exceptions instead of changes, children
+ignored, a job it lacks noted as not there (*removed*: `not-here`), a folder or job only it has
+noted as only there (*added*: `only-here`), a folder it lacks noted as not there (*absent*);
+production's export header, job order and volatile attributes are kept, and a text or value
+counts as the name or letter of production only when it is production's. Built from the real
+prod export and then the full uat and bench exports (the `bootstrap` skill), the repository
+still exports prod byte for byte; uat comes out identical in 257 of 329 folders and bench in
+296 of 341, the rest being conditions named differently per environment (dirty names, kept as
+production has them, listed by `validate`). Sub-element variants (an ON block for one
+environment only) remain open.
+
 ## 6. Import
 
 - Lossless by default: re-importing the XML produced by `export` yields no changes
@@ -356,7 +388,21 @@ so it goes to the checked-out release. `ctmchain env learn` takes the values onl
   ways with `git merge-file` when a left-out commit changed other lines, refused when they
   overlap or the file is missing). A refusal names the commit and the left-out commits that
   touched the same files before it (`SelectionConflict`). Merge commits cannot be selected and
-  are skipped. Every change lists the commits that touched its files.
+  are skipped. Every change lists the commits that touched its files. Exceptions per
+  environment (`envs/<env>/overrides.json`) are listed too (2026-11-03).
+- `take <head> [--base HEAD] --item ID... [--theirs ID...]` (implemented 2026-11-03, asked by
+  the author: "levar item por item"): changes of another branch taken into the checked-out one,
+  one item at a time, as one previewed change set. The items are those of the comparison of the
+  checked-out branch (base) with the other branch (head), from their merge base: `folder:F`,
+  `job:F/J` (without its folder), `attr:NODE@ATTR`, `var:NODE@%%NAME`, `rel:NODE@LINK` (a
+  predecessor or successor, at both of its ends), `group:NODE@TAG` (ON, QUANTITATIVE...),
+  `link:LINK` (a condition's name), `const:ENV@NAME` and `exception:ENV@NODE`; `--list` shows
+  them. Each is applied cherry-pick style: where the checkout still has the value the change
+  started from, it gets the new one; where it already has it, nothing happens; a third value is
+  a conflict (`TakeConflict`, 409, with each value), taken only when named in `--theirs`.
+  Constants the taken content uses come along with their values; neighbour jobs do not, and a
+  condition nobody emits or waits for any more is a warning. A job is placed after the job that
+  precedes it in the other branch; its volatile attributes come with it.
 - `package <base> [<head>] --env <env>` (implemented 2026-11-02): the Control-M import file with
   every folder the comparison changed, whole (Control-M imports folders, not jobs). A folder is
   packaged when a job in it was added, removed, edited, renamed or moved in or out, when its own
@@ -540,7 +586,13 @@ Server-side concerns (not in the core):
   `GET /api/compare?base=&head=&merge_base=&commits=`, `GET /api/package?…&env=` and
   `GET /api/package/xml?…` (cached per pair of commits and options; the working tree is never
   cached). *Copy Markdown* copies `GET /api/compare/markdown` (the `--format md` report, left-out
-  commits marked) for a pull request description.
+  commits marked) for a pull request description. With the checked-out branch as base and
+  another branch as head (a button swaps them), every item has a box to take it: the whole job
+  or folder in the detail's header, each attribute, variable, predecessor and successor, each
+  changed group, and in the other tabs (*Conditions*, *Constants*, *Exceptions*) the condition
+  names, constant values and exceptions. *Take N changes into …* previews the `take` change
+  first: a conflict lists what the checkout has, what the change started from and what it brings,
+  and each one is kept or taken; then the usual review, apply and commit (2026-11-03).
 
 - **Validation (resolving, implemented 2026-11-02).** The findings table uses the whole width
   (condition or job, node and message stacked in one column, no horizontal scrolling), filters
@@ -598,7 +650,7 @@ excepted: they write their target but never touch the other side). Every command
 `--repo <dir>` (default: current directory) and `--format text|md|json` where a report is produced.
 
 Repository lifecycle
-- `init --repo <cloned-git-dir> --application <APP> --envs test,uat,bench,prod` — the git repository already exists (cloned by the user); `init` only adds `chain.json` (rules, whitelist, policies) and one `envs/<env>/` per declared environment.
+- `init --repo <cloned-git-dir> --application <APP> --envs test=T,uat=U,bench=B,prod=P [--prefixes P77,RQ_,RC_] [--leading-only RQ_,RC_]` — the git repository already exists (cloned by the user); `init` adds `chain.json` (rules, whitelist, policies), one `envs/<env>/` per declared environment and, unless one is there, the repository's `CLAUDE.md` (its rules, layout and everyday commands).
 - `distinct <ATTR>... [--xml <export.xml>] [--write <mappings.json>]` — distinct values of one or more attributes (e.g. `NODEID RUN_AS DOMAIL/@DEST VARIABLE/@VALUE`), with counts and sample nodes, read from an XML before import or from the repository after. `--write` produces a mapping draft to fill in.
 - `map <ATTR|TAG/@ATTR|TAG[K=V]/@ATTR> <value> --as <name> (--pattern "<tpl>" | --value ENV=VALUE ... | --env <env>) [--inline]` — declare one constant: the base gets `@{name}` wherever `<value>` appears in the selected attribute, each environment gets its value. `--pattern` fills every environment from a template with `{L}` (upper letter) / `{l}` (lower letter), e.g. `"{L}P77_BATCH"`, `"a{l}p77proc"`; `--value` sets one environment explicitly (repeatable); `--env` says which environment `<value>` belongs to. `--inline` binds a token inside free text (e.g. `[UAT]` in `DOMAIL/@SUBJECT`). Unknown values stay `null` until provided; export to such an environment fails unless `--allow-unresolved`. Constants cannot be bound to attributes governed by the letter rule.
 - `override <node> --env <env> <ATTR>=<value>... [--var %%NAME=value]` — per-job exception for one environment (whole values).
@@ -632,7 +684,7 @@ the first import.
 Quality
 - `validate [--env <env>] [--strict]` — graph, naming, overlay and resolution checks; exit code = highest severity.
 - `resolve [CODE=KIND...] [--apply] [--stat]` — implemented: fixes for the findings (see §8); without arguments, the fix kinds per code.
-- `receive <xml> [--env ENV] [--choose ID=OPTION ...] [--apply] [--stat] [--format text|json]` — implemented: an export of one environment (some folders or all) taken into the checked-out release (§5): the decisions with their defaults, then the change set.
+- `receive <xml> [--env ENV] [--full|--partial] [--choose ID=OPTION ...] [--apply] [--stat] [--format text|json]` — implemented: an export of one environment (some folders or all) taken into the checked-out release (§5): the decisions with their defaults, then the change set. A group's id holds `=`: `--choose 'group:RUN_AS=a>b=new:user.batch_user_proc'`.
 - `env learn <xml> [--env ENV] [--only PREFIX ...] [--apply]` — implemented: only the values of the constants in that environment (`--only user.` keeps some constants, e.g. when the export is anonymised).
 - `set-exception <env> <node> [--set ATTR=VALUE] [--unset ATTR] [--var %%NAME=VALUE] [--drop NAME]` — implemented: an exception of one environment for one job or folder (§5), previewed, `--apply` writes `envs/<env>/overrides.json`.
 - `rename-constant <old> <new>` — implemented: placeholders, `chain.json`, environment values and exceptions follow.
@@ -647,6 +699,7 @@ Inspection
 
 Comparison
 - `compare <base> [<head>] [--worktree] [--no-merge-base] [--commit <sha>...] [--format text|md|json]` — implemented: semantic comparison of two git refs of the repository (see §8). `head` defaults to `HEAD`; `--worktree` compares `base` with the uncommitted files; `--commit` keeps only those commits of head.
+- `take <head> [--base HEAD] [--item ID ...] [--theirs ID ...] [--list] [--commit <sha>...] [--no-merge-base] [--apply] [--stat]` — implemented: changes of another branch taken into the checked-out one, item by item (see §8).
 - `package <base> [<head>] --env <env> [--commit <sha>...] [--worktree] [--no-merge-base] [--jobnames original|deduped] [--names original|standard] [-o <file>] [--dry-run] [--format text|json]` — implemented: the Control-M import file with every changed folder, whole, and why (see §8). Default file name `deploy_<env>_<head>[_<n>-of-<m>]_<date>.xml`.
 - `diff <A> <B>` — planned: A and B may be repo directories, `env:<name>` resolved views or XML files; XML↔XML goes through `xmldiffreport`.
 

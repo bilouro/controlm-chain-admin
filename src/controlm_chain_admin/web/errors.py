@@ -22,6 +22,7 @@ from controlm_chain_admin.core.errors import (
     OrderConflict,
     ProtectedBranch,
     SelectionConflict,
+    TakeConflict,
     UncommittedChanges,
     UnknownEnvironment,
     UnresolvedConstant,
@@ -32,6 +33,7 @@ from controlm_chain_admin.core.errors import (
 log = logging.getLogger("ctmchain.web")
 
 _STATUS: tuple[tuple[type[ChainError], int], ...] = (
+    (TakeConflict, 409),  # before InvalidChange, its base class
     (InvalidChange, 422),  # before ModelError, its base class
     (ChangeConflict, 409),
     (SelectionConflict, 409),  # before GitError, its base class
