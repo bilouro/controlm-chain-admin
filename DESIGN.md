@@ -639,7 +639,9 @@ Server-side concerns (not in the core):
   and offer the dialog; *Apply change* stays disabled. In the package preview, when the
   environment already has an earlier commit of the release, the panel first asks whether the
   file holds only what changed since that installation or the whole release; after the
-  download, *Mark as installed in <env>* creates the tag. `GET /api/workspace` and
+  download, *Mark as installed in <env>* creates the tag. The dialog itself has an *Installed
+  in <env>* button per environment for the checked-out release, next to *Close release*
+  (2026-11-03, asked by the author: the whole path in one window). `GET /api/workspace` and
   `POST /api/workspace/{release,switch,stash,pop,discard,installed,update,close,push,pull}`
   (session token), each answering a message and the new state.
 

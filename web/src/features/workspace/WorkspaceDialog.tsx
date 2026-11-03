@@ -104,8 +104,8 @@ export function WorkspaceDialog({ onClose }: { onClose: () => void }) {
           </h2>
           <p className="text-xs text-muted">
             {data?.trunk ?? "main"} mirrors production and is never edited. Work on a release: start
-            it from {data?.trunk ?? "main"}, commit, generate the XML and mark it as installed in
-            each environment, then close it.
+            it from {data?.trunk ?? "main"}, commit, generate the XML (Compare), import it, mark the
+            release as installed in each environment here, then close it.
           </p>
         </div>
         {workspace.isPending && <Loading what="releases" />}
@@ -174,6 +174,40 @@ export function WorkspaceDialog({ onClose }: { onClose: () => void }) {
                   <Button size="sm" variant="ghost" onClick={() => setTarget(null)}>
                     Cancel
                   </Button>
+                </div>
+              )}
+              {data.release && current && (
+                <div
+                  role="group"
+                  aria-label="Mark the last commit as installed"
+                  className="flex flex-wrap items-center gap-2 text-xs"
+                >
+                  <span className="text-muted">
+                    Imported the XML? Mark the last commit as installed
+                    {data.changes > 0 ? " (uncommitted changes are not part of it)" : ""}:
+                  </span>
+                  {data.environments.map((env) => {
+                    const mark = current.installed.find((i) => i.env === env);
+                    const isUpToDate = mark !== undefined && mark.behind === 0;
+                    return (
+                      <Button
+                        key={env}
+                        size="sm"
+                        variant="ghost"
+                        disabled={isUpToDate || current.ahead === 0 || action.isPending}
+                        title={
+                          isUpToDate
+                            ? `${env} already has the last commit (${mark.tag})`
+                            : `tag the last commit of ${current.branch} as installed in ${env}`
+                        }
+                        onClick={() =>
+                          run({ action: "installed", body: { env, release: current.name } })
+                        }
+                      >
+                        Installed in {env}
+                      </Button>
+                    );
+                  })}
                 </div>
               )}
               {data.release && (

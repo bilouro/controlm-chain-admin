@@ -126,6 +126,9 @@ All notable changes to this project are documented here. The format follows
   job without its folder, folder, condition name, constant value or exception at a time,
   applied cherry-pick style; a value the checkout changed too is a conflict (`TakeConflict`,
   409) shown value by value, kept or taken; constants the taken content uses come along.
+- The *Releases* dialog marks the last commit of the checked-out release as installed in an
+  environment (*Installed in <env>*), next to *Close release*, without going through the package
+  preview.
 - The comparison lists the exceptions per environment (`exceptions`, an *Exceptions* tab, the
   text and Markdown reports).
 - The `bootstrap` skill: from the source distribution to a new chain repository built from the

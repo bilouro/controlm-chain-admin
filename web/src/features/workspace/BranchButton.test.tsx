@@ -38,6 +38,24 @@ describe("BranchButton", () => {
     expect(dialog).toHaveTextContent("the last commit is not installed in prod yet");
   });
 
+  it("marks the last commit of the release as installed in an environment, next to Close", async () => {
+    const { user, dialog } = await openDialog();
+
+    const install = within(dialog).getByRole("group", {
+      name: "Mark the last commit as installed",
+    });
+    expect(within(install).getByRole("button", { name: "Installed in uat" })).toBeEnabled();
+    await user.click(within(install).getByRole("button", { name: "Installed in prod" }));
+
+    await waitFor(() =>
+      expect(calls.workspace.at(-1)).toEqual({
+        action: "installed",
+        body: { env: "prod", release: "demo" },
+      }),
+    );
+    expect(await within(dialog).findByText("Tagged prod/demo-2 on 1234567")).toBeInTheDocument();
+  });
+
   it("switching with uncommitted changes asks to stash them first", async () => {
     const { user, dialog } = await openDialog();
 
