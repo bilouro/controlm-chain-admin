@@ -6,6 +6,10 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-03
+
+First release on PyPI.
+
 ### Added
 
 - Faithful XML reader and serializer for Control-M exports (`DEFTABLE`): byte-identical round
@@ -178,4 +182,5 @@ All notable changes to this project are documented here. The format follows
 - On Windows, unknown `/api/...` paths and missing assets were answered with the app instead of
   404 (the static files handler sees `\` separators there).
 
-[Unreleased]: https://github.com/bilouro/controlm-chain-admin/commits/main
+[Unreleased]: https://github.com/bilouro/controlm-chain-admin/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/bilouro/controlm-chain-admin/releases/tag/v0.1.0

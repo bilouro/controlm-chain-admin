@@ -212,7 +212,7 @@ or addresses anywhere in this public repository.
 12. **Taking changes of another branch — DONE (2026-11-03)**, asked by the author: `ctmchain
     take` and the boxes of the *Compare* page; one attribute, variable, condition, group, job,
     folder, condition name, constant value or exception at a time, conflicts value by value.
-13. **PyPI release 0.1.0 — next**: the pending publisher is configured on PyPI.
+13. **PyPI release 0.1.0 — DONE (2026-11-03)**: Trusted Publishing from the `v0.1.0` tag.
 
 Later, unordered: `envs` variants of sub-elements; second-environment import with learning; `diff`
 of environments and XML files with `xmldiffreport`; mapping editor; upstream graph explorer

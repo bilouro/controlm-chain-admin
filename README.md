@@ -14,8 +14,8 @@ environment you choose.
 > exceptions, folders and jobs of some environments) learned from the exports themselves,
 > releases with installations per environment, comparison of branches and taking their
 > changes item by item, validation with fixes, an editing web UI. The design is in
-> [`DESIGN.md`](DESIGN.md) and the plan in [`BACKLOG.md`](BACKLOG.md). Nothing is published to
-> PyPI yet; install from source.
+> [`DESIGN.md`](DESIGN.md) and the plan in [`BACKLOG.md`](BACKLOG.md). Released on PyPI since
+> 0.1.0.
 
 ## Why
 

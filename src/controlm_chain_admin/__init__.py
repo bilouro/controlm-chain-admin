@@ -1,3 +1,3 @@
 """controlm-chain-admin — manage BMC Control-M job chains as a git-friendly JSON repository."""
 
-__version__ = "0.0.1"
+__version__ = "0.1.0"
