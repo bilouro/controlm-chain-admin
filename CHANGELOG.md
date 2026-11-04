@@ -6,6 +6,31 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- The web UI shows one environment: *View* in the header switches the chain table, the folder
+  pages and the job pages to the folders and jobs that environment has, with its values (its
+  exceptions applied, its constants resolved; a constant without a value there stays
+  `@{name}`), and says so with a badge; the chain table gains a *Node* column, where the
+  machine of each job changes with the view. `?env=<name>` on `/api/table`, `/api/folders`,
+  `/api/folders/{name}` and `/api/jobs/{folder}/{job}`; `ctmchain show` and `ctmchain graph`
+  take `--env`.
+- `ctmchain receive`: a group (the same difference in several jobs) can be decided job by
+  job: each member is a decision of its own (`members` in the JSON; the *One by one* button
+  of the *Import* page), chosen with its id (`FOLDER/JOB@FIELD=ignore`) apart from the
+  group, which keeps the rest. The values no constant has (`unmatched`) say which folders
+  and jobs they are in (`nodes`); the *Import* page leaves out the ones of jobs left out.
+- The *Import* page sets every decision of a section at once (*All N: Exceptions*, *Ignore*,
+  …), where the decision offers that option.
+- `ctmchain receive`: a group whose value another pair shares (a few jobs run as another user
+  in one environment, while production's user is the same) offers `new` too: a constant of
+  their own, with production's value where it is the same, bound job by job. Later exports
+  keep each job's constant where the values of two constants agree. The default stays
+  `exceptions`.
+- `ctmchain receive`: a name with the environment's letter inside a text (`-j UP77_LOAD` in a
+  `CMDLINE` for `-j PP77_LOAD`) is an inline constant, with the letter of each environment:
+  the default when two jobs or more carry it, an exception of the one job otherwise.
+
 ## [0.1.3] - 2026-11-03
 
 ### Added

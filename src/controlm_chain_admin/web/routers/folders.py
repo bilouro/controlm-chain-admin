@@ -11,6 +11,7 @@ from controlm_chain_admin.core.errors import ModelError
 from controlm_chain_admin.core.graph import folder_graph
 from controlm_chain_admin.core.inspect import show_node
 from controlm_chain_admin.core.links import INDEX_FILE, folder_names, rebuild_links
+from controlm_chain_admin.core.membership import belongs
 from controlm_chain_admin.core.overrides import node_exceptions
 from controlm_chain_admin.core.relations import all_relations
 from controlm_chain_admin.core.repo import ChainRepo, read_json
@@ -47,11 +48,18 @@ def list_folders(
     q: str = Query("", description="case-insensitive substring of the folder name"),
     limit: int = Query(500, ge=1, le=5000),
     offset: int = Query(0, ge=0),
+    env: str | None = Query(None, description="an environment: its nodes, with its values"),
 ) -> FolderList:
-    names = [n for n in folder_names(repo) if q.lower() in n.lower()]
+    if env is not None:
+        repo.load_env(env)  # unknown environment: 404
+    names = [
+        n
+        for n in folder_names(repo)
+        if q.lower() in n.lower() and belongs(read_json(repo.folder_file(n)), env)
+    ]
     items = []
     for name in names[offset : offset + limit]:
-        data = read_json(repo.folder_file(name))
+        data = show_node(repo, f"{name}/", env)
         items.append(
             FolderSummary(
                 name=name,
@@ -70,18 +78,24 @@ def list_folders(
     responses=NOT_FOUND,
     summary="Folder with jobs, links and graph",
 )
-def folder_detail(name: str, repo: ChainRepo = Depends(get_repo)) -> FolderDetail:
+def folder_detail(
+    name: str,
+    repo: ChainRepo = Depends(get_repo),
+    env: str | None = Query(None, description="an environment: its nodes, with its values"),
+) -> FolderDetail:
     if not repo.folder_file(name).is_file():
         raise ModelError(f"unknown folder {name!r}")
-    folder = show_node(repo, f"{name}/")
+    folder = show_node(repo, f"{name}/", env)
+    graph = GraphOut.model_validate(folder_graph(repo, name, env).to_json())
     jobs = []
     for job_id in (str(j) for j in folder.get("jobs", [])):
-        job = read_json(repo.job_file(name, job_id))
+        if f"{name}/{job_id}" not in graph.nodes:
+            continue  # not in that environment
+        job = show_node(repo, f"{name}/{job_id}", env)
         jobs.append(
             JobSummary(id=job_id, name=job.get("JOBNAME", job_id), task_type=job.get("TASKTYPE"))
         )
     links = [LinkOut.model_validate(entry) for entry in _links_index(repo, name)]
-    graph = GraphOut.model_validate(folder_graph(repo, name).to_json())
     relations = all_relations(repo)[f"{name}/"]
     return FolderDetail(
         folder=folder,

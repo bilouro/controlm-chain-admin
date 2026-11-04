@@ -243,6 +243,29 @@
       "suggested": null,
       "values": null,
       "inline": false
+    },
+    {
+      "id": "unmatched:RUN_AS=nobody",
+      "kind": "unmatched",
+      "options": [
+        "new",
+        "literal"
+      ],
+      "default": "new",
+      "node": null,
+      "field": "RUN_AS",
+      "constant": "user.nobody",
+      "current": null,
+      "expected": null,
+      "incoming": "nobody",
+      "count": 1,
+      "suggested": "user.nobody",
+      "values": null,
+      "inline": false,
+      "members": [],
+      "nodes": [
+        "P77_CHAIN/P77_UATONLY"
+      ]
     }
   ],
   "unresolved": [],

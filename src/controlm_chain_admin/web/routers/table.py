@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
 from controlm_chain_admin.core.relations import chain_table
 from controlm_chain_admin.core.repo import ChainRepo
@@ -13,5 +13,8 @@ router = APIRouter(prefix="/api", tags=["table"])
 
 
 @router.get("/table", response_model=TableOut, summary="Folders and jobs with their neighbours")
-def table(repo: ChainRepo = Depends(get_repo)) -> TableOut:
-    return TableOut.model_validate({"folders": chain_table(repo)})
+def table(
+    repo: ChainRepo = Depends(get_repo),
+    env: str | None = Query(None, description="an environment: its nodes, with its values"),
+) -> TableOut:
+    return TableOut.model_validate({"folders": chain_table(repo, env)})

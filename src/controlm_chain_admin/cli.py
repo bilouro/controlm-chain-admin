@@ -162,6 +162,9 @@ def build_parser() -> argparse.ArgumentParser:
     show.add_argument(
         "--repo", type=Path, default=Path("."), help="repository directory (default: .)"
     )
+    show.add_argument(
+        "--env", help="as this environment has it: its exception, its values of the constants"
+    )
     show.set_defaults(func=cmd_show)
 
     gr = commands.add_parser("graph", help="chain graph of one folder")
@@ -169,6 +172,7 @@ def build_parser() -> argparse.ArgumentParser:
     gr.add_argument(
         "--repo", type=Path, default=Path("."), help="repository directory (default: .)"
     )
+    gr.add_argument("--env", help="without the jobs this environment does not have")
     gr.add_argument("--format", choices=("text", "mermaid", "dot", "json"), default="text")
     gr.set_defaults(func=cmd_graph)
 
@@ -767,13 +771,13 @@ def cmd_env_constants(args: argparse.Namespace) -> int:
 
 
 def cmd_show(args: argparse.Namespace) -> int:
-    data = inspect_mod.show_node(load_repo(args.repo), args.node)
+    data = inspect_mod.show_node(load_repo(args.repo), args.node, args.env)
     print(json.dumps(data, indent=2, ensure_ascii=False))
     return EXIT_OK
 
 
 def cmd_graph(args: argparse.Namespace) -> int:
-    graph = graph_mod.folder_graph(load_repo(args.repo), args.folder)
+    graph = graph_mod.folder_graph(load_repo(args.repo), args.folder, args.env)
     if args.format == "json":
         print(json.dumps(graph.to_json(), indent=2, ensure_ascii=False))
     elif args.format == "mermaid":

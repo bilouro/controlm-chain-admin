@@ -8,6 +8,7 @@ from typing import Any
 
 from controlm_chain_admin.core.errors import ModelError
 from controlm_chain_admin.core.links import Link, NodeRef, load_links
+from controlm_chain_admin.core.membership import belongs
 from controlm_chain_admin.core.repo import ChainRepo, read_json
 
 
@@ -58,13 +59,18 @@ def _touches(link: Link, folder: str) -> bool:
     return any(node.folder == folder for node in nodes)
 
 
-def folder_graph(repo: ChainRepo, folder: str) -> Graph:
-    """Nodes and edges of one folder, including edges to and from other folders."""
+def folder_graph(repo: ChainRepo, folder: str, env: str | None = None) -> Graph:
+    """Nodes and edges of one folder, including edges to and from other folders; with ``env``,
+    without the jobs that environment does not have, and their edges."""
     if not repo.folder_file(folder).is_file():
         raise ModelError(f"unknown folder {folder!r}")
     data = read_json(repo.folder_file(folder))
-    nodes = [str(NodeRef(folder)), *(str(NodeRef(folder, str(j))) for j in data.get("jobs", []))]
+    jobs = [str(j) for j in data.get("jobs", [])]
+    if env is not None:
+        jobs = [j for j in jobs if belongs(read_json(repo.job_file(folder, j)), env)]
+    nodes = [str(NodeRef(folder)), *(str(NodeRef(folder, j)) for j in jobs)]
     in_folder = set(nodes)
+    left_out = {str(NodeRef(folder, str(j))) for j in data.get("jobs", []) if str(j) not in jobs}
 
     edges: list[Edge] = []
     externals: dict[str, None] = {}
@@ -78,6 +84,8 @@ def folder_graph(repo: ChainRepo, folder: str) -> Graph:
         if producers and link.consumers:
             for producer in producers:
                 for consumer in link.consumers:
+                    if str(producer) in left_out or str(consumer) in left_out:
+                        continue
                     edges.append(
                         Edge(str(producer), str(consumer), link.name, producer not in static)
                     )
@@ -85,9 +93,9 @@ def folder_graph(repo: ChainRepo, folder: str) -> Graph:
                         if end not in in_folder:
                             externals[end] = None
         elif link.consumers:
-            dangling.extend((str(c), link.name) for c in link.consumers if c.folder == folder)
+            dangling.extend((str(c), link.name) for c in link.consumers if str(c) in in_folder)
         elif producers:
-            unconsumed.extend((str(p), link.name) for p in producers if p.folder == folder)
+            unconsumed.extend((str(p), link.name) for p in producers if str(p) in in_folder)
     return Graph(
         folder=folder,
         nodes=tuple(nodes),

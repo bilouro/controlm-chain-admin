@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
 from controlm_chain_admin.core.attribute_groups import group_attributes
 from controlm_chain_admin.core.graph import load_links
@@ -31,8 +31,13 @@ NOT_FOUND: dict[int | str, dict[str, Any]] = {
 @router.get(
     "/jobs/{folder}/{job}", response_model=JobDetail, responses=NOT_FOUND, summary="Job detail"
 )
-def job_detail(folder: str, job: str, repo: ChainRepo = Depends(get_repo)) -> JobDetail:
-    data = show_node(repo, f"{folder}/{job}")
+def job_detail(
+    folder: str,
+    job: str,
+    repo: ChainRepo = Depends(get_repo),
+    env: str | None = Query(None, description="an environment: its nodes, with its values"),
+) -> JobDetail:
+    data = show_node(repo, f"{folder}/{job}", env)
     meta = data.pop("meta", {})
     attrs = {k: v for k, v in data.items() if isinstance(v, str)}
     ref = NodeRef(folder, job)

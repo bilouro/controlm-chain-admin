@@ -7,11 +7,13 @@ from dataclasses import dataclass
 from typing import Any
 
 from controlm_chain_admin.core import ops
+from controlm_chain_admin.core.constants import resolve_json
 from controlm_chain_admin.core.errors import ModelError
 from controlm_chain_admin.core.jsonmodel import OWN_ORDER_KEY
 from controlm_chain_admin.core.links import NodeRef
 from controlm_chain_admin.core.model import XmlDocument, XmlElement
-from controlm_chain_admin.core.repo import ChainRepo, read_json
+from controlm_chain_admin.core.overrides import apply_override, load_overrides
+from controlm_chain_admin.core.repo import ChainRepo, load_repo, read_json
 
 FOLDER_TAGS = ("SMART_FOLDER", "FOLDER")
 
@@ -87,9 +89,24 @@ def load_document(repo: ChainRepo) -> XmlDocument:
     return ops.load_document(repo)[0]
 
 
-def show_node(repo: ChainRepo, node: str) -> dict[str, Any]:
-    """The JSON of a job (``FOLDER/JOB``) or folder (``FOLDER/``) with its volatile metadata."""
+def show_node(repo: ChainRepo, node: str, env: str | None = None) -> dict[str, Any]:
+    """The JSON of a job (``FOLDER/JOB``) or folder (``FOLDER/``) with its volatile metadata;
+    with ``env``, as that environment has it: its exception applied and its values in place of
+    the constants (one without a value there stays ``@{name}``)."""
     ref = NodeRef.parse(node)
+    data = _node_json(repo, ref)
+    if env is None:
+        return data
+    repo = load_repo(repo.root)
+    values = repo.load_env(env).constants  # unknown environment: UnknownEnvironment
+    override = load_overrides(repo, env).get(str(ref))
+    resolved: dict[str, Any] = resolve_json(
+        apply_override(data, override), repo.config.constants, values
+    )
+    return resolved
+
+
+def _node_json(repo: ChainRepo, ref: NodeRef) -> dict[str, Any]:
     if not repo.folder_file(ref.folder).is_file():
         raise ModelError(f"unknown folder {ref.folder!r}")
     meta_file = repo.folder_meta_file(ref.folder)

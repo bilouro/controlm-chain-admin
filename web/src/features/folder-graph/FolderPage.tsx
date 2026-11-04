@@ -27,6 +27,7 @@ import {
 } from "@/components/ui";
 import { exceptionCount } from "@/features/exceptions/exception-count";
 import { ExceptionsPanel } from "@/features/exceptions/ExceptionsPanel";
+import { EnvBadge } from "@/features/environments/EnvBadge";
 import { FolderGraph } from "./FolderGraph";
 import { edgeId } from "./flow";
 
@@ -118,6 +119,7 @@ export function FolderPage() {
       <header className="flex flex-wrap items-center gap-3">
         <h1 className="font-mono text-xl font-semibold">{folder}</h1>
         {subApp && <Badge>{subApp}</Badge>}
+        <EnvBadge />
         <span className="text-sm text-muted">
           {data.jobs.length} jobs · {data.graph.edges.length} edges · {data.links.length} links
         </span>

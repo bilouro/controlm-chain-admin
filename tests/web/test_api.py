@@ -6,8 +6,13 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
+from controlm_chain_admin.core.constants import Selector, define_constant
+from controlm_chain_admin.core.membership import with_envs
+from controlm_chain_admin.core.ops import import_xml
 from controlm_chain_admin.core.overrides import Override, write_overrides
-from controlm_chain_admin.core.repo import load_repo
+from controlm_chain_admin.core.repo import load_repo, read_json, write_json
+from tests.support.anomalies import ANOMALY_EXPORT
+from tests.support.samples import SAMPLE_EXPORT
 from tests.web.conftest import TOKEN
 
 ERROR_KEYS = {"error", "message", "detail"}
@@ -150,7 +155,9 @@ def test_job_and_folder_details_list_their_exceptions(client: TestClient, repo_r
     load = Override(attributes={"TASKTYPE": "Dummy", "CMDLINE": None})
     folder_override = Override(variables={"%%GEIENV": "x"})
     write_overrides(
-        repo, "prod", {"P77_INGEST_DAILY/P77_INGEST_LOAD": load, "P77_INGEST_DAILY/": folder_override}
+        repo,
+        "prod",
+        {"P77_INGEST_DAILY/P77_INGEST_LOAD": load, "P77_INGEST_DAILY/": folder_override},
     )
     write_overrides(
         repo, "bench", {"P77_INGEST_DAILY/P77_INGEST_LOAD": Override(attributes={"MAXWAIT": "3"})}
@@ -165,3 +172,42 @@ def test_job_and_folder_details_list_their_exceptions(client: TestClient, repo_r
     }
     assert folder["exceptions"] == {"prod": {"attributes": {}, "variables": {"%%GEIENV": "x"}}}
     assert client.get("/api/jobs/P77_INGEST_DAILY/P77_INGEST_INIT").json()["exceptions"] == {}
+
+
+def test_an_environment_s_view_has_its_nodes_with_its_values(
+    client: TestClient, repo_root: Path
+) -> None:
+    repo = load_repo(repo_root)
+    repo = define_constant(repo, "node.batch", Selector("NODEID"),
+                           {"uat": "UP77_BATCH", "prod": "PP77_BATCH"})  # fmt: skip
+    import_xml(repo, SAMPLE_EXPORT, env="uat")
+    import_xml(repo, ANOMALY_EXPORT, env="uat")
+    write_overrides(repo, "prod", {"P77_CHAIN/P77_B": Override(attributes={"TASKTYPE": "Dummy"})})
+    path = repo.job_file("P77_CHAIN", "P77_E")
+    write_json(path, with_envs(read_json(path), ["uat"], ("test", "uat", "bench", "prod")))
+
+    job = client.get("/api/jobs/P77_CHAIN/P77_B?env=prod").json()
+    load = client.get("/api/jobs/P77_INGEST_DAILY/P77_INGEST_LOAD?env=prod").json()
+    folder = client.get("/api/folders/P77_CHAIN?env=prod").json()
+    table = client.get("/api/table?env=prod").json()
+    base = client.get("/api/table").json()
+    unknown = client.get("/api/table?env=nope")
+
+    assert job["groups"]["identity"]["TASKTYPE"] == "Dummy" and job["raw"]["TASKTYPE"] == "Dummy"
+    assert load["raw"]["NODEID"] == "PP77_BATCH" and load["groups"]["execution"]["NODEID"] == (
+        "PP77_BATCH"
+    )
+    assert "P77_E" not in [j["id"] for j in folder["jobs"]]
+    assert "P77_CHAIN/P77_E" not in folder["graph"]["nodes"]
+    chain = next(f for f in table["folders"] if f["name"] == "P77_CHAIN")
+    assert "P77_E" not in [j["id"] for j in chain["jobs"]]
+    assert "P77_E" in [
+        j["id"] for j in next(f for f in base["folders"] if f["name"] == "P77_CHAIN")["jobs"]
+    ]
+    assert {
+        j["node_id"]
+        for f in table["folders"]
+        if f["name"] == "P77_INGEST_DAILY"
+        for j in f["jobs"]
+    } == {"PP77_BATCH"}
+    assert unknown.status_code == 404 and "unknown environment 'nope'" in unknown.json()["message"]

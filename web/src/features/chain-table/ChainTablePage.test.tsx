@@ -41,6 +41,18 @@ describe("ChainTablePage", () => {
     );
   });
 
+  it("shows the machine of each job, as the environment in view has it", async () => {
+    const user = userEvent.setup();
+    renderAt(<ChainTablePage />);
+    await screen.findByRole("link", { name: "P77_CHAIN" });
+
+    await user.click(screen.getByRole("button", { name: "Expand P77_CHAIN" }));
+
+    expect(screen.getByRole("columnheader", { name: "Node" })).toBeInTheDocument();
+    const b = screen.getByRole("row", { name: /P77_CHAIN P77_B Command/ });
+    expect(within(b).getByText("UP77_BATCH")).toBeInTheDocument();
+  });
+
   it("filters jobs and opens the folders that contain them", async () => {
     const user = userEvent.setup();
     renderAt(<ChainTablePage />);

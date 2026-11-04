@@ -6,6 +6,9 @@ import { CommitButton } from "@/features/commit/CommitButton";
 import { ComparePage } from "@/features/compare/ComparePage";
 import { FolderPage } from "@/features/folder-graph/FolderPage";
 import { ImportPage } from "@/features/intake/ImportPage";
+import { EnvBadge } from "@/features/environments/EnvBadge";
+import { EnvProvider } from "@/features/environments/EnvProvider";
+import { EnvSelect } from "@/features/environments/EnvSelect";
 import { EnvironmentsPage } from "@/features/environments/EnvironmentsPage";
 import { JobPage } from "@/features/job-detail/JobPage";
 import { ValidatePage } from "@/features/validate/ValidatePage";
@@ -47,6 +50,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <NavItem to="/environments">Environments</NavItem>
         </nav>
         <div className="ml-auto flex items-center gap-3">
+          <EnvSelect />
+          <EnvBadge />
           <BranchButton />
           <CommitButton />
           <RepoBadge />
@@ -78,11 +83,13 @@ export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <ChangeProvider>
-          <AppShell>
-            <AppRoutes />
-          </AppShell>
-        </ChangeProvider>
+        <EnvProvider>
+          <ChangeProvider>
+            <AppShell>
+              <AppRoutes />
+            </AppShell>
+          </ChangeProvider>
+        </EnvProvider>
       </BrowserRouter>
     </QueryClientProvider>
   );

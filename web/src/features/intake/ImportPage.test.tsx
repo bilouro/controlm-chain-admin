@@ -163,6 +163,108 @@ describe("ImportPage, the same difference in several jobs", () => {
       }),
     );
   });
+
+  it("sets every decision of a section at once, where the option exists", async () => {
+    server.use(http.post("/api/intake", () => HttpResponse.json(intakeGroups)));
+    const user = await analyzed(/uat export/);
+    const groups = screen.getByRole("region", { name: "The same difference in several jobs" });
+    const all = within(groups).getByRole("group", { name: "Set every decision of the section to" });
+
+    await user.click(within(all).getByRole("button", { name: "Ignore" }));
+    await user.click(within(all).getByRole("button", { name: "Exceptions" }));
+
+    const runAs = within(groups).getByRole("radiogroup", {
+      name: "group:RUN_AS=app77proc>aup77proc",
+    });
+    expect(within(runAs).getByRole("radio", { name: "Exceptions" })).toBeChecked();
+    const subject = within(groups).getByRole("radiogroup", { name: "group:DOMAIL/@SUBJECT~env" });
+    expect(within(subject).getByRole("radio", { name: "Ignore" })).toBeChecked();
+    await user.click(screen.getByRole("button", { name: "Review change" }));
+    await waitFor(() =>
+      expect(calls.preview[0]).toMatchObject({
+        params: {
+          env: "uat",
+          choices: {
+            "group:RUN_AS=app77proc>aup77proc": "exceptions",
+            "group:NODEID=PP77_BATCH>UP77_BATCH": "exceptions",
+            "group:DOMAIL/@SUBJECT~env": "ignore",
+          },
+        },
+      }),
+    );
+  });
+});
+
+describe("ImportPage, a long value that differs in one place", () => {
+  it("shows only what differs, with its context, and both values on hover", async () => {
+    const run = (cfg: string) =>
+      `/bin/ksh -c 'if [ "X$ENV" = "XU" ]; then CFG="${cfg}"; fi; echo "Target is $CFG"; /opt/p77/bin/stop.sh'`;
+    const command = {
+      ...intake.decisions[0],
+      id: "P77_CHAIN/P77_A@CMDLINE",
+      kind: "value",
+      options: ["change", "exception", "ignore"],
+      default: "ignore",
+      node: "P77_CHAIN/P77_A",
+      field: "CMDLINE",
+      current: run("ONE_CFG"),
+      incoming: run("TWO_CFG"),
+    };
+    server.use(
+      http.post("/api/intake", () =>
+        HttpResponse.json({ ...intake, decisions: [...intake.decisions, command] }),
+      ),
+    );
+    await analyzed();
+
+    const differences = screen.getByRole("region", { name: "Differences" });
+    const row = within(differences).getByText("ONE_CFG").closest("li");
+    expect(row).toHaveTextContent("P77_CHAIN/P77_A · CMDLINE: …");
+    expect(within(differences).getByText("ONE_CFG").tagName).toBe("DEL");
+    expect(within(differences).getByText("TWO_CFG").tagName).toBe("INS");
+    expect(row?.textContent).not.toContain("/bin/ksh");
+    expect(within(differences).getByTitle(/repository: \/bin\/ksh/)).toBeInTheDocument();
+  });
+});
+
+describe("ImportPage, a group decided one by one", () => {
+  it("lets each job of a group be decided apart from it", async () => {
+    server.use(http.post("/api/intake", () => HttpResponse.json(intakeGroups)));
+    const user = await analyzed(/uat export/);
+    const groups = screen.getByRole("region", { name: "The same difference in several jobs" });
+    expect(screen.queryByRole("radiogroup", { name: "P77_CHAIN/P77_B@RUN_AS" })).toBeNull();
+
+    await user.click(within(groups).getByRole("button", { name: "One by one (2)" }));
+
+    const a = screen.getByRole("radiogroup", { name: "P77_CHAIN/P77_A@RUN_AS" });
+    expect(within(a).getByRole("radio", { name: "As the group" })).toBeChecked();
+    expect(groups).toHaveTextContent("P77_CHAIN/P77_B · RUN_AS: app77proc → aup77proc");
+    const b = screen.getByRole("radiogroup", { name: "P77_CHAIN/P77_B@RUN_AS" });
+    await user.click(within(b).getByRole("radio", { name: "Ignore" }));
+    await user.click(screen.getByRole("button", { name: "Review change" }));
+
+    await waitFor(() =>
+      expect(calls.preview[0]).toMatchObject({
+        params: { env: "uat", choices: { "P77_CHAIN/P77_B@RUN_AS": "ignore" } },
+      }),
+    );
+    const sent = calls.preview[0] as { params: { choices: Record<string, string> } };
+    expect(Object.keys(sent.params.choices)).toEqual(["P77_CHAIN/P77_B@RUN_AS"]);
+  });
+
+  it("asks about the values of a job only the export has once the job is taken", async () => {
+    server.use(http.post("/api/intake", () => HttpResponse.json(intakeValues)));
+    const user = await analyzed(/uat export/);
+
+    const values = screen.getByRole("region", { name: "Values no constant has" });
+    expect(values).toHaveTextContent("1 value of folders and jobs left out is not asked");
+    expect(screen.queryByRole("radiogroup", { name: "unmatched:RUN_AS=nobody" })).toBeNull();
+
+    const added = screen.getByRole("radiogroup", { name: "P77_CHAIN/P77_UATONLY#added" });
+    await user.click(within(added).getByRole("radio", { name: "Only in uat" }));
+
+    expect(screen.getByRole("radiogroup", { name: "unmatched:RUN_AS=nobody" })).toBeInTheDocument();
+  });
 });
 
 describe("ImportPage, a full export", () => {

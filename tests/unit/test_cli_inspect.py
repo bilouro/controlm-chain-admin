@@ -8,6 +8,10 @@ from pathlib import Path
 import pytest
 
 from controlm_chain_admin.cli import main
+from controlm_chain_admin.core.constants import Selector, define_constant
+from controlm_chain_admin.core.membership import with_envs
+from controlm_chain_admin.core.ops import import_xml
+from controlm_chain_admin.core.repo import load_repo, read_json, write_json
 from tests.support.anomalies import ANOMALY_EXPORT
 from tests.support.samples import SAMPLE_EXPORT
 
@@ -97,3 +101,26 @@ def test_links_by_node_and_by_name(tmp_path: Path, capsys: pytest.CaptureFixture
     assert data[0]["from"] == ["P77_CHAIN/P77_C"] and data[0]["to"] == ["P77_CHAIN/P77_D"]
 
     assert main(["links", "--name", "NOPE", "--repo", str(root)]) == 3
+
+
+def test_show_and_graph_take_the_view_of_an_environment(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = _repo(tmp_path, ANOMALY_EXPORT)
+    repo = define_constant(load_repo(root), "node.batch", Selector("NODEID"),
+                           {"uat": "UP77_BATCH", "prod": "PP77_BATCH"})  # fmt: skip
+    import_xml(repo, ANOMALY_EXPORT, env="uat")
+    path = repo.job_file("P77_CHAIN", "P77_B")
+    write_json(path, with_envs(read_json(path), ["uat"], ("uat", "prod")))
+    capsys.readouterr()
+
+    assert main(["show", "P77_CHAIN/P77_A", "--repo", str(root), "--env", "prod"]) == 0
+    job = json.loads(capsys.readouterr().out)
+    assert (
+        main(["graph", "P77_CHAIN", "--repo", str(root), "--env", "prod", "--format", "json"]) == 0
+    )
+    graph = json.loads(capsys.readouterr().out)
+
+    assert job["NODEID"] == "PP77_BATCH"
+    assert "P77_CHAIN/P77_B" not in graph["nodes"]
+    assert main(["show", "P77_CHAIN/P77_A", "--repo", str(root), "--env", "nope"]) == 3

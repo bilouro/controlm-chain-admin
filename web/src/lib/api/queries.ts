@@ -14,6 +14,7 @@ import {
   type ValidateOut,
   type WorkspaceOut,
 } from "./client";
+import { useEnv } from "@/features/environments/env-context";
 
 export const queryKeys = {
   repo: ["repo"] as const,
@@ -34,21 +35,32 @@ export function useRepo() {
   return useQuery({ queryKey: queryKeys.repo, queryFn: () => api<RepoInfo>("/api/repo") });
 }
 
+/** The path, asking for one environment's view (its nodes, with its values) when one is chosen. */
+function viewOf(path: string, env: string | null): string {
+  return env ? `${path}?env=${encodeURIComponent(env)}` : path;
+}
+
 export function useTable() {
-  return useQuery({ queryKey: queryKeys.table, queryFn: () => api<TableOut>("/api/table") });
+  const { env } = useEnv();
+  return useQuery({
+    queryKey: [...queryKeys.table, env],
+    queryFn: () => api<TableOut>(viewOf("/api/table", env)),
+  });
 }
 
 export function useFolder(name: string) {
+  const { env } = useEnv();
   return useQuery({
-    queryKey: queryKeys.folder(name),
-    queryFn: () => api<FolderDetail>(`/api/folders/${encode(name)}`),
+    queryKey: [...queryKeys.folder(name), env],
+    queryFn: () => api<FolderDetail>(viewOf(`/api/folders/${encode(name)}`, env)),
   });
 }
 
 export function useJob(folder: string, job: string) {
+  const { env } = useEnv();
   return useQuery({
-    queryKey: queryKeys.job(folder, job),
-    queryFn: () => api<JobDetail>(`/api/jobs/${encode(folder)}/${encode(job)}`),
+    queryKey: [...queryKeys.job(folder, job), env],
+    queryFn: () => api<JobDetail>(viewOf(`/api/jobs/${encode(folder)}/${encode(job)}`, env)),
   });
 }
 

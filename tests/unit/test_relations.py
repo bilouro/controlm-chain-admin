@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from controlm_chain_admin.core.constants import Selector, define_constant
+from controlm_chain_admin.core.membership import with_envs
 from controlm_chain_admin.core.ops import import_xml
 from controlm_chain_admin.core.relations import all_relations, chain_table
-from controlm_chain_admin.core.repo import ChainRepo, init_repo
+from controlm_chain_admin.core.repo import ChainRepo, init_repo, load_repo, read_json, write_json
 from tests.support.anomalies import ANOMALY_EXPORT
 from tests.support.samples import SAMPLE_EXPORT
 
@@ -78,3 +80,23 @@ def test_chain_table_lists_folders_in_order_with_their_jobs_and_neighbours(
     assert [p["node"] for p in b["predecessors"]] == [f"{C}/P77_A"]
     assert [s["node"] for s in b["successors"]] == [f"{C}/P77_C"]
     assert [s["node"] for s in jobs["P77_A"]["successors"]] == [f"{C}/P77_B", None]
+
+
+def test_chain_table_of_an_environment_has_its_nodes_with_its_values(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    repo = define_constant(repo, "node.batch", Selector("NODEID"),
+                           {"uat": "UP77_BATCH", "prod": "PP77_BATCH"})  # fmt: skip
+    import_xml(repo, SAMPLE_EXPORT, env="uat")
+    import_xml(repo, ANOMALY_EXPORT, env="uat")
+    path = repo.job_file(C, "P77_E")
+    write_json(path, with_envs(read_json(path), ["uat"], ("uat", "prod")))
+
+    uat = {f["name"]: f for f in chain_table(load_repo(repo.root), "uat")}
+    prod = {f["name"]: f for f in chain_table(load_repo(repo.root), "prod")}
+
+    assert "P77_E" in [j["id"] for j in uat[C]["jobs"]]
+    assert "P77_E" not in [j["id"] for j in prod[C]["jobs"]]
+    assert {j["node_id"] for j in uat["P77_INGEST_DAILY"]["jobs"]} == {"UP77_BATCH"}
+    assert {j["node_id"] for j in prod["P77_INGEST_DAILY"]["jobs"]} == {"PP77_BATCH"}
+    base = chain_table(load_repo(repo.root))
+    assert {j["node_id"] for j in base[0]["jobs"]} == {"@{node.batch}"}

@@ -12,6 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from controlm_chain_admin.core.constants import resolve_json
 from controlm_chain_admin.core.links import (
     Condition,
     NodeRef,
@@ -20,6 +21,7 @@ from controlm_chain_admin.core.links import (
     folder_names,
     read_names,
 )
+from controlm_chain_admin.core.membership import belongs
 from controlm_chain_admin.core.repo import ChainRepo, read_json
 
 
@@ -164,8 +166,10 @@ def _row(identity: str, data: dict[str, Any], relations: NodeRelations) -> dict[
     }
 
 
-def chain_table(repo: ChainRepo) -> list[dict[str, Any]]:
-    """Folders in export order, each with its jobs and their neighbours (the table view)."""
+def chain_table(repo: ChainRepo, env: str | None = None) -> list[dict[str, Any]]:
+    """Folders in export order, each with its jobs and their neighbours (the table view);
+    with ``env``, the folders and jobs of that environment with its values."""
+    values = repo.load_env(env).constants if env is not None else {}
     relations = all_relations(repo)
     present = folder_names(repo)
     order: list[str] = []
@@ -177,9 +181,15 @@ def chain_table(repo: ChainRepo) -> list[dict[str, Any]]:
     table: list[dict[str, Any]] = []
     for folder in order:
         data = read_json(repo.folder_file(folder))
+        if not belongs(data, env):
+            continue
+        data = resolve_json(data, repo.config.constants, values)
         row = {"name": folder, **_row(f"{folder}/", data, relations[f"{folder}/"]), "jobs": []}
         for job_id in (str(j) for j in data.get("jobs", [])):
             job = read_json(repo.job_file(folder, job_id))
+            if not belongs(job, env):
+                continue
+            job = resolve_json(job, repo.config.constants, values)
             identity = f"{folder}/{job_id}"
             row["jobs"].append(
                 {

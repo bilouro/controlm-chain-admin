@@ -17,7 +17,10 @@ repository, folder by folder and job by job. What still differs is a decision:
   a new constant with a value per environment, an exception in every job, a change of the base,
   or ignore. A value with the letter of the environment (``UP77_BATCH`` for ``PP77_BATCH``)
   gives every environment its value; the name of the environment inside a text
-  (``[UAT] Load failed``) is an inline constant;
+  (``[UAT] Load failed``) or a name with its letter inside one (``-j UP77_LOAD``) is an inline
+  constant. A pair another pair shares a value with (a few jobs run as another user there,
+  production's user being the same) is exceptions by default, or a constant of its own bound
+  job by job: where two constants have one value, the import keeps the constant each job has;
 * ``removed``: a job of the repository is not in the export: remove it or keep it (or, in a
   full export, note that this environment does not have it);
 * ``added`` (full exports): a folder or job the repository does not have: only in this
@@ -52,6 +55,7 @@ from controlm_chain_admin.core.constants import (
     PLACEHOLDER,
     Selector,
     parse_spec,
+    placeholder,
     propose_name,
     values_from_pattern,
 )
@@ -124,6 +128,7 @@ class Decision:
     suggested: str | None = None  # the name of a new constant, for the option "new"
     values: Mapping[str, str | None] | None = None  # of the new constant, per environment
     inline: bool = False  # the new constant replaces a token inside a text
+    members: tuple[Decision, ...] = ()  # of a group: each job's own decision, to take apart
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -141,6 +146,8 @@ class Decision:
             "suggested": self.suggested,
             "values": dict(self.values) if self.values is not None else None,
             "inline": self.inline,
+            "members": [member.to_json() for member in self.members],
+            "nodes": sorted({s.node for s in self.sites}) if self.kind == "unmatched" else [],
         }
 
 
@@ -174,6 +181,7 @@ class Intake:
     skipped: tuple[str, ...]  # folders of other applications
     full: bool = False  # every folder of the environment, not a delivery of some
     values_only: bool = False  # the values of the environment, nothing else, by default
+    rebound: tuple[Site, ...] = ()  # where the export's value fits the job's constant, and another
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -299,6 +307,7 @@ class _Collector:
     base: Mapping[str, str | None] = field(default_factory=dict)  # production's constants
     full: bool = False  # the export has the whole environment
     decisions: list[Decision] = field(default_factory=list)
+    rebound: list[Site] = field(default_factory=list)  # the import put another constant there
     confirming: dict[str, list[Site]] = field(default_factory=dict)  # uses the export confirms
     adopting: dict[str, list[Site]] = field(default_factory=dict)
     contradicted: dict[str, dict[str, list[Site]]] = field(default_factory=dict)
@@ -333,16 +342,10 @@ class _Collector:
         size = self._size()
         b, a = _strings(before, self.volatile), _strings(after, self.volatile)
         for key in [*b, *(k for k in a if k not in b)]:
-            if b.get(key) != a.get(key):
-                self.classify(Site(node, key, "attribute", (), b.get(key), a.get(key)))
-            else:
-                self.confirm(Site(node, key, "attribute", (), b[key], a[key]))
+            self.settle(Site(node, key, "attribute", (), b.get(key), a.get(key)))
         bv, av = _variables(before), _variables(after)
         for key in [*bv, *(k for k in av if k not in bv)]:
-            if bv.get(key) != av.get(key):
-                self.classify(Site(node, key, "variable", (), bv.get(key), av.get(key)))
-            else:
-                self.confirm(Site(node, key, "variable", (), bv[key], av[key]))
+            self.settle(Site(node, key, "variable", (), bv.get(key), av.get(key)))
         bc, ac = _children(before), _children(after)
         structural = False
         for path in _leaves(bc, ac):
@@ -351,7 +354,9 @@ class _Collector:
                 continue
             current, incoming = _get(bc, path), _get(ac, path)
             site = Site(node, _path_text(path), "child", path, current, incoming, _tag(bc, path))
-            if (
+            if self.equivalent(current, incoming):
+                self.rebound.append(site)
+            elif (
                 PLACEHOLDER.fullmatch(current) and not PLACEHOLDER.fullmatch(incoming)
             ) or self.adopts(current, incoming):
                 self.classify(site)
@@ -365,6 +370,27 @@ class _Collector:
                 Decision(f"{node}#children", "children", ("change", "ignore"), default, node)
             )
         return size != self._size()
+
+    def settle(self, site: Site) -> None:
+        """An attribute or variable of a node: a decision where it differs, a confirmed use of
+        its constant where it does not, or where the import bound an equivalent constant."""
+        if site.current == site.incoming:
+            self.confirm(site)
+        elif self.equivalent(site.current, site.incoming):
+            self.rebound.append(site)
+            self.confirm(replace(site, incoming=site.current))
+        else:
+            self.classify(site)
+
+    def equivalent(self, current: str | None, incoming: str | None) -> bool:
+        """Two constants with one value in this environment: the export cannot tell them apart
+        (the import binds the first), the repository can (each job keeps its own)."""
+        ours, theirs = PLACEHOLDER.fullmatch(current or ""), PLACEHOLDER.fullmatch(incoming or "")
+        if not ours or not theirs or ours[1] == theirs[1]:
+            return False
+        return self.known.get(ours[1]) is not None and (
+            self.known.get(ours[1]) == self.known.get(theirs[1])
+        )
 
     def confirm(self, site: Site) -> None:
         """Note a use of a constant whose value this whole export confirms, with that value:
@@ -559,6 +585,84 @@ def _display_swap(site: Site, env: str, envs: _Envs) -> bool:
     return False
 
 
+_WORD = re.compile(r"[A-Za-z0-9_]+")
+
+
+def _token_swap(site: Site, env: str, envs: _Envs) -> tuple[str, str] | None:
+    """The one word the two texts differ by, when it carries the letters of their environments
+    (``-j PP77_LOAD`` for ``-j UP77_LOAD``): the token an inline constant replaces."""
+    if site.current is None or site.incoming is None:
+        return None
+    ours, theirs = _WORD.findall(site.current), _WORD.findall(site.incoming)
+    if len(ours) != len(theirs):
+        return None
+    pairs = {(a, b) for a, b in zip(ours, theirs, strict=True) if a != b}
+    if len(pairs) != 1:
+        return None
+    [(current, incoming)] = pairs
+    if current == site.current or _letter_pattern(current, incoming, env, envs) is None:
+        return None
+    boundary = rf"(?<![A-Za-z0-9]){re.escape(current)}(?![A-Za-z0-9])"
+    return (
+        (current, incoming) if re.sub(boundary, incoming, site.current) == site.incoming else None
+    )
+
+
+_GroupKey = tuple[str, str | None, str | None, bool]  # spec, current, incoming, inline
+
+
+def _group_key(site: Site, env: str, envs: _Envs) -> _GroupKey:
+    """What a value decision shares with the others of its group: the environment's name in a
+    text, a token with its letter inside one, or the whole value."""
+    spec = site.selector.spec
+    if _display_swap(site, env, envs):
+        return spec, None, None, True
+    swap = _token_swap(site, env, envs)
+    if swap is not None:
+        return spec, swap[0], swap[1], True
+    return spec, site.current, site.incoming, False
+
+
+def _group(
+    key: _GroupKey, sites: list[Site], env: str, envs: _Envs, taken: set[str], clean: bool,
+    elsewhere: bool, values_only: bool,
+) -> Decision:  # fmt: skip
+    spec, current, incoming, inline = key
+    first = sites[0]
+    environmental = first.scope == "variable" or first.selector.attribute in ENVIRONMENT_ATTRIBUTES
+    except_all = all(site.can_except for site in sites)
+    if current is None or incoming is None:  # the name of the environment in a text
+        values: dict[str, str | None] = dict(envs.displays)
+        name = f"env.{first.selector.attribute.lower()}"
+        key_id = f"group:{spec}~env"
+    else:
+        pattern = _letter_pattern(current, incoming, env, envs)
+        if pattern:
+            values = dict(values_from_pattern(pattern, envs.letters))
+        else:
+            values = {e: incoming if e == env else current for e in envs.names}
+        name = propose_name(first.selector, current, envs.prefixes)
+        key_id = f"group:{spec}{'~' if inline else '='}{current}>{incoming}"
+    # A constant for a pair another pair shares a value with (a role a few jobs have) is
+    # bound job by job: the exports keep each job's constant where their values agree.
+    options = ("new", *(("exceptions",) if except_all else ()), "change", "ignore")
+    if inline and current is not None:  # a token with the letter: a constant from two jobs on
+        default = "new" if len(sites) > 1 else ("exceptions" if except_all else "ignore")
+    elif clean and (inline or environmental):
+        default = "new"
+    elif values_only and not (inline or environmental):
+        default = "ignore"
+    else:
+        default = "exceptions" if except_all else ("ignore" if elsewhere else "change")
+    suggested = _free_name(name, taken)
+    taken.add(suggested)
+    return Decision(
+        key_id, "group", options, default, field=spec, constant=suggested,
+        current=current, incoming=envs.displays[env] if current is None else incoming,
+        count=len(sites), sites=tuple(sites), suggested=suggested, values=values, inline=inline,
+    )  # fmt: skip
+
+
 def _groups(
     decisions: list[Decision],
     env: str,
@@ -570,7 +674,7 @@ def _groups(
     """The value decisions that repeat one difference, or concern a value of the environment
     (machine, user, mail, variable), as one decision each, before the others; with
     ``values_only`` a repeated difference of another attribute is ignored by default."""
-    keyed: dict[tuple[str, str | None, str | None], list[Site]] = {}
+    keyed: dict[_GroupKey, list[Site]] = {}
     for decision in decisions:
         if decision.kind != "value":
             continue
@@ -579,69 +683,36 @@ def _groups(
             continue
         if PLACEHOLDER.search(site.current) or PLACEHOLDER.search(site.incoming):
             continue
-        spec = site.selector.spec
-        if _display_swap(site, env, envs):
-            keyed.setdefault((spec, None, None), []).append(site)
-        else:
-            keyed.setdefault((spec, site.current, site.incoming), []).append(site)
+        keyed.setdefault(_group_key(site, env, envs), []).append(site)
     # One value of an environment is one constant: when a value pairs with several others, only
-    # the pair most jobs share becomes the constant; the rest are exceptions to it.
+    # the pair most jobs share becomes the constant by default; the rest are exceptions to it.
     largest: Counter[tuple[str, str, str]] = Counter()
-    for (spec, current, incoming), sites in keyed.items():
+    for (spec, current, incoming, _inline), sites in keyed.items():
         if current is None or incoming is None:
             continue
         for side, value in (("current", current), ("incoming", incoming)):
             largest[(spec, side, value)] = max(largest[(spec, side, value)], len(sites))
     groups: list[Decision] = []
     grouped: set[Site] = set()
-    for (spec, current, incoming), sites in keyed.items():
+    by_site = {d.sites[0]: d for d in decisions if d.kind == "value" and d.sites}
+    for key, sites in keyed.items():
+        spec, current, incoming, inline = key
         first = sites[0]
         environmental = first.scope == "variable" or first.selector.attribute in (
             ENVIRONMENT_ATTRIBUTES
         )
-        inline = current is None
         if not inline and not environmental and len(sites) < 2:
             continue
-        except_all = all(site.can_except for site in sites)
-        if inline:
-            clean = True
-            values: dict[str, str | None] = dict(envs.displays)
-            name = f"env.{first.selector.attribute.lower()}"
-            key = f"group:{spec}~env"
-        else:
-            assert current is not None and incoming is not None
-            clean = largest[(spec, "current", current)] == len(sites) and largest[
-                (spec, "incoming", incoming)
-            ] == len(sites)
-            pattern = _letter_pattern(current, incoming, env, envs)
-            if pattern:
-                values = dict(values_from_pattern(pattern, envs.letters))
-            else:
-                values = {e: incoming if e == env else current for e in envs.names}
-            name = propose_name(first.selector, current, envs.prefixes)
-            key = f"group:{spec}={current}>{incoming}"
-        options = (
-            *(("new",) if clean else ()),
-            *(("exceptions",) if except_all else ()),
-            "change",
-            "ignore",
-        )
-        if clean and (inline or environmental):
-            default = "new"
-        elif values_only and not (inline or environmental):
-            default = "ignore"
-        else:
-            default = "exceptions" if except_all else ("ignore" if elsewhere else "change")
-        suggested = _free_name(name, taken)
-        taken.add(suggested)
-        groups.append(
-            Decision(
-                key, "group", options, default, field=spec, constant=suggested,
-                current=current, incoming=incoming if not inline else envs.displays[env],
-                count=len(sites), sites=tuple(sites), suggested=suggested,
-                values=values, inline=inline,
+        clean = (
+            current is None
+            or incoming is None
+            or (
+                largest[(spec, "current", current)] == len(sites)
+                and largest[(spec, "incoming", incoming)] == len(sites)
             )
-        )  # fmt: skip
+        )
+        group = _group(key, sites, env, envs, taken, clean, elsewhere, values_only)
+        groups.append(replace(group, members=tuple(by_site[site] for site in sites)))
         grouped.update(sites)
     rest = [d for d in decisions if not (d.kind == "value" and d.sites[0] in grouped)]
     return [*groups, *rest]
@@ -861,7 +932,7 @@ def analyze(
     return Intake(
         env, evidence, bool(present - exported), tuple(folders), tuple(decisions),
         tuple(unresolved), tuple(warnings), tuple(s.folder for s in report.skipped), full,
-        values_only,
+        values_only, tuple(collector.rebound),
     )  # fmt: skip
 
 
@@ -1158,6 +1229,23 @@ def _without(repo: ChainRepo, node: str, env: str) -> list[str]:
     return [e for e in envs if e != env]
 
 
+def _one_by_one(intake: Intake, choices: Mapping[str, str]) -> Intake:
+    """The members of a group with a choice of their own leave it, to be decided one by one;
+    the group keeps its other jobs, or goes when none is left."""
+    decisions: list[Decision] = []
+    for decision in intake.decisions:
+        apart = [m for m in decision.members if m.id in choices]
+        if not apart:
+            decisions.append(decision)
+            continue
+        kept = tuple(m for m in decision.members if m.id not in choices)
+        if kept:
+            sites = tuple(site for m in kept for site in m.sites)
+            decisions.append(replace(decision, members=kept, sites=sites, count=len(sites)))
+        decisions.extend(apart)
+    return replace(intake, decisions=tuple(decisions))
+
+
 def receive(
     repo: ChainRepo,
     data: bytes,
@@ -1171,7 +1259,7 @@ def receive(
     from controlm_chain_admin.core.refactor import _finish, _sandbox, _tracked
 
     repo = load_repo(repo.root)
-    intake = analyze(repo, data, env, full, values_only)
+    intake = _one_by_one(analyze(repo, data, env, full, values_only), choices or {})
     choices = dict(choices or {})
     unknown = sorted(set(choices) - {d.id for d in intake.decisions})
     if unknown:
@@ -1232,6 +1320,13 @@ def receive(
                     _keep_production(repo, box, folder.name)
         if creations:
             _keep_unchanged(repo, box, intake, creations)
+        for site in intake.rebound:  # the job's own constant, not the first with that value
+            _restore(box, site)
+        for decision in intake.decisions:  # the constant chosen, not the first with its value
+            name = _created_name(decision, chosen[decision.id])
+            if name is not None and not decision.inline:
+                for site in decision.sites:
+                    _put(box, site, placeholder(name))
         overrides = load_overrides(box, env)
         exceptions = 0
         taken = [

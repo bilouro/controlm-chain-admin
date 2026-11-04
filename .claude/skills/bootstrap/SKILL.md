@@ -85,6 +85,9 @@ Read the decisions with the person, by section, before `--apply`:
   constant with a value per environment. Give them readable names with
   `--choose 'group:...=new:<name>'`, or in the *Import* page of `ctmchain serve` (box *Only
   the values of <env>*).
+- a group that mixes things that are not alike (the sign of a condition, a text): *One by one*
+  in the Import page (`--choose 'FOLDER/JOB@FIELD=ignore'` in the CLI) decides each job
+  apart from the group;
 - everything else is left out by default: changes of jobs (**differences**, **children**),
   jobs the environment lacks (**removed**: kept) and folders or jobs only it has
   (**added**: left out). A difference the person knows is the environment's own (a job that
@@ -112,7 +115,13 @@ is not byte for byte any more, stop and say so. Then commit, and the same for be
   environment has its own machines behind them.
 - **Users**: `user.<role>_user_proc`, e.g. `user.batch_user_proc`, `user.per_user_proc`. A
   value that fits none: ask whether it is an existing one (`use:<name>`) or a new one (e.g.
-  `user.lala_user_proc`).
+  `user.lala_user_proc`). A few jobs that run as another user in one environment only (the
+  group's default is `exceptions`, since production's user is the same as everyone's): ask
+  whether they are a role; `--choose 'group:RUN_AS=<prod>><env>=new:user.<role>_user_proc'`
+  makes them a constant of their own, bound to those jobs.
+- **A name with the letter inside a command line** (`-j UP77_LOAD`): an inline constant with
+  the letter of each environment, by default when two jobs or more carry it (an exception of
+  the one job otherwise); `new` makes it a constant anyway.
 - **Mails, transfer (CFT) settings, variables such as the environment code**: one value per
   environment (a constant), which a single job may still change (an exception).
 - **Time windows, MAXWAIT, calendars, file age limits**: the same everywhere; a difference is

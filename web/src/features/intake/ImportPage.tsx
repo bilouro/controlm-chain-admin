@@ -53,6 +53,64 @@ function plural(count: number, noun: string): string {
   return `${count} ${noun}${count === 1 ? "" : "s"}`;
 }
 
+const CONTEXT = 40;
+
+/** What two values share before and after the part that differs. */
+function differing(from: string, to: string) {
+  let start = 0;
+  while (start < from.length && start < to.length && from[start] === to[start]) start += 1;
+  let end = 0;
+  while (
+    end < from.length - start &&
+    end < to.length - start &&
+    from[from.length - 1 - end] === to[to.length - 1 - end]
+  )
+    end += 1;
+  const word = /[A-Za-z0-9_]/; // whole words differ, not the letters inside them
+  while (start > 0 && word.test(from.charAt(start - 1))) start -= 1;
+  while (end > 0 && word.test(from.charAt(from.length - end))) end -= 1;
+  return {
+    before: from.slice(0, start),
+    old: from.slice(start, from.length - end),
+    now: to.slice(start, to.length - end),
+    after: from.slice(from.length - end),
+  };
+}
+
+/** Two values, the repository's and the export's; long alike texts show only what differs. */
+function Change({ from, to }: { from: string; to: string }) {
+  const { before, old, now, after } = differing(from, to);
+  if (from.length + to.length < 2 * CONTEXT || before.length + after.length === 0) {
+    return (
+      <>
+        {from} → {to}
+      </>
+    );
+  }
+  const head = before.length > CONTEXT ? `…${before.slice(-CONTEXT)}` : before;
+  const tail = after.length > CONTEXT ? `${after.slice(0, CONTEXT)}…` : after;
+  return (
+    <span title={`repository: ${from}\nexport: ${to}`}>
+      <span className="text-muted">{head}</span>
+      <del className="font-bold no-underline">{old || "(nothing)"}</del>
+      {" → "}
+      <ins className="font-bold no-underline">{now || "(nothing)"}</ins>
+      <span className="text-muted">{tail}</span>
+    </span>
+  );
+}
+
+function Description({ decision }: { decision: DecisionOut }) {
+  if (decision.kind === "value" && decision.current != null && decision.incoming != null) {
+    return (
+      <>
+        {decision.node} · {decision.field}: <Change from={decision.current} to={decision.incoming} />
+      </>
+    );
+  }
+  return <>{describe(decision)}</>;
+}
+
 function describe(decision: DecisionOut): string {
   switch (decision.kind) {
     case "learn":
@@ -109,7 +167,7 @@ const SECTIONS: { kind: string[]; title: string; help: string }[] = [
   {
     kind: ["value"],
     title: "Differences",
-    help: "Change the base (every environment), an exception (this environment only), or ignore.",
+    help: "The repository's value → the export's: change the base (every environment), an exception (this environment only), or ignore.",
   },
   {
     kind: ["children"],
@@ -133,54 +191,133 @@ const SECTIONS: { kind: string[]; title: string; help: string }[] = [
   },
 ];
 
+type Choose = (id: string, option: string | null) => void;
+
 function DecisionRow({
   decision,
   env,
   value,
-  onChange,
+  choices,
+  onChoose,
 }: {
   decision: DecisionOut;
   env: string;
   value: string;
-  onChange: (option: string) => void;
+  choices: Record<string, string>;
+  onChoose: Choose;
 }) {
+  const [isApart, setIsApart] = useState(false);
+  const [isEveryMember, setIsEveryMember] = useState(false);
   const isNew = value === "new" || value.startsWith("new:");
   const name = value.startsWith("new:") ? value.slice(4) : (decision.suggested ?? "");
+  const members = decision.members ?? [];
+  const shownMembers = isEveryMember ? members : members.slice(0, SHOWN);
   return (
-    <li className="flex flex-wrap items-center gap-x-4 gap-y-1 py-1.5 hover:bg-surface-2">
-      <span className="min-w-0 flex-1 font-mono text-xs">{describe(decision)}</span>
-      <span role="radiogroup" aria-label={decision.id} className="flex flex-wrap gap-3 text-xs">
-        {decision.options.map((option) => (
-          <label key={option} className="flex items-center gap-1">
+    <li className="py-1.5 hover:bg-surface-2">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        <span className="min-w-0 flex-1 font-mono text-xs">
+          <Description decision={decision} />
+        </span>
+        <span role="radiogroup" aria-label={decision.id} className="flex flex-wrap gap-3 text-xs">
+          {decision.options.map((option) => (
+            <label key={option} className="flex items-center gap-1">
+              <input
+                type="radio"
+                name={decision.id}
+                checked={option === "new" ? isNew : value === option}
+                onChange={() => onChoose(decision.id, option)}
+              />
+              {optionLabel(option, env)}
+            </label>
+          ))}
+        </span>
+        {members.length > 0 && (
+          <Button
+            size="sm"
+            variant="ghost"
+            aria-expanded={isApart}
+            onClick={() => setIsApart((current) => !current)}
+          >
+            One by one ({members.length})
+          </Button>
+        )}
+        {isNew && (
+          <label className="text-xs text-muted">
+            Name of the new constant
+            <TextInput
+              value={name}
+              onChange={(e) =>
+                onChoose(
+                  decision.id,
+                  e.target.value === decision.suggested ? "new" : `new:${e.target.value}`,
+                )
+              }
+              className="ml-2 font-mono"
+            />
+          </label>
+        )}
+        {isNew && decision.values && (
+          <span className="basis-full font-mono text-xs text-muted">
+            {Object.entries(decision.values)
+              .map(([envName, value]) => `${envName} ${value ?? "(missing)"}`)
+              .join(" · ")}
+          </span>
+        )}
+      </div>
+      {isApart && (
+        <ul className="ml-4 mt-1 divide-y divide-border/60 border-l-2 border-border pl-3">
+          {shownMembers.map((member) => (
+            <MemberRow
+              key={member.id}
+              member={member}
+              env={env}
+              value={choices[member.id] ?? ""}
+              onChoose={onChoose}
+            />
+          ))}
+          {members.length > shownMembers.length && (
+            <li className="py-1">
+              <Button size="sm" variant="ghost" onClick={() => setIsEveryMember(true)}>
+                Show all {members.length}
+              </Button>
+            </li>
+          )}
+        </ul>
+      )}
+    </li>
+  );
+}
+
+/** One job of a group: as the group decides, or an option of its own. */
+function MemberRow({
+  member,
+  env,
+  value,
+  onChoose,
+}: {
+  member: DecisionOut;
+  env: string;
+  value: string;
+  onChoose: Choose;
+}) {
+  return (
+    <li className="flex flex-wrap items-center gap-x-4 gap-y-1 py-1">
+      <span className="min-w-0 flex-1 font-mono text-xs">
+        <Description decision={member} />
+      </span>
+      <span role="radiogroup" aria-label={member.id} className="flex flex-wrap gap-3 text-xs">
+        {["", ...member.options].map((option) => (
+          <label key={option || "as-the-group"} className="flex items-center gap-1">
             <input
               type="radio"
-              name={decision.id}
-              checked={option === "new" ? isNew : value === option}
-              onChange={() => onChange(option)}
+              name={member.id}
+              checked={value === option}
+              onChange={() => onChoose(member.id, option || null)}
             />
-            {optionLabel(option, env)}
+            {option ? optionLabel(option, env) : "As the group"}
           </label>
         ))}
       </span>
-      {isNew && (
-        <label className="text-xs text-muted">
-          Name of the new constant
-          <TextInput
-            value={name}
-            onChange={(e) =>
-              onChange(e.target.value === decision.suggested ? "new" : `new:${e.target.value}`)
-            }
-            className="ml-2 font-mono"
-          />
-        </label>
-      )}
-      {isNew && decision.values && (
-        <span className="basis-full font-mono text-xs text-muted">
-          {Object.entries(decision.values)
-            .map(([envName, value]) => `${envName} ${value ?? "(missing)"}`)
-            .join(" · ")}
-        </span>
-      )}
     </li>
   );
 }
@@ -188,6 +325,7 @@ function DecisionRow({
 function Section({
   title,
   help,
+  note,
   decisions,
   env,
   choices,
@@ -195,36 +333,59 @@ function Section({
 }: {
   title: string;
   help: string;
+  note?: string;
   decisions: DecisionOut[];
   env: string;
   choices: Record<string, string>;
-  onChoose: (id: string, option: string) => void;
+  onChoose: Choose;
 }) {
   const [isAll, setIsAll] = useState(false);
-  if (decisions.length === 0) return null;
+  if (decisions.length === 0 && !note) return null;
   const shown = isAll ? decisions : decisions.slice(0, SHOWN);
+  const offered = [...new Set(decisions.flatMap((d) => d.options))];
+  const chooseAll = (option: string) =>
+    decisions.filter((d) => d.options.includes(option)).forEach((d) => onChoose(d.id, option));
   return (
-    <section aria-label={title} className="space-y-1">
-      <h3 className="text-sm font-semibold">
-        {title} <span className="font-normal text-muted">({decisions.length})</span>
-      </h3>
-      <p className="text-xs text-muted">{help}</p>
-      <ul className="divide-y divide-border/60">
-        {shown.map((decision) => (
-          <DecisionRow
-            key={decision.id}
-            decision={decision}
-            env={env}
-            value={choices[decision.id] ?? decision.default}
-            onChange={(option) => onChoose(decision.id, option)}
-          />
-        ))}
-      </ul>
-      {decisions.length > shown.length && (
-        <Button size="sm" variant="ghost" onClick={() => setIsAll(true)}>
-          Show all {decisions.length}
-        </Button>
-      )}
+    <section aria-label={title} className="rounded-md border border-border">
+      <header className="flex flex-wrap items-center gap-2 border-b border-border bg-surface-2 px-3 py-2">
+        <h3 className="text-base font-semibold">{title}</h3>
+        <Badge tone={decisions.length > 0 ? "warning" : "neutral"}>{decisions.length}</Badge>
+        <span className="basis-full text-xs text-muted">{help}</span>
+      </header>
+      <div className="space-y-1 px-3 py-2">
+        {note && <p className="text-xs text-muted">{note}</p>}
+        {decisions.length > 1 && (
+          <div
+            role="group"
+            aria-label="Set every decision of the section to"
+            className="flex flex-wrap items-center gap-1 text-xs"
+          >
+            <span className="text-muted">All {decisions.length}:</span>
+            {offered.map((option) => (
+              <Button key={option} size="sm" variant="ghost" onClick={() => chooseAll(option)}>
+                {optionLabel(option, env)}
+              </Button>
+            ))}
+          </div>
+        )}
+        <ul className="divide-y divide-border/60">
+          {shown.map((decision) => (
+            <DecisionRow
+              key={decision.id}
+              decision={decision}
+              env={env}
+              value={choices[decision.id] ?? decision.default}
+              choices={choices}
+              onChoose={onChoose}
+            />
+          ))}
+        </ul>
+        {decisions.length > shown.length && (
+          <Button size="sm" variant="ghost" onClick={() => setIsAll(true)}>
+            Show all {decisions.length}
+          </Button>
+        )}
+      </div>
     </section>
   );
 }
@@ -245,6 +406,20 @@ export function ImportPage() {
   });
   const result = analyze.data;
   const needsToken = analyze.error instanceof ApiError && analyze.error.status === 401;
+  const leftOut = new Set(
+    (result?.decisions ?? [])
+      .filter((d) => d.kind === "added" && (choices[d.id] ?? d.default) === "skip")
+      .map((d) => d.node ?? ""),
+  );
+  const isLeftOut = (node: string) => leftOut.has(node) || leftOut.has(`${node.split("/")[0]}/`);
+  const asked = (result?.decisions ?? []).filter(
+    (d) => d.kind !== "unmatched" || !(d.nodes ?? []).length || !(d.nodes ?? []).every(isLeftOut),
+  );
+  const hidden = (result?.decisions.length ?? 0) - asked.length;
+  const notAsked =
+    hidden > 0
+      ? `${plural(hidden, "value")} of folders and jobs left out ${hidden === 1 ? "is" : "are"} not asked`
+      : undefined;
 
   const handleFile = async (event: ChangeEvent<HTMLInputElement>) => {
     const chosen = event.target.files?.[0];
@@ -264,13 +439,22 @@ export function ImportPage() {
     setValuesOnly(isValuesOnly);
     handleAnalyze(full, isValuesOnly);
   };
+  const handleChoose: Choose = (id, option) =>
+    setChoices((current) => {
+      const next = { ...current };
+      if (option === null) delete next[id];
+      else next[id] = option;
+      return next;
+    });
   const handleReview = () => {
     if (!file || !result) return;
-    const changed = Object.fromEntries(
-      result.decisions
+    const members = new Set(result.decisions.flatMap((d) => (d.members ?? []).map((m) => m.id)));
+    const changed = Object.fromEntries([
+      ...result.decisions
         .filter((d) => (choices[d.id] ?? d.default) !== d.default)
         .map((d) => [d.id, choices[d.id] ?? d.default]),
-    );
+      ...Object.entries(choices).filter(([id]) => members.has(id)),
+    ]);
     propose({
       op: "receive",
       params: {
@@ -428,10 +612,11 @@ export function ImportPage() {
               key={section.title}
               title={section.title}
               help={section.help}
-              decisions={result.decisions.filter((d) => section.kind.includes(d.kind))}
+              note={section.kind.includes("unmatched") ? notAsked : undefined}
+              decisions={asked.filter((d) => section.kind.includes(d.kind))}
               env={result.env}
               choices={choices}
-              onChoose={(id, option) => setChoices((current) => ({ ...current, [id]: option }))}
+              onChoose={handleChoose}
             />
           ))}
           <div className="flex items-center justify-end gap-2">

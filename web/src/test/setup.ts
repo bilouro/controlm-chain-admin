@@ -35,6 +35,7 @@ afterEach(() => {
   calls.commit.length = 0;
   calls.workspace.length = 0;
   calls.intake.length = 0;
+  calls.env.length = 0;
   sessionStorage.clear();
 });
 afterAll(() => server.close());

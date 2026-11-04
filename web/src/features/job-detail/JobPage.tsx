@@ -11,6 +11,7 @@ import { VariablesEditor, type Variable } from "@/features/editing/VariablesEdit
 import { Badge, Card, ErrorBox, Kv, Loading, TabPanel, Tabs, type TabItem } from "@/components/ui";
 import { exceptionCount } from "@/features/exceptions/exception-count";
 import { ExceptionsPanel } from "@/features/exceptions/ExceptionsPanel";
+import { EnvBadge } from "@/features/environments/EnvBadge";
 
 type OnBlock = Record<string, unknown> & { children?: Array<Record<string, unknown>> };
 
@@ -92,6 +93,7 @@ export function JobPage() {
       <header className="flex flex-wrap items-center gap-3">
         <h1 className="font-mono text-xl font-semibold">{data.name}</h1>
         {data.groups.identity?.TASKTYPE && <Badge>{data.groups.identity.TASKTYPE}</Badge>}
+        <EnvBadge />
         {data.id !== data.name && <Badge tone="warning">repeated JOBNAME · file {data.id}</Badge>}
         <span className="ml-auto flex gap-2">
           <InlineAction

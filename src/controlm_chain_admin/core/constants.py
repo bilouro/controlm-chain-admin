@@ -219,6 +219,29 @@ def apply_export(
     return rewritten, ExportConstantsReport(resolved, tuple(unresolved))
 
 
+def resolve_json(
+    data: Any, bindings: Mapping[str, Selector], env_values: Mapping[str, str | None]
+) -> Any:
+    """A node's JSON with every ``@{name}`` of a constant replaced by its value in one
+    environment, as a view of that environment: a constant without a value there stays."""
+
+    def repl(match: re.Match[str]) -> str:
+        name = match.group(1)
+        value = env_values.get(name) if name in bindings else None
+        return match.group(0) if value is None else value
+
+    def visit(value: Any) -> Any:
+        if isinstance(value, str):
+            return PLACEHOLDER.sub(repl, value) if "@{" in value else value
+        if isinstance(value, list):
+            return [visit(item) for item in value]
+        if isinstance(value, dict):
+            return {key: visit(item) for key, item in value.items()}
+        return value
+
+    return visit(data)
+
+
 # ---------------------------------------------------------------- names
 
 

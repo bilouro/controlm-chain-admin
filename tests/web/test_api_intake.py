@@ -77,6 +77,11 @@ def test_a_group_carries_the_values_its_constant_would_have(
     groups = {d["field"]: d for d in body["decisions"] if d["kind"] == "group"}
     assert groups["NODEID"]["values"]["bench"] == "BP77_BATCH"
     assert (groups["NODEID"]["inline"], groups["DOMAIL/@SUBJECT"]["inline"]) == (False, True)
+    members = groups["RUN_AS"]["members"]  # each job's own decision, to take apart
+    assert len(members) == groups["RUN_AS"]["count"]
+    assert "P77_CHAIN/P77_A@RUN_AS" in [m["id"] for m in members]
+    assert members[0]["options"] == ["change", "exception", "ignore"]
+    assert members[0]["members"] == [] and members[0]["nodes"] == []
 
 
 def test_the_export_can_be_told_full(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

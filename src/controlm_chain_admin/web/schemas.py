@@ -486,6 +486,14 @@ class DecisionOut(BaseModel):
         None, description="the value of the new constant in each environment (option new)"
     )
     inline: bool = Field(False, description="the new constant replaces a token inside a text")
+    members: list[DecisionOut] = Field(
+        default_factory=list,
+        description="of a group: the decision of each job on its own, to choose apart from it",
+    )
+    nodes: list[str] = Field(
+        default_factory=list,
+        description="of a value no constant has: the folders and jobs (only in the export) it is in",
+    )
 
 
 class FolderIntakeOut(BaseModel):

@@ -58,7 +58,53 @@
         "bench": "app77proc",
         "prod": "app77proc"
       },
-      "inline": false
+      "inline": false,
+      "members": [
+        {
+          "id": "P77_CHAIN/P77_A@RUN_AS",
+          "kind": "value",
+          "options": [
+            "change",
+            "exception",
+            "ignore"
+          ],
+          "default": "change",
+          "node": "P77_CHAIN/P77_A",
+          "field": "RUN_AS",
+          "constant": null,
+          "current": "app77proc",
+          "expected": null,
+          "incoming": "aup77proc",
+          "count": 1,
+          "suggested": null,
+          "values": null,
+          "inline": false,
+          "members": [],
+          "nodes": []
+        },
+        {
+          "id": "P77_CHAIN/P77_B@RUN_AS",
+          "kind": "value",
+          "options": [
+            "change",
+            "exception",
+            "ignore"
+          ],
+          "default": "change",
+          "node": "P77_CHAIN/P77_B",
+          "field": "RUN_AS",
+          "constant": null,
+          "current": "app77proc",
+          "expected": null,
+          "incoming": "aup77proc",
+          "count": 1,
+          "suggested": null,
+          "values": null,
+          "inline": false,
+          "members": [],
+          "nodes": []
+        }
+      ]
     },
     {
       "id": "group:VARIABLE[NAME=%%GEIENV]/@VALUE=x>u",

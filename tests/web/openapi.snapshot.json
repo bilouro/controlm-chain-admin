@@ -521,6 +521,14 @@
             "title": "Kind",
             "type": "string"
           },
+          "members": {
+            "description": "of a group: the decision of each job on its own, to choose apart from it",
+            "items": {
+              "$ref": "#/components/schemas/DecisionOut"
+            },
+            "title": "Members",
+            "type": "array"
+          },
           "node": {
             "anyOf": [
               {
@@ -531,6 +539,14 @@
               }
             ],
             "title": "Node"
+          },
+          "nodes": {
+            "description": "of a value no constant has: the folders and jobs (only in the export) it is in",
+            "items": {
+              "type": "string"
+            },
+            "title": "Nodes",
+            "type": "array"
           },
           "options": {
             "items": {
@@ -3205,6 +3221,24 @@
               "title": "Offset",
               "type": "integer"
             }
+          },
+          {
+            "description": "an environment: its nodes, with its values",
+            "in": "query",
+            "name": "env",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "an environment: its nodes, with its values",
+              "title": "Env"
+            }
           }
         ],
         "responses": {
@@ -3246,6 +3280,24 @@
             "schema": {
               "title": "Name",
               "type": "string"
+            }
+          },
+          {
+            "description": "an environment: its nodes, with its values",
+            "in": "query",
+            "name": "env",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "an environment: its nodes, with its values",
+              "title": "Env"
             }
           }
         ],
@@ -3497,6 +3549,24 @@
             "schema": {
               "title": "Job",
               "type": "string"
+            }
+          },
+          {
+            "description": "an environment: its nodes, with its values",
+            "in": "query",
+            "name": "env",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "an environment: its nodes, with its values",
+              "title": "Env"
             }
           }
         ],
@@ -3892,6 +3962,26 @@
     "/api/table": {
       "get": {
         "operationId": "table_api_table_get",
+        "parameters": [
+          {
+            "description": "an environment: its nodes, with its values",
+            "in": "query",
+            "name": "env",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "an environment: its nodes, with its values",
+              "title": "Env"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -3902,6 +3992,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "summary": "Folders and jobs with their neighbours",

@@ -39,6 +39,8 @@ export const calls: {
   commit: unknown[];
   workspace: { action: string; body: unknown }[];
   intake: unknown[];
+  /** The `env` each chain page asked for (null: the neutral base). */
+  env: (string | null)[];
 } = {
   preview: [],
   apply: [],
@@ -47,7 +49,12 @@ export const calls: {
   commit: [],
   workspace: [],
   intake: [],
+  env: [],
 };
+
+function viewedEnv(request: Request): void {
+  calls.env.push(new URL(request.url).searchParams.get("env"));
+}
 
 const WORKSPACE_MESSAGES: Record<string, (body: Record<string, unknown>) => string> = {
   switch: (body) => `Switched to ${String(body.branch)}`,
@@ -67,12 +74,17 @@ function unauthorized(request: Request) {
 
 export const handlers = [
   http.get("/api/repo", () => HttpResponse.json(repo)),
-  http.get("/api/table", () => HttpResponse.json(table)),
-  http.get("/api/folders/:name", ({ params }) => {
+  http.get("/api/table", ({ request }) => {
+    viewedEnv(request);
+    return HttpResponse.json(table);
+  }),
+  http.get("/api/folders/:name", ({ params, request }) => {
+    viewedEnv(request);
     const detail = folderByName[String(params.name)];
     return detail ? HttpResponse.json(detail) : notFound(`unknown folder '${String(params.name)}'`);
   }),
-  http.get("/api/jobs/:folder/:job", ({ params }) => {
+  http.get("/api/jobs/:folder/:job", ({ params, request }) => {
+    viewedEnv(request);
     const detail = jobByPath[`${String(params.folder)}/${String(params.job)}`];
     return detail ? HttpResponse.json(detail) : notFound(`unknown job '${String(params.job)}'`);
   }),

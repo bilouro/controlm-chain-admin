@@ -57,6 +57,7 @@ function filterRows(folders: TableFolder[], q: string): Row[] {
         job.application,
         job.sub_application,
         job.task_type,
+        job.node_id,
         job.description,
       ),
     );
@@ -127,6 +128,7 @@ export function ChainTablePage() {
                   "Folder",
                   "Job",
                   "Type",
+                  "Node",
                   "Predecessors",
                   "Successors",
                 ].map((header) => (
@@ -191,6 +193,7 @@ export function ChainTablePage() {
                             </Link>
                           </td>
                           <td className={CELL}>{job.task_type ?? "—"}</td>
+                          <td className={cn(CELL, "font-mono text-xs")}>{job.node_id ?? "—"}</td>
                           <td className={CELL}>
                             <NeighbourChips items={job.predecessors} folder={folder.name} />
                           </td>

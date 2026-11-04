@@ -6,9 +6,11 @@ from pathlib import Path
 
 import pytest
 
-from controlm_chain_admin.core.errors import ModelError
+from controlm_chain_admin.core.constants import Selector, define_constant
+from controlm_chain_admin.core.errors import ModelError, UnknownEnvironment
 from controlm_chain_admin.core.inspect import distinct_values, load_document, show_node
 from controlm_chain_admin.core.ops import import_xml
+from controlm_chain_admin.core.overrides import Override, write_overrides
 from controlm_chain_admin.core.repo import ChainRepo, init_repo
 from controlm_chain_admin.core.xmlio import parse_xml
 from tests.support.samples import SAMPLE_EXPORT
@@ -93,3 +95,32 @@ def test_show_unknown_node_raises_model_error(tmp_path: Path) -> None:
         show_node(repo, "P77_INGEST_DAILY/NOPE")
     with pytest.raises(ModelError):
         show_node(repo, "NOPE/")
+
+
+def test_show_resolves_the_values_of_an_environment(tmp_path: Path) -> None:
+    repo = _import(tmp_path)
+    repo = define_constant(repo, "node.batch", Selector("NODEID"),
+                           {"uat": "UP77_BATCH", "prod": "PP77_BATCH"})  # fmt: skip
+    repo = define_constant(repo, "user.proc", Selector("RUN_AS"), {"uat": "aup77proc"})
+    import_xml(repo, SAMPLE_EXPORT, env="uat")  # binds the constants
+    load = "P77_INGEST_DAILY/P77_INGEST_LOAD"
+    write_overrides(repo, "prod", {load: Override(attributes={"TASKTYPE": "Dummy"})})
+
+    base = show_node(repo, load)
+    uat = show_node(repo, load, env="uat")
+    prod = show_node(repo, load, env="prod")
+
+    assert (base["NODEID"], base["RUN_AS"], base["TASKTYPE"]) == (
+        "@{node.batch}", "@{user.proc}", "Command",
+    )  # fmt: skip
+    assert (uat["NODEID"], uat["RUN_AS"], uat["TASKTYPE"]) == (
+        "UP77_BATCH",
+        "aup77proc",
+        "Command",
+    )
+    assert (prod["NODEID"], prod["RUN_AS"], prod["TASKTYPE"]) == (
+        "PP77_BATCH", "@{user.proc}", "Dummy",  # no prod user yet; prod's exception applies
+    )  # fmt: skip
+    assert uat["meta"] == base["meta"]
+    with pytest.raises(UnknownEnvironment, match="unknown environment 'nope'"):
+        show_node(repo, load, env="nope")

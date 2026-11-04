@@ -14,8 +14,9 @@ from controlm_chain_admin.core.graph import (
     render_mermaid,
     render_text,
 )
+from controlm_chain_admin.core.membership import with_envs
 from controlm_chain_admin.core.ops import import_xml
-from controlm_chain_admin.core.repo import ChainRepo, init_repo
+from controlm_chain_admin.core.repo import ChainRepo, init_repo, read_json, write_json
 from tests.support.anomalies import ANOMALY_EXPORT
 
 APP = "P77_RISK_ENGINE"
@@ -85,3 +86,16 @@ def test_renderings(tmp_path: Path) -> None:
 def test_graph_of_unknown_folder_raises(tmp_path: Path) -> None:
     with pytest.raises(ModelError):
         folder_graph(_import(tmp_path), "P77_NOPE")
+
+
+def test_folder_graph_of_an_environment_leaves_out_the_jobs_it_lacks(tmp_path: Path) -> None:
+    repo = _import(tmp_path)
+    path = repo.job_file(F, "P77_B")
+    write_json(path, with_envs(read_json(path), ["uat"], ("uat", "prod")))
+
+    uat = folder_graph(repo, F, env="uat")
+    prod = folder_graph(repo, F, env="prod")
+
+    assert f"{F}/P77_B" in uat.nodes and f"{F}/P77_B" not in prod.nodes
+    assert all(f"{F}/P77_B" not in (e.source, e.target) for e in prod.edges)
+    assert 0 < len(prod.edges) < len(uat.edges)

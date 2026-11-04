@@ -99,6 +99,7 @@ def test_a_partial_export_with_new_and_removed_jobs(repo: ChainRepo) -> None:
         "unmatched", "user.nobody", 1, "new",
     )  # fmt: skip
     assert unmatched.options == ("new", "use:user.proc", "literal")
+    assert unmatched.to_json()["nodes"] == [f"{C}/P77_NEW"]  # only the export has it
     assert intake.unresolved == ()
 
 

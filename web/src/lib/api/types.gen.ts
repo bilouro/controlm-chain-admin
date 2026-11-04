@@ -726,8 +726,18 @@ export interface components {
        * @description learn | set-value | adopt | constant | group | value | children | removed | added | absent | unmatched
        */
       kind: string;
+      /**
+       * Members
+       * @description of a group: the decision of each job on its own, to choose apart from it
+       */
+      members?: components["schemas"]["DecisionOut"][];
       /** Node */
       node?: string | null;
+      /**
+       * Nodes
+       * @description of a value no constant has: the folders and jobs (only in the export) it is in
+       */
+      nodes?: string[];
       /** Options */
       options: string[];
       /**
@@ -1878,6 +1888,8 @@ export interface operations {
         q?: string;
         limit?: number;
         offset?: number;
+        /** @description an environment: its nodes, with its values */
+        env?: string | null;
       };
       header?: never;
       path?: never;
@@ -1907,7 +1919,10 @@ export interface operations {
   };
   folder_detail_api_folders__name__get: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description an environment: its nodes, with its values */
+        env?: string | null;
+      };
       header?: never;
       path: {
         name: string;
@@ -2121,7 +2136,10 @@ export interface operations {
   };
   job_detail_api_jobs__folder___job__get: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description an environment: its nodes, with its values */
+        env?: string | null;
+      };
       header?: never;
       path: {
         folder: string;
@@ -2346,7 +2364,10 @@ export interface operations {
   };
   table_api_table_get: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description an environment: its nodes, with its values */
+        env?: string | null;
+      };
       header?: never;
       path?: never;
       cookie?: never;
@@ -2360,6 +2381,15 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["TableOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
         };
       };
     };

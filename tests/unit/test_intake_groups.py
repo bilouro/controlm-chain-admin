@@ -92,7 +92,7 @@ def test_other_repeated_differences_default_to_exceptions(tmp_path: Path) -> Non
     assert single[f"{C}/P77_E@TASKTYPE"].kind == "value"  # once is not a group
 
 
-def test_a_value_that_means_two_things_cannot_become_a_constant(tmp_path: Path) -> None:
+def test_a_value_that_means_two_things_is_exceptions_by_default_or_a_role(tmp_path: Path) -> None:
     data = job(UAT, b"UP77_D", b'NODEID="UP77_BATCH"', b'NODEID="UP77_OTHER"')
     data = job(data, b"UP77_E", b'NODEID="UP77_BATCH"', b'NODEID="UP77_OTHER"')
     repo = fresh(tmp_path)
@@ -102,8 +102,9 @@ def test_a_value_that_means_two_things_cannot_become_a_constant(tmp_path: Path) 
     ]
 
     most, other = sorted(groups, key=lambda d: -d.count)
-    assert "new" in most.options  # prod PP77_BATCH is uat UP77_BATCH almost everywhere
-    assert "new" not in other.options and other.default == "exceptions"
+    assert most.default == "new"  # prod PP77_BATCH is uat UP77_BATCH almost everywhere
+    assert other.default == "exceptions"  # the two jobs on another machine there
+    assert "new" in other.options  # or a constant of their own, with prod's value of the first
 
 
 def test_taking_the_groups_keeps_both_exports_as_they_were(repo: ChainRepo) -> None:
@@ -177,4 +178,67 @@ def test_the_value_most_jobs_share_becomes_the_constant(tmp_path: Path) -> None:
     most, other = sorted(groups, key=lambda d: -d.count)
     assert (most.current, most.default) == ("app77proc", "new")
     assert (other.current, other.count, other.default) == ("other", 2, "exceptions")
-    assert "new" not in other.options
+    assert "new" in other.options  # a role of those two jobs: uat's user, bound job by job
+
+
+def _flip(data: bytes, name: bytes) -> bytes:
+    """Flip the sign of the first OUTCOND of job ``name``: + becomes -."""
+    start = data.index(b'JOBNAME="' + name + b'"')
+    at = data.index(b'SIGN="+"', start)
+    assert at < data.index(b"</JOB>", start)
+    return data[:at] + b'SIGN="-"' + data[at + len(b'SIGN="+"') :]
+
+
+def test_a_member_of_a_group_is_decided_on_its_own(tmp_path: Path) -> None:
+    data = job(UAT, b"UP77_D", b'TASKTYPE="Command"', b'TASKTYPE="Dummy"')
+    data = job(data, b"UP77_E", b'TASKTYPE="Command"', b'TASKTYPE="Dummy"')
+    repo = fresh(tmp_path)
+    apart = f"{C}/P77_E@TASKTYPE"
+
+    dummy = _groups(repo, data)["TASKTYPE"]
+    apply(repo, receive(repo, data, choices={dummy.id: "exceptions", apart: "ignore"}))
+
+    assert [m.id for m in dummy.members] == [f"{C}/P77_D@TASKTYPE", apart]
+    assert [(m.kind, m.node, m.options) for m in dummy.members] == [
+        ("value", f"{C}/P77_D", ("change", "exception", "ignore")),
+        ("value", f"{C}/P77_E", ("change", "exception", "ignore")),
+    ]
+    assert [m["id"] for m in dummy.to_json()["members"]] == [m.id for m in dummy.members]
+    repo = load_repo(repo.root)
+    assert sorted(load_overrides(repo, "uat")) == [f"{C}/P77_D"]
+    assert read_json(repo.job_file(C, "P77_E"))["TASKTYPE"] == "Command"
+    expected = filter_applications(data, {APP})
+    expected = job(expected, b"UP77_E", b'TASKTYPE="Dummy"', b'TASKTYPE="Command"')
+    assert export_xml(repo, "uat") == expected
+
+
+def test_a_group_decided_member_by_member_has_nothing_left(tmp_path: Path) -> None:
+    data = job(UAT, b"UP77_D", b'TASKTYPE="Command"', b'TASKTYPE="Dummy"')
+    data = job(data, b"UP77_E", b'TASKTYPE="Command"', b'TASKTYPE="Dummy"')
+    repo = fresh(tmp_path)
+    choices = {f"{C}/P77_D@TASKTYPE": "ignore", f"{C}/P77_E@TASKTYPE": "exception"}
+
+    apply(repo, receive(repo, data, choices=choices))
+
+    repo = load_repo(repo.root)
+    assert sorted(load_overrides(repo, "uat")) == [f"{C}/P77_E"]
+    assert read_json(repo.job_file(C, "P77_D"))["TASKTYPE"] == "Command"
+
+
+def test_a_condition_of_one_job_is_decided_apart_from_its_group(tmp_path: Path) -> None:
+    data = _flip(_flip(UAT, b"UP77_A"), b"UP77_B")
+    repo = fresh(tmp_path)
+
+    [signs] = [
+        d
+        for d in analyze(repo, data).decisions
+        if d.kind == "group" and (d.field or "").endswith("SIGN")
+    ]
+    first, second = signs.members
+    apply(repo, receive(repo, data, choices={signs.id: "change", second.id: "ignore"}))
+
+    assert (signs.count, signs.options) == (2, ("new", "change", "ignore"))
+    assert (first.node, second.node) == (f"{C}/P77_A", f"{C}/P77_B")
+    assert first.options == ("change", "ignore")  # a condition cannot be an exception
+    repo = load_repo(repo.root)
+    assert export_xml(repo, "uat") == _flip(filter_applications(UAT, {APP}), b"UP77_A")
