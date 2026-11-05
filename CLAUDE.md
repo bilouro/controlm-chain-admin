@@ -14,8 +14,9 @@ Read `DESIGN.md` (what we build and why) and `BACKLOG.md` (what comes next) befo
    separate private repository.
 4. **Stdlib-only core.** `src/controlm_chain_admin/core` has no third-party runtime
    dependency. FastAPI lives in the `[web]` extra; the frontend in `web/`.
-5. **One core, two adapters.** All logic, including mutations, is in `core` and returns
-   serialisable structures (`ChangeSet`, reports). The CLI and the API only translate I/O.
+5. **One core, thin adapters.** All logic, including mutations, is in `core` and returns
+   serialisable structures (`ChangeSet`, reports). The CLI, the API and the MCP server
+   (`mcpserver.py`, the `[mcp]` extra) only translate I/O.
 6. **Conventional Commits**, `CHANGELOG.md` in Keep a Changelog format, SemVer.
 
 ## Which skill to use

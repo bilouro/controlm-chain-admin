@@ -8,6 +8,20 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- Ask in plain words. `ctmchain mcp` serves the repository to an assistant (Kilo, Claude, any
+  MCP client) over stdio, with the `[mcp]` extra: questions (`find` jobs and folders by name,
+  attribute or value, also as one environment has them; `show` one with what it waits for and
+  releases and its exceptions; `condition`; `validate`; `compare`) and changes as steps of the
+  capabilities file, previewed (each field before -> after, the warnings, the diff) and
+  written by `apply` only with the same steps and the preview's id: refused on a protected
+  branch, or once the repository moved since the preview; nothing is committed.
+  `capabilities.json` is the one source of what can be asked, how (parameters as JSON Schema,
+  rules, an example tested on the synthetic chain) and how the assistant works;
+  `ctmchain menu [capability] [--format json]` prints it. `ctmchain kilo init` writes `.kilo/`
+  for Kilo: the server (this Python, this repository), an agent `controlm` that may use the
+  ctmchain tools only (`ctmchain_apply` asks first), the skill, and `vocabulary.md` for the
+  team's words, never overwritten.
+- `set-variable`: add, change or remove one variable of a job or folder.
 - The web UI shows one environment: *View* in the header switches the chain table, the folder
   pages and the job pages to the folders and jobs that environment has, with its values (its
   exceptions applied, its constants resolved; a constant without a value there stays
@@ -76,6 +90,7 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- The summary of `set-attributes` names the attributes: `set MAXWAIT on P77_CHAIN/P77_B`.
 - A full export of an environment other than production makes every difference an exception
   of that environment by default: attributes and variables (present or absent), the lines of
   the folders and jobs, and the same difference repeated in several jobs (`exceptions`).

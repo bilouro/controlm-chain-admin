@@ -235,6 +235,15 @@ or addresses anywhere in this public repository.
     keeps its own name (an exception of the environment), every environment takes
     production's name (the environment's package carries the fix), or the base takes the
     environment's name (production's package carries it).
+18. **Asking in plain words — DONE (2026-11-05)**, asked by the author («um lugar onde pudesse
+    colocar um prompt»), with Kilo first: a capabilities file (`capabilities.json`, the menu
+    and the tools come from it, every example tested), `ctmchain menu`, `ctmchain mcp` (the
+    `[mcp]` extra: find, show, condition, validate, compare, preview, apply; apply takes the
+    same steps and the preview's id, so it holds across restarts of the server) and
+    `ctmchain kilo init` (server, `controlm` agent, skill, vocabulary). Tried with Kilo and an
+    OpenAI model on the synthetic chain: a question, a change, a prod-only exception with a
+    rename in one preview. Next: a prompt box in the web UI talking to `kilo serve`; `claude
+    init` for Claude Code.
 
 Later, unordered: second-environment import with learning; `diff` of environments and XML
 files with `xmldiffreport`; mapping editor; upstream graph explorer (paused by the author);

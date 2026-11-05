@@ -28,7 +28,7 @@ files) and number every question so they can answer «1 sim, 2 não».
    cd controlm_chain_admin-<version>
    git init -b main && git add -A && git commit -m "chore: controlm-chain-admin <version>"
    python -m venv .venv
-   .venv/bin/pip install -e ".[dev,web]"          # Windows: .venv\Scripts\pip ...
+   .venv/bin/pip install -e ".[dev,web,mcp]"      # Windows: .venv\Scripts\pip ...
    ```
 
 3. Create `.claude/no-real-data.patterns` (git-ignored, one regular expression per line) with
@@ -172,3 +172,23 @@ is what differs for another reason (often conditions whose names differ per envi
 Then the everyday flow of the data repository's own `CLAUDE.md` (written by `init`):
 deliveries through `ctmchain receive`, a full prod export now and then to catch up with
 production, releases installed environment by environment.
+
+## Part C — asking in plain words (Kilo)
+
+When the person uses Kilo (with the model the company allows), once the data repository is
+there:
+
+1. In the data repository: `ctmchain kilo init --repo chains` (the code's venv active). It
+   writes `.kilo/` at the top of the git repository: `kilo.json` (the server with this
+   machine's Python and repository), the agent `controlm`, the skill `ctmchain` and
+   `vocabulary.md`.
+2. `kilo.json` holds paths of this machine: ask, numbered, whether to keep it out of git
+   (`.kilo/kilo.json` in the data repository's `.gitignore`); the agent, the skill and the
+   vocabulary may be committed for the team.
+3. Fill `vocabulary.md` with the team's words (which attribute «servidor» or «agente» means,
+   the nicknames of folders): it stays in the private data repository.
+4. Open Kilo in the data repository with `kilo --agent controlm`; try a question («what does
+   <job> wait for?»), then a change on a release branch: it previews field by field and asks
+   before `ctmchain_apply`. Nothing is committed by the agent.
+5. `kilo mcp list` shows `ctmchain connected`; if not, run the command of `kilo.json` by hand
+   (`<python> -m controlm_chain_admin mcp --repo <chains>`): it waits on stdin when it works.

@@ -51,6 +51,7 @@ export into:
 ```bash
 pip install controlm-chain-admin          # core + ctmchain CLI (standard library only)
 pip install "controlm-chain-admin[web]"   # + local read-only web UI
+pip install "controlm-chain-admin[mcp]"   # + the tools for an assistant (Kilo, Claude)
 ```
 
 Requires Python 3.11 or newer.
@@ -115,6 +116,25 @@ Also `rename-folder`, `move-job`, `extract-variable`, `map`, `env constants`, `s
 `links FOLDER/JOB`, `links --name <condition>`. Every command takes `--format json` where a
 report is produced. All examples use the fictional
 application `P77`; the repository never contains real exports.
+
+## Ask in plain words (Kilo, other assistants)
+
+`ctmchain mcp` gives an assistant the repository as tools: it answers questions and proposes
+changes, previewed field by field, and writes one only when you agree. Nothing is committed.
+What can be asked, and how, is one file (`capabilities.json`): `ctmchain menu` prints it.
+The assistant's model reads what the tools return (the names and fields of your jobs): use
+one your company allows.
+
+```bash
+pip install "controlm-chain-admin[mcp]"
+ctmchain kilo init --repo ./my-chains     # writes .kilo/ at the top of the git repository
+kilo --agent controlm                     # "set MAXWAIT to 3 on P77_B", "only in prod, ..."
+```
+
+The `controlm` agent may use the ctmchain tools only: it cannot edit files or run commands,
+and `ctmchain_apply` asks before it writes (`.kilo/kilo.json`). Words of your team go in
+`.kilo/skills/ctmchain/vocabulary.md`. Any other MCP client runs
+`python -m controlm_chain_admin mcp --repo ./my-chains`.
 
 ## Development
 

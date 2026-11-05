@@ -1035,7 +1035,7 @@ def set_attributes(repo: ChainRepo, node: str, changes: Mapping[str, str | None]
             else:
                 data[key] = value
         _write_node(box, ref, data, {})
-        summary = f"set {len(changes)} attribute(s) on {ref}"
+        summary = f"set {', '.join(changes)} on {ref}"
         return _finish(original, box, summary, warnings)
 
 
@@ -1058,6 +1058,24 @@ def set_variables(repo: ChainRepo, node: str, variables: Sequence[Mapping[str, A
         _write_node(box, ref, dict(read_json(_node_file(box, ref))), {"VARIABLE": clean})
         summary = f"set {len(clean)} variable(s) on {ref}"
         return _finish(original, box, summary, [])
+
+
+def set_variable(repo: ChainRepo, node: str, name: str, value: str | None) -> ChangeSet:
+    """Add, change (``value``) or remove (``None``) one VARIABLE of a job or a folder."""
+    repo = load_repo(repo.root)
+    ref = _require_node(repo, node)
+    current = [dict(v) for v in read_json(_node_file(repo, ref)).get("VARIABLE", [])]
+    if value is None and all(v.get("NAME") != name for v in current):
+        raise InvalidChange(f"{ref} has no {name}")
+    if value is None:
+        variables = [v for v in current if v.get("NAME") != name]
+    elif any(v.get("NAME") == name for v in current):
+        variables = [{**v, "VALUE": value} if v.get("NAME") == name else v for v in current]
+    else:
+        variables = [*current, {"NAME": name, "VALUE": value}]
+    change = set_variables(repo, node, variables)
+    verb = "remove" if value is None else "set"
+    return replace(change, summary=f"{verb} {name} on {ref}")
 
 
 def replace_node(repo: ChainRepo, node: str, data: Mapping[str, Any]) -> ChangeSet:
@@ -1414,6 +1432,7 @@ def batch(repo: ChainRepo, changes: Sequence[Mapping[str, Any]]) -> ChangeSet:
 OPERATIONS: dict[str, Callable[..., ChangeSet]] = {
     "set-attributes": set_attributes,
     "set-variables": set_variables,
+    "set-variable": set_variable,
     "replace-node": replace_node,
     "link": link_nodes,
     "unlink": lambda repo, link, consumer: unlink_nodes(repo, link, consumer),

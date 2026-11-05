@@ -1,0 +1,400 @@
+{
+  "version": 1,
+  "workflow": [
+    "Find before you change: find gives the exact node (FOLDER/JOB of a job, FOLDER/ of a folder) and show its values; never guess a name.",
+    "When several nodes match, list them and ask which one is meant.",
+    "Preview first: tell the user each change in one line (where, field, before -> after) and every warning, then wait for their yes.",
+    "Apply only what the user agreed to: apply takes the same steps and the preview_id. Once anything changed, a preview is stale: preview again.",
+    "Changes that belong together go in one preview, as steps in the order they must run.",
+    "The base is what every environment has. A change for one environment only (\"only in prod\") is change-in-env, never change-fields.",
+    "Never write the repository files yourself, and never commit or push: the user does that (the Workspace page, or git).",
+    "Answer questions with find, show, condition, validate and compare, quoting the values as the tools give them."
+  ],
+  "groups": ["Fields", "Environments", "Conditions", "Jobs and folders", "Repository"],
+  "questions": [
+    {"tool": "find", "title": "Find jobs and folders by part of a name, an attribute or a value", "say": "Which jobs run on the agent PP77_BATCH in prod?"},
+    {"tool": "show", "title": "One job or folder: its fields, variables, what it waits for and releases, its exceptions", "say": "What does P77_B wait for?"},
+    {"tool": "condition", "title": "One condition: who emits it, who waits for it, who deletes it", "say": "Who waits for P77_B-P77_C_OK?"},
+    {"tool": "validate", "title": "What is wrong with the chains: dangling conditions, names off the standard", "say": "Is anything wrong with the chains?"},
+    {"tool": "compare", "title": "What changed between two branches or commits", "say": "What changed between main and the release branch?"}
+  ],
+  "not_by_prompt": {
+    "replace-node": "the whole JSON of a node: the Advanced tab of the job page",
+    "set-variables": "every variable of a node at once: the job page; set-variable changes one",
+    "batch": "preview takes several steps already",
+    "receive": "an environment's export: ctmchain receive, or the Import page",
+    "take": "changes from another branch: ctmchain take, or the Compare page"
+  },
+  "capabilities": [
+    {
+      "id": "change-fields",
+      "op": "set-attributes",
+      "each": "nodes",
+      "group": "Fields",
+      "title": "Change fields of jobs or folders",
+      "when": "a field (attribute) of one job, a few, or a folder, in every environment",
+      "params": {
+        "type": "object",
+        "properties": {
+          "nodes": {"type": "array", "items": {"type": "string"}, "description": "FOLDER/JOB of each job, FOLDER/ of a folder"},
+          "changes": {"type": "object", "x-key": "attribute", "additionalProperties": {"type": ["string", "null"]}, "description": "the new value of each attribute; null removes it"}
+        },
+        "required": ["nodes", "changes"]
+      },
+      "rules": [
+        "JOBNAME is changed with rename-job, the folder of a job with move-job",
+        "for one environment only, use change-in-env",
+        "the technical attributes (what Control-M writes by itself) are not changed"
+      ],
+      "example": {"say": "Set MAXWAIT to 3 on P77_B", "params": {"nodes": ["P77_CHAIN/P77_B"], "changes": {"MAXWAIT": "3"}}}
+    },
+    {
+      "id": "set-variable",
+      "op": "set-variable",
+      "each": "nodes",
+      "group": "Fields",
+      "title": "Add, change or remove a variable (%%NAME)",
+      "when": "one variable of one job, a few, or a folder, in every environment",
+      "params": {
+        "type": "object",
+        "properties": {
+          "nodes": {"type": "array", "items": {"type": "string"}, "description": "FOLDER/JOB of each job, FOLDER/ of a folder"},
+          "name": {"type": "string", "description": "the variable, starting with %%"},
+          "value": {"type": ["string", "null"], "description": "its value; null removes it"}
+        },
+        "required": ["nodes", "name", "value"]
+      },
+      "rules": ["for one environment only, use change-in-env with variables"],
+      "example": {"say": "Add %%RETRIES = 3 to P77_INGEST_LOAD", "params": {"nodes": ["P77_INGEST_DAILY/P77_INGEST_LOAD"], "name": "%%RETRIES", "value": "3"}}
+    },
+    {
+      "id": "extract-variable",
+      "op": "extract-variable",
+      "group": "Fields",
+      "title": "Move a piece of text out of a field into a variable",
+      "when": "the same literal in the command line of one job or of every job of a folder",
+      "params": {
+        "type": "object",
+        "properties": {
+          "target": {"type": "string", "description": "FOLDER/JOB of one job, FOLDER/ for every job of the folder"},
+          "literal": {"type": "string", "description": "the text to take out"},
+          "variable": {"type": "string", "description": "the variable that holds it, starting with %%"},
+          "attribute": {"type": "string", "description": "the field it is in (default CMDLINE)"}
+        },
+        "required": ["target", "literal", "variable"]
+      },
+      "rules": [],
+      "example": {"say": "Put /opt/p77/bin of the ingest folder in %%BIN", "params": {"target": "P77_INGEST_DAILY/", "literal": "/opt/p77/bin", "variable": "%%BIN"}}
+    },
+    {
+      "id": "rename-resource",
+      "op": "rename-resource",
+      "group": "Fields",
+      "title": "Rename a resource of a job or folder",
+      "when": "a QUANTITATIVE or CONTROL resource",
+      "params": {
+        "type": "object",
+        "properties": {
+          "node": {"type": "string", "description": "FOLDER/JOB of the job, FOLDER/ of a folder"},
+          "old": {"type": "string", "description": "the resource's name now"},
+          "new": {"type": "string", "description": "its new name"}
+        },
+        "required": ["node", "old", "new"]
+      },
+      "rules": [],
+      "example": {"say": "Rename the resource RQ_AM of P77_INGEST_INIT to RQ_PM", "params": {"node": "P77_INGEST_DAILY/P77_INGEST_INIT", "old": "RQ_AM", "new": "RQ_PM"}}
+    },
+    {
+      "id": "change-in-env",
+      "op": "set-exception",
+      "each": "nodes",
+      "group": "Environments",
+      "title": "Change fields or variables in one environment only",
+      "when": "\"only in prod\": an exception of that environment; the base and the other environments stay",
+      "params": {
+        "type": "object",
+        "properties": {
+          "env": {"type": "string", "description": "the environment"},
+          "nodes": {"type": "array", "items": {"type": "string"}, "description": "FOLDER/JOB of each job, FOLDER/ of a folder"},
+          "attributes": {"type": "object", "x-key": "attribute", "additionalProperties": {"type": ["string", "null"]}, "description": "the value of each attribute there; null leaves it out of that environment"},
+          "variables": {"type": "object", "x-key": "%%variable", "additionalProperties": {"type": ["string", "null"]}, "description": "the value of each variable there; null leaves it out of that environment"},
+          "drop": {"type": "array", "items": {"type": "string"}, "description": "attributes or variables that stop being exceptions: the environment takes the base again"}
+        },
+        "required": ["env", "nodes"]
+      },
+      "rules": ["give at least one of attributes, variables or drop"],
+      "example": {"say": "Only in prod, MAXWAIT of P77_C is 5", "params": {"env": "prod", "nodes": ["P77_CHAIN/P77_C"], "attributes": {"MAXWAIT": "5"}}}
+    },
+    {
+      "id": "make-base",
+      "op": "promote-exception",
+      "group": "Environments",
+      "title": "Make what one environment has the base",
+      "when": "an exception of one environment should be what every environment has",
+      "params": {
+        "type": "object",
+        "properties": {
+          "env": {"type": "string", "description": "the environment that has the exception"},
+          "node": {"type": "string", "description": "FOLDER/JOB of the job, FOLDER/ of a folder"},
+          "names": {"type": "array", "items": {"type": "string"}, "description": "attributes, %%variables or lines of that exception"}
+        },
+        "required": ["env", "node", "names"]
+      },
+      "rules": ["the exceptions of other environments equal to the new base go too"],
+      "example": {"say": "Make the TASKTYPE prod has on P77_B the base", "params": {"env": "prod", "node": "P77_CHAIN/P77_B", "names": ["TASKTYPE"]}}
+    },
+    {
+      "id": "set-values",
+      "op": "set-values",
+      "group": "Environments",
+      "title": "Give constants their value in one environment",
+      "when": "a constant (@{name}) has another value, or none yet, in one environment",
+      "params": {
+        "type": "object",
+        "properties": {
+          "env": {"type": "string", "description": "the environment"},
+          "values": {"type": "object", "x-key": "constant", "additionalProperties": {"type": ["string", "null"]}, "description": "the value of each constant there; null: no value yet"}
+        },
+        "required": ["env", "values"]
+      },
+      "rules": [],
+      "example": {"say": "In bench, node.batch is BP77_BATCH", "params": {"env": "bench", "values": {"node.batch": "BP77_BATCH"}}}
+    },
+    {
+      "id": "link-jobs",
+      "op": "link",
+      "group": "Conditions",
+      "title": "Make a job wait for another",
+      "when": "a new condition between two jobs, or a job that waits for a condition that exists",
+      "params": {
+        "type": "object",
+        "properties": {
+          "consumer": {"type": "string", "description": "FOLDER/JOB of the job that waits"},
+          "producer": {"type": "string", "description": "FOLDER/JOB of the job it waits for (a new condition)"},
+          "link": {"type": "string", "description": "a condition that exists, to wait for it instead"},
+          "name": {"type": "string", "description": "the new condition's name (default PRODUCER-CONSUMER_OK)"},
+          "odate": {"type": "string", "description": "ODATE (default ODAT)"},
+          "and_or": {"type": "string", "description": "A or O (default A)"},
+          "cleanup": {"type": "boolean", "description": "the consumer deletes the condition after it ran (default true)"}
+        },
+        "required": ["consumer"]
+      },
+      "rules": ["give producer for a new condition, or link for one that exists"],
+      "example": {"say": "P77_D waits for P77_A too", "params": {"producer": "P77_CHAIN/P77_A", "consumer": "P77_CHAIN/P77_D"}}
+    },
+    {
+      "id": "unlink-jobs",
+      "op": "unlink",
+      "group": "Conditions",
+      "title": "A job stops waiting for a condition",
+      "when": "a job should no longer wait; with nobody waiting, the condition goes",
+      "params": {
+        "type": "object",
+        "properties": {
+          "link": {"type": "string", "description": "the condition"},
+          "consumer": {"type": "string", "description": "FOLDER/JOB of the job that waits for it"}
+        },
+        "required": ["link", "consumer"]
+      },
+      "rules": [],
+      "example": {"say": "P77_B stops waiting for P77_A-P77_B_OK", "params": {"link": "P77_A-P77_B_OK", "consumer": "P77_CHAIN/P77_B"}}
+    },
+    {
+      "id": "change-condition",
+      "op": "update-relation",
+      "group": "Conditions",
+      "title": "Change how a job waits for a condition",
+      "when": "its ODATE, AND_OR, or whether the job deletes it after use",
+      "params": {
+        "type": "object",
+        "properties": {
+          "link": {"type": "string", "description": "the condition"},
+          "consumer": {"type": "string", "description": "FOLDER/JOB of the job that waits for it"},
+          "odate": {"type": "string", "description": "the new ODATE"},
+          "and_or": {"type": "string", "description": "A or O"},
+          "cleanup": {"type": "boolean", "description": "the job deletes the condition after use"}
+        },
+        "required": ["link", "consumer"]
+      },
+      "rules": ["give at least one of odate, and_or or cleanup"],
+      "example": {"say": "P77_C deletes P77_B-P77_C_OK after use", "params": {"link": "P77_B-P77_C_OK", "consumer": "P77_CHAIN/P77_C", "cleanup": true}}
+    },
+    {
+      "id": "rename-condition",
+      "op": "rename-link",
+      "group": "Conditions",
+      "title": "Rename a condition",
+      "when": "every INCOND, OUTCOND and DOCOND that names it follows",
+      "params": {
+        "type": "object",
+        "properties": {
+          "link": {"type": "string", "description": "the condition (its name now)"},
+          "name": {"type": "string", "description": "its new name"}
+        },
+        "required": ["link", "name"]
+      },
+      "rules": [],
+      "example": {"say": "Rename P77_OLDNAME-P77_D_OK to P77_C-P77_D_OK", "params": {"link": "P77_OLDNAME-P77_D_OK", "name": "P77_C-P77_D_OK"}}
+    },
+    {
+      "id": "emit-condition",
+      "op": "emit",
+      "group": "Conditions",
+      "title": "A job starts emitting a condition",
+      "when": "another job should also release the jobs that wait for a condition",
+      "params": {
+        "type": "object",
+        "properties": {
+          "link": {"type": "string", "description": "the condition"},
+          "producer": {"type": "string", "description": "FOLDER/JOB of the job that emits it"}
+        },
+        "required": ["link", "producer"]
+      },
+      "rules": [],
+      "example": {"say": "P77_C emits P77_A-P77_B_OK too", "params": {"link": "P77_A-P77_B_OK", "producer": "P77_CHAIN/P77_C"}}
+    },
+    {
+      "id": "stop-emitting",
+      "op": "stop-emitting",
+      "group": "Conditions",
+      "title": "A job stops emitting a condition",
+      "when": "its OUTCOND + goes; the jobs that wait for it are warned about",
+      "params": {
+        "type": "object",
+        "properties": {
+          "link": {"type": "string", "description": "the condition"},
+          "producer": {"type": "string", "description": "FOLDER/JOB of the job that emits it"}
+        },
+        "required": ["link", "producer"]
+      },
+      "rules": [],
+      "example": {"say": "P77_D stops emitting P77_D-P77_NOBODY_OK", "params": {"link": "P77_D-P77_NOBODY_OK", "producer": "P77_CHAIN/P77_D"}}
+    },
+    {
+      "id": "rename-job",
+      "op": "rename-job",
+      "group": "Jobs and folders",
+      "title": "Rename a job",
+      "when": "a job's JOBNAME; the condition names that embed it follow",
+      "params": {
+        "type": "object",
+        "properties": {
+          "node": {"type": "string", "description": "FOLDER/JOB of the job"},
+          "new_name": {"type": "string", "description": "its new name"},
+          "update_names": {"type": "boolean", "description": "the condition names that embed it follow (default true)"},
+          "with_memname": {"type": "boolean", "description": "MEMNAME follows too (default false)"}
+        },
+        "required": ["node", "new_name"]
+      },
+      "rules": [],
+      "example": {"say": "Rename P77_E to P77_EAST", "params": {"node": "P77_CHAIN/P77_E", "new_name": "P77_EAST"}}
+    },
+    {
+      "id": "move-job",
+      "op": "move-job",
+      "group": "Jobs and folders",
+      "title": "Move a job to another folder",
+      "when": "its conditions travel with it",
+      "params": {
+        "type": "object",
+        "properties": {
+          "node": {"type": "string", "description": "FOLDER/JOB of the job"},
+          "target": {"type": "string", "description": "the folder it goes to"}
+        },
+        "required": ["node", "target"]
+      },
+      "rules": [],
+      "example": {"say": "Move P77_E to the ingest folder", "params": {"node": "P77_CHAIN/P77_E", "target": "P77_INGEST_DAILY"}}
+    },
+    {
+      "id": "insert-job",
+      "op": "insert-job",
+      "group": "Jobs and folders",
+      "title": "Insert a new job between two linked jobs",
+      "when": "after -> new -> before; the new job can copy the fields of another (like)",
+      "params": {
+        "type": "object",
+        "properties": {
+          "node": {"type": "string", "description": "FOLDER/JOB of the new job"},
+          "after": {"type": "string", "description": "FOLDER/JOB of the job before it"},
+          "before": {"type": "string", "description": "FOLDER/JOB of the job after it"},
+          "like": {"type": "string", "description": "FOLDER/JOB of a job whose fields it copies"},
+          "link": {"type": "string", "description": "the condition between after and before, when they have several"}
+        },
+        "required": ["node", "after", "before"]
+      },
+      "rules": [],
+      "example": {"say": "Insert P77_INGEST_CHECK between P77_INGEST_INIT and P77_INGEST_LOAD", "params": {"node": "P77_INGEST_DAILY/P77_INGEST_CHECK", "after": "P77_INGEST_DAILY/P77_INGEST_INIT", "before": "P77_INGEST_DAILY/P77_INGEST_LOAD"}}
+    },
+    {
+      "id": "rename-folder",
+      "op": "rename-folder",
+      "group": "Jobs and folders",
+      "title": "Rename a folder",
+      "when": "the folder and everything that names it",
+      "params": {
+        "type": "object",
+        "properties": {
+          "folder": {"type": "string", "description": "the folder"},
+          "new_name": {"type": "string", "description": "its new name"},
+          "update_names": {"type": "boolean", "description": "the condition names that embed it follow (default true)"}
+        },
+        "required": ["folder", "new_name"]
+      },
+      "rules": [],
+      "example": {"say": "Rename the folder P77_INGEST_DAILY to P77_INGEST_NIGHTLY", "params": {"folder": "P77_INGEST_DAILY", "new_name": "P77_INGEST_NIGHTLY"}}
+    },
+    {
+      "id": "rename-subapp",
+      "op": "rename-subapp",
+      "group": "Jobs and folders",
+      "title": "Rename a SUB_APPLICATION",
+      "when": "on every folder and job that carries it, or in one folder",
+      "params": {
+        "type": "object",
+        "properties": {
+          "old": {"type": "string", "description": "the SUB_APPLICATION now"},
+          "new": {"type": "string", "description": "its new name"},
+          "folder": {"type": "string", "description": "only in this folder"}
+        },
+        "required": ["old", "new"]
+      },
+      "rules": [],
+      "example": {"say": "Rename the sub-application P77_BATCH to P77_RISK", "params": {"old": "P77_BATCH", "new": "P77_RISK"}}
+    },
+    {
+      "id": "rename-constant",
+      "op": "rename-constant",
+      "group": "Repository",
+      "title": "Rename a constant",
+      "when": "everywhere it is used: placeholders, values, exceptions",
+      "params": {
+        "type": "object",
+        "properties": {
+          "old": {"type": "string", "description": "the constant now (group.name)"},
+          "new": {"type": "string", "description": "its new name (lower-case group.name)"}
+        },
+        "required": ["old", "new"]
+      },
+      "rules": [],
+      "example": {"say": "Rename the constant node.batch to node.main", "params": {"old": "node.batch", "new": "node.main"}}
+    },
+    {
+      "id": "technical-attributes",
+      "op": "set-technical",
+      "group": "Repository",
+      "title": "Change the list of technical attributes",
+      "when": "attributes Control-M writes by itself, kept apart and left out of comparisons",
+      "params": {
+        "type": "object",
+        "properties": {
+          "add": {"type": "array", "items": {"type": "string"}, "description": "attributes that become technical"},
+          "remove": {"type": "array", "items": {"type": "string"}, "description": "attributes that stop being technical"}
+        },
+        "required": []
+      },
+      "rules": ["the exports do not change; what is compared does"],
+      "example": {"say": "Treat DESCRIPTION as technical", "params": {"add": ["DESCRIPTION"]}}
+    }
+  ]
+}
