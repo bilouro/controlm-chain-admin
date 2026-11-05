@@ -6,8 +6,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from controlm_chain_admin.core.intake import analyze, receive
 from controlm_chain_admin.core.ops import export_xml
 from controlm_chain_admin.core.overrides import load_overrides
@@ -36,17 +34,14 @@ def _commands(data: bytes, names: tuple[bytes, ...]) -> bytes:
     return data
 
 
-@pytest.mark.parametrize("values_only", [True, False], ids=["values only", "full export"])
-def test_a_name_with_the_letter_inside_two_commands_is_an_inline_constant(
-    tmp_path: Path, values_only: bool
-) -> None:
+def test_a_name_with_the_letter_inside_two_commands_is_an_inline_constant(tmp_path: Path) -> None:
     prod = _commands(PROD, (b"PP77_INGEST_INIT", b"PP77_INGEST_LOAD"))
     repo = fresh_repo(tmp_path, prod)
     uat = _as(b"U", prod)
 
-    intake = analyze(repo, uat, values_only=values_only)
+    intake = analyze(repo, uat)
     [group] = [d for d in intake.decisions if d.field == "CMDLINE"]
-    apply(repo, receive(repo, uat, values_only=values_only))
+    apply(repo, receive(repo, uat))
 
     assert (group.kind, group.inline, group.count, group.default) == ("group", True, 2, "new")
     assert (group.current, group.incoming) == ("PP77_INGEST_INIT", "UP77_INGEST_INIT")
@@ -72,9 +67,9 @@ def test_one_job_with_the_letter_inside_its_command_is_an_exception_by_default(
     repo = fresh_repo(tmp_path, prod)
     uat = _as(b"U", prod)
 
-    intake = analyze(repo, uat, values_only=True)
+    intake = analyze(repo, uat)
     [group] = [d for d in intake.decisions if d.field == "CMDLINE"]
-    apply(repo, receive(repo, uat, values_only=True))
+    apply(repo, receive(repo, uat))
 
     assert (group.kind, group.inline, group.count) == ("group", True, 1)
     assert group.options == ("new", "exceptions", "change", "ignore")
@@ -90,14 +85,14 @@ def test_one_job_with_the_letter_inside_its_command_is_an_exception_by_default(
     assert export_xml(repo, "prod") == filter_applications(prod, {APP})
 
 
-def test_a_command_that_differs_in_more_than_the_letter_is_a_change_of_that_job(
+def test_a_command_that_differs_in_more_than_the_letter_is_that_job_s_own(
     tmp_path: Path,
 ) -> None:
     prod = _commands(PROD, (b"PP77_INGEST_INIT",))
     repo = fresh_repo(tmp_path, prod)
     uat = job(_as(b"U", prod), b"UP77_INGEST_INIT", b'-d %%ODATE"', b'-d %%ODATE -v"')
 
-    intake = analyze(repo, uat, values_only=True)
+    intake = analyze(repo, uat)
 
     [decision] = [d for d in intake.decisions if d.field == "CMDLINE"]
-    assert (decision.kind, decision.inline, decision.default) == ("value", False, "ignore")
+    assert (decision.kind, decision.inline, decision.default) == ("value", False, "exception")

@@ -101,11 +101,13 @@ def json_to_element(tag: str, data: Mapping[str, Any], child_order: Order) -> Xm
             raise ModelError(
                 f"<{tag}>: grouped children but no canonical child order in chain.json"
             )
-        unknown = sorted(set(groups) - set(order))
-        if unknown:
-            raise ModelError(f"<{tag}>: child groups not in the canonical order: {unknown}")
-        for group_tag in order:
+        unknown = [group_tag for group_tag in groups if group_tag not in order]
+        for group_tag in [*order, *unknown]:  # a group the order never saw goes last
             for entry in groups.get(group_tag, ()):
+                if not isinstance(entry, Mapping):
+                    raise ModelError(
+                        f"<{tag}>: {group_tag} holds {type(entry).__name__} values, not elements"
+                    )
                 children.append(json_to_element(group_tag, entry, child_order))
     return XmlElement(tag, tuple(attrs), tuple(children))
 

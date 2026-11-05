@@ -723,9 +723,15 @@ export interface components {
       inline: boolean;
       /**
        * Kind
-       * @description learn | set-value | adopt | constant | group | value | children | removed | added | absent | unmatched
+       * @description learn | set-value | adopt | constant | group | value | element | removed | added | absent | unmatched
        */
       kind: string;
+      /**
+       * Known
+       * @description already an exception of the environment: the default keeps it, change makes the base take it, ignore drops it
+       * @default false
+       */
+      known: boolean;
       /**
        * Members
        * @description of a group: the decision of each job on its own, to choose apart from it
@@ -846,9 +852,21 @@ export interface components {
       attributes: {
         [key: string]: string | null;
       };
-      /** Variables */
+      /**
+       * Elements
+       * @description line (by its locator) -> the attributes it has there, a whole line only that environment has (with 'after': the sibling before it), or null: not there
+       */
+      elements?: {
+        [key: string]: {
+          [key: string]: unknown;
+        } | null;
+      };
+      /**
+       * Variables
+       * @description variable -> its value in that environment; null: not there
+       */
       variables: {
-        [key: string]: string;
+        [key: string]: string | null;
       };
     };
     /** FindingOut */
@@ -1085,12 +1103,6 @@ export interface components {
        * @description values no constant explains: they block
        */
       unresolved: string[];
-      /**
-       * Values Only
-       * @description the defaults take the values of the environment and nothing else
-       * @default false
-       */
-      values_only: boolean;
       /** Warnings */
       warnings: string[];
     };
@@ -1106,12 +1118,6 @@ export interface components {
        * @description every folder of the environment; default: more than half of them
        */
       full?: boolean | null;
-      /**
-       * Values Only
-       * @description by default take the values of the environment and nothing else
-       * @default false
-       */
-      values_only: boolean;
       /**
        * Xml
        * @description the export, as text
@@ -1192,8 +1198,19 @@ export interface components {
       before?: string | null;
       /** Change */
       change: string;
+      /**
+       * Counterpart
+       * @description the name of that other link
+       */
+      counterpart?: string | null;
       /** Link */
       link: string;
+      /**
+       * Name Only
+       * @description renamed, or the same jobs use it the same way under another link
+       * @default false
+       */
+      name_only: boolean;
     };
     /** LinkOut */
     LinkOut: {
@@ -1276,6 +1293,12 @@ export interface components {
       jobs_removed: string[];
       /** Kind */
       kind: string;
+      /**
+       * Name Only
+       * @description every change of it only renames a condition
+       * @default false
+       */
+      name_only: boolean;
       /** Node */
       node: string;
       /** Previous */
@@ -1393,6 +1416,11 @@ export interface components {
     RelationChangeOut: {
       /** Change */
       change: string;
+      /**
+       * Counterpart
+       * @description that other name: the new one when removed, the old one when added
+       */
+      counterpart?: string | null;
       /** Details */
       details: components["schemas"]["ValueChangeOut"][];
       /** Direction */
@@ -1401,6 +1429,12 @@ export interface components {
       link: string;
       /** Name */
       name: string;
+      /**
+       * Name Only
+       * @description the same jobs use the condition the same way under another name
+       * @default false
+       */
+      name_only: boolean;
       /** Peers After */
       peers_after: string[];
       /** Peers Before */
@@ -1484,6 +1518,11 @@ export interface components {
       letter_rule: components["schemas"]["LetterRuleOut"];
       /** Root */
       root: string;
+      /**
+       * Volatile Attributes
+       * @description the technical attributes: kept in meta, never compared, never an exception
+       */
+      volatile_attributes?: string[];
     };
     /** StartReleaseRequest */
     StartReleaseRequest: {
@@ -1816,6 +1855,8 @@ export interface operations {
   compare_markdown_api_compare_markdown_get: {
     parameters: {
       query: {
+        /** @description leave out what only calls a condition another name */
+        real_only?: boolean;
         /** @description base ref, e.g. develop */
         base: string;
         /** @description head ref, or WORKTREE for uncommitted changes */

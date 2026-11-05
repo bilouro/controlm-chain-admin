@@ -96,8 +96,11 @@ def test_a_partial_export_with_new_and_removed_jobs(repo: ChainRepo) -> None:
     )  # fmt: skip
     unmatched = by_id["unmatched:RUN_AS=nobody"]
     assert (unmatched.kind, unmatched.constant, unmatched.count, unmatched.default) == (
-        "unmatched", "user.nobody", 1, "new",
-    )  # fmt: skip
+        "unmatched",
+        "user.nobody",
+        1,
+        "literal",
+    )  # fmt: skip  (no letter of the environment in it: the value stays as it is)
     assert unmatched.options == ("new", "use:user.proc", "literal")
     assert unmatched.to_json()["nodes"] == [f"{C}/P77_NEW"]  # only the export has it
     assert intake.unresolved == ()

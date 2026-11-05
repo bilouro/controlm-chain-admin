@@ -39,7 +39,8 @@
       "modified": 2
     },
     "constants": 1,
-    "commits": 3
+    "commits": 3,
+    "name_only": 3
   },
   "commits": [
     {
@@ -952,7 +953,9 @@
       "link": "P77_A-P77_B_OK",
       "change": "renamed",
       "before": "P77_A-P77_B_OK",
-      "after": "P77_A-P77_CHECK_OK"
+      "after": "P77_A-P77_CHECK_OK",
+      "name_only": true,
+      "counterpart": null
     },
     {
       "link": "P77_C-P77_E_OK",
@@ -970,13 +973,17 @@
       "link": "P77_D-P77_NOBODY_OK",
       "change": "renamed",
       "before": "P77_D-P77_NOBODY_OK",
-      "after": "P77_DELTA_DONE"
+      "after": "P77_DELTA_DONE",
+      "name_only": true,
+      "counterpart": null
     },
     {
       "link": "P77_OLDNAME-P77_D_OK",
       "change": "renamed",
       "before": "P77_OLDNAME-P77_D_OK",
-      "after": "P77_OLDNAME-P77_DELTA_OK"
+      "after": "P77_OLDNAME-P77_DELTA_OK",
+      "name_only": true,
+      "counterpart": null
     }
   ],
   "constants": [

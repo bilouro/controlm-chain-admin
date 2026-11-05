@@ -90,11 +90,12 @@ ctmchain export --env uat -o uat.xml --repo ./my-chains             # byte-ident
 ctmchain export --env prod -o prod.xml --repo ./my-chains           # same chain, prod letters
 ctmchain serve --repo ./my-chains                                   # local web UI
 ctmchain compare main release/2026-11 --repo ./my-chains            # what the release changed
+ctmchain compare main release/2026-11 --real-only --repo ./my-chains  # without the condition names only
 ctmchain package main release/2026-11 --env uat --repo ./my-chains  # import file, changed folders
 ctmchain release installed uat --repo ./my-chains                   # tag uat/2026-11-1
 ctmchain receive delivery.xml --repo ./my-chains                    # a team's folders, made neutral
-ctmchain receive uat_full.xml --full --repo ./my-chains             # all of uat: constants, what only uat has
-ctmchain receive uat_full.xml --values-only --repo ./my-chains      # only uat's machines, users, mails
+ctmchain receive uat_full.xml --full --repo ./my-chains             # all of uat: constants, its exceptions, what only uat has
+ctmchain technical --add LAST_UPLOAD --repo ./my-chains             # a technical attribute: kept in meta, never compared
 ctmchain check uat_full.xml --env uat --repo ./my-chains            # what our uat export still differs in
 ctmchain take release/2026-10 --list --repo ./my-chains             # what another release changed
 ctmchain take release/2026-10 --item job:P77_CHAIN/P77_D --repo ./my-chains   # one job of it; --apply

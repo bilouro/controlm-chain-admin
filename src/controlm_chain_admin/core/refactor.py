@@ -25,6 +25,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
+from controlm_chain_admin.core.elements import parse_locator
 from controlm_chain_admin.core.errors import (
     ChainError,
     ChangeConflict,
@@ -47,11 +48,14 @@ from controlm_chain_admin.core.links import (
     rebuild_links,
     write_names,
 )
-from controlm_chain_admin.core.ops import ORIGINALS_KEY, _check_safe
+from controlm_chain_admin.core.membership import ENVS_KEY
+from controlm_chain_admin.core.ops import JOB_TAG, JOBS_KEY, ORIGINALS_KEY, TAG_KEY, _check_safe
 from controlm_chain_admin.core.overrides import (
     OVERRIDES_FILE,
     Override,
+    apply_override,
     load_overrides,
+    prune_overrides,
     write_overrides,
 )
 from controlm_chain_admin.core.repo import ChainRepo, load_repo, read_json, write_json
@@ -728,19 +732,28 @@ def set_exception(
     env: str,
     node: str,
     attributes: Mapping[str, str | None] | None = None,
-    variables: Mapping[str, str] | None = None,
+    variables: Mapping[str, str | None] | None = None,
     drop: Sequence[str] = (),
+    elements: Mapping[str, Mapping[str, Any] | None] | None = None,
 ) -> ChangeSet:
-    """Set (or ``drop``) what one environment uses for one job or folder instead of the base.
+    """Set (or ``drop``) what one environment has for one job or folder instead of the base.
 
-    An attribute set to ``None`` is left out of that environment's export.
+    An attribute or variable set to ``None`` is left out of that environment's export; a line
+    (``elements``, by locator) takes the attributes given, is added whole, or is left out
+    (``None``).
     """
     repo = load_repo(repo.root)
     repo.load_env(env)  # an unknown environment fails first
     ref = _require_node(repo, node)
     attributes, variables = dict(attributes or {}), dict(variables or {})
-    if not attributes and not variables and not drop:
+    lines = {k: (dict(v) if v is not None else None) for k, v in (elements or {}).items()}
+    if not attributes and not variables and not drop and not lines:
         raise InvalidChange("nothing to set or drop")
+    for text in lines:
+        try:
+            parse_locator(text)
+        except ValueError as error:
+            raise InvalidChange(str(error)) from None
     names = set(repo.config.letter_rule.attributes) | {"FOLDER_NAME", "JOBNAME", "PARENT_FOLDER"}
     for attribute in attributes:
         if not _ATTRIBUTE_NAME.fullmatch(attribute):
@@ -760,13 +773,144 @@ def set_exception(
         merged = Override(
             {k: v for k, v in {**current.attributes, **attributes}.items() if k not in drop},
             {k: v for k, v in {**current.variables, **variables}.items() if k not in drop},
+            {k: v for k, v in {**current.elements, **lines}.items() if k not in drop},
         )
         overrides[key] = merged
         write_overrides(box, env, overrides)
         parts = [f"{k}={v if v is not None else '(left out)'}" for k, v in attributes.items()]
-        parts += [f"{k}={v}" for k, v in variables.items()]
+        parts += [f"{k}={v if v is not None else '(left out)'}" for k, v in variables.items()]
+        parts += [
+            f"{k}: {', '.join(f'{a}={v}' for a, v in line.items()) if line else '(left out)'}"
+            for k, line in lines.items()
+        ]
         parts += [f"drop {name}" for name in drop]
         return _finish(original, box, f"exception for {env} on {key}: {', '.join(parts)}", [])
+
+
+def promote_exception(repo: ChainRepo, env: str, node: str, names: Sequence[str]) -> ChangeSet:
+    """Make what one environment has as its exception the base: the node takes it, the
+    exception goes, and so do the exceptions of other environments equal to it.
+
+    ``names``: attributes, ``%%variables`` or lines (by locator) of that node's exception.
+    """
+    repo = load_repo(repo.root)
+    repo.load_env(env)
+    ref = _require_node(repo, node)
+    key = str(ref) if ref.job is not None else f"{ref.folder}/"
+    if not names:
+        raise InvalidChange("nothing to make the base")
+    original = _tracked(repo.root)
+    with _sandbox(original) as box:
+        overrides = load_overrides(box, env)
+        current = overrides.get(key)
+        if current is None:
+            raise InvalidChange(f"{key} has no exception for {env}")
+        taken = Override()
+        for name in dict.fromkeys(names):
+            if name in current.attributes:
+                taken.attributes[name] = current.attributes[name]
+            elif name in current.variables:
+                taken.variables[name] = current.variables[name]
+            elif name in current.elements:
+                taken.elements[name] = current.elements[name]
+            else:
+                raise InvalidChange(f"{key} has no exception {name} for {env}")
+        path = _node_file(box, ref)
+        write_json(path, apply_override(read_json(path), taken))
+        rest = Override(
+            {k: v for k, v in current.attributes.items() if k not in taken.attributes},
+            {k: v for k, v in current.variables.items() if k not in taken.variables},
+            {k: v for k, v in current.elements.items() if k not in taken.elements},
+        )
+        if rest.empty:
+            overrides.pop(key)
+        else:
+            overrides[key] = rest
+        write_overrides(box, env, overrides)
+        warnings = prune_overrides(load_repo(box.root))
+        summary = f"the base takes what {env} has on {key}: {', '.join(dict.fromkeys(names))}"
+        return _finish(original, box, summary, warnings)
+
+
+def set_technical(
+    repo: ChainRepo, add: Sequence[str] = (), remove: Sequence[str] = ()
+) -> ChangeSet:
+    """Extend or cut the list of technical attributes (``volatile_attributes`` of chain.json):
+    a name added moves its values from the folders and jobs to ``meta/``, a name removed
+    brings them back. The exports do not change; what is compared does."""
+    repo = load_repo(repo.root)
+    add, remove = list(dict.fromkeys(add)), list(dict.fromkeys(remove))
+    if not add and not remove:
+        raise InvalidChange("nothing to add or remove")
+    current = list(repo.config.volatile_attributes)
+    names = set(repo.config.letter_rule.attributes) | {"FOLDER_NAME", "JOBNAME", "PARENT_FOLDER"}
+    for name in add:
+        if not _ATTRIBUTE_NAME.fullmatch(name):
+            raise InvalidChange(f"invalid attribute name {name!r}")
+        if name in names:
+            raise InvalidChange(f"{name} is a name: it carries the letter of the environment")
+        if name in current:
+            raise InvalidChange(f"{name} is already technical")
+        for constant, selector in repo.config.constants.items():
+            if selector.attribute == name and selector.tag is None:
+                raise InvalidChange(f"{name} is what the constant {constant} replaces")
+    for name in remove:
+        if name not in current:
+            raise InvalidChange(f"{name} is not technical")
+    original = _tracked(repo.root)
+    with _sandbox(original) as box:
+        config = box.config
+        volatile = (*(n for n in current if n not in remove), *add)
+        box = box.save_config(replace(config, volatile_attributes=volatile))
+        moved = sum(_move_technical(box, folder, add, remove) for folder in folder_names(box))
+        parts = [*(f"+{n}" for n in add), *(f"-{n}" for n in remove)]
+        where = "moved to meta" if not remove else "moved back" if not add else "moved"
+        values = f"{moved} value{'s' if moved != 1 else ''} {where}"
+        return _finish(original, box, f"technical attributes: {', '.join(parts)} ({values})", [])
+
+
+def _move_technical(box: ChainRepo, folder: str, add: Sequence[str], remove: Sequence[str]) -> int:
+    """Move the values of the names between the nodes of a folder and its meta file."""
+    meta_file = box.folder_meta_file(folder)
+    meta = dict(read_json(meta_file)) if meta_file.is_file() else {"attrs": {}, JOBS_KEY: {}}
+    attrs = dict(meta.get("attrs", {}))
+    jobs_meta = {str(k): dict(v) for k, v in meta.get(JOBS_KEY, {}).items()}
+    folder_json = dict(read_json(box.folder_file(folder)))
+    tag = str(folder_json.get(TAG_KEY, "SMART_FOLDER"))
+    order = box.config.attribute_order.get(tag, ())
+    moved = _swap_technical(folder_json, attrs, add, remove, order)
+    write_json(box.folder_file(folder), folder_json)
+    job_order = box.config.attribute_order.get(JOB_TAG, ())
+    for job_id in (str(j) for j in folder_json.get(JOBS_KEY, [])):
+        job_json = dict(read_json(box.job_file(folder, job_id)))
+        job_meta = jobs_meta.setdefault(job_id, {})
+        moved += _swap_technical(job_json, job_meta, add, remove, job_order)
+        write_json(box.job_file(folder, job_id), job_json)
+    write_json(meta_file, {**meta, "attrs": attrs, JOBS_KEY: jobs_meta})
+    return moved
+
+
+def _swap_technical(
+    data: dict[str, Any], meta: dict[str, str], add: Sequence[str], remove: Sequence[str],
+    order: Sequence[str],
+) -> int:  # fmt: skip
+    moved = 0
+    for name in add:
+        if isinstance(data.get(name), str):
+            meta[name] = data.pop(name)
+            moved += 1
+    back = {name: meta.pop(name) for name in remove if name in meta}
+    if back:
+        moved += len(back)
+        strings = {k: v for k, v in data.items() if isinstance(v, str) and k != TAG_KEY}
+        strings.update(back)
+        position = {name: index for index, name in enumerate(order)}
+        ordered = sorted(strings, key=lambda k: position.get(k, len(order)))
+        rest = {k: v for k, v in data.items() if not (isinstance(v, str) and k != TAG_KEY)}
+        head = {TAG_KEY: data[TAG_KEY]} if TAG_KEY in data else {}
+        data.clear()
+        data.update({**head, **{k: strings[k] for k in ordered}, **rest})
+    return moved
 
 
 def set_values(repo: ChainRepo, env: str, values: Mapping[str, str | None]) -> ChangeSet:
@@ -939,13 +1083,38 @@ def replace_node(repo: ChainRepo, node: str, data: Mapping[str, Any]) -> ChangeS
             if isinstance(value, list) and _ATTRIBUTE_NAME.fullmatch(key):
                 _ensure_child_tag(box, tag, key)
         box = load_repo(box.root)
-        body = {k: v for k, v in data.items() if k not in ("tag", "jobs")}
+        body = {k: v for k, v in data.items() if k not in (TAG_KEY, JOBS_KEY, ENVS_KEY)}
         try:
             json_to_element(tag, body, box.config.child_order)
         except ModelError as exc:
             raise InvalidChange(str(exc)) from exc
         write_json(_node_file(box, ref), _with_groups(box, tag, dict(data), {}))
         return _finish(original, box, f"replace the JSON of {ref}", [])
+
+
+def rename_resource(repo: ChainRepo, node: str, old: str, new: str) -> ChangeSet:
+    """Rename a resource (QUANTITATIVE, CONTROL) of one job or folder, in place: other changes
+    to the node, in the same batch or before, stay."""
+    from controlm_chain_admin.core.validate import resources  # validate builds on this module
+
+    repo = load_repo(repo.root)
+    ref = _require_node(repo, node)
+    if not new or new == old:
+        raise InvalidChange("give the resource a new name")
+    original = _tracked(repo.root)
+    with _sandbox(original) as box:
+        path = _node_file(box, ref)
+        data = dict(read_json(path))
+        renamed = 0
+        for _, item in resources(data):
+            name = str(item.get("NAME", ""))
+            if name.removeprefix("literal:") == old:
+                item["NAME"] = new
+                renamed += 1
+        if not renamed:
+            raise InvalidChange(f"{ref} has no resource {old}")
+        write_json(path, data)
+        return _finish(original, box, f"rename resource {old} -> {new} on {ref}", [])
 
 
 def _require_link(links: Mapping[str, Link], link_id: str) -> Link:
@@ -1262,10 +1431,13 @@ OPERATIONS: dict[str, Callable[..., ChangeSet]] = {
     "insert-job": insert_job,
     "extract-variable": extract_variable,
     "set-exception": set_exception,
+    "promote-exception": promote_exception,
+    "rename-resource": rename_resource,
+    "set-technical": set_technical,
     "rename-constant": lambda repo, old, new: rename_constant(repo, old, new),
     "set-values": lambda repo, env, values: set_values(repo, env, values),
-    "receive": lambda repo, xml, env=None, choices=None, full=None, values_only=False: _receive(
-        repo, xml, env, choices, full, values_only
+    "receive": lambda repo, xml, env=None, choices=None, full=None: _receive(
+        repo, xml, env, choices, full
     ),
     "take": lambda repo, base, head, items, **kw: _take(repo, base, head, items, **kw),
 }
@@ -1292,11 +1464,10 @@ def _receive(
     env: str | None,
     choices: Mapping[str, str] | None,
     full: bool | None = None,
-    values_only: bool = False,
 ) -> ChangeSet:
     from controlm_chain_admin.core.intake import receive  # intake builds on this module
 
-    return receive(repo, xml.encode("utf-8"), env, choices, full, values_only)
+    return receive(repo, xml.encode("utf-8"), env, choices, full)
 
 
 def run_operation(repo: ChainRepo, op: str, params: Mapping[str, Any]) -> ChangeSet:

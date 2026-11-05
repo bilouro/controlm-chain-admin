@@ -213,7 +213,7 @@ def test_exceptions_per_environment(tmp_path: Path) -> None:
 
     [change] = result.exceptions
     assert (change.env, change.node, change.before) == ("prod", f"{C}/P77_E", None)
-    assert change.after == {"set": {"TASKTYPE": "Dummy"}, "variables": {}}
+    assert change.after == {"set": {"TASKTYPE": "Dummy"}, "variables": {}, "elements": {}}
     assert result.summary()["exceptions"] == 1
     assert "exception prod P77_CHAIN/P77_E: (none) -> TASKTYPE=Dummy" in render_text(result)
 
@@ -260,3 +260,96 @@ def test_folders_of_a_moved_job_list_it_where_it_was_and_where_it_is(tmp_path: P
     folders = {f.node: f for f in result.folders}
     assert folders["P77_INGEST_DAILY/"].jobs_removed == ("P77_INGEST_DAILY/P77_INGEST_LOAD",)
     assert folders[f"{C}/"].jobs_added == (f"{C}/P77_INGEST_LOAD",)
+
+
+def _call_it(repo: ChainRepo, old: str, new: str) -> None:
+    """What receiving an export that calls a condition another name does: a new link."""
+    for path in repo.root.rglob("*.json"):
+        if ".git" in path.parts:
+            continue
+        text = path.read_text(encoding="utf-8")
+        if f'"{old}"' in text:
+            path.write_text(text.replace(f'"{old}"', f'"{new}"'), encoding="utf-8")
+
+
+def test_a_condition_the_same_jobs_call_another_name_is_a_name_only_change(
+    tmp_path: Path,
+) -> None:
+    repo = _feature(tmp_path)
+    _call_it(repo, "P77_B-P77_C_OK", "P77_B-P77_C_DONE")  # also the DOCOND of ON NOTOK
+    commit_all(repo.root, "feat: receive uat")
+
+    result = compare(repo.root, "main", "feature")
+
+    links = {(lk.link, lk.change): lk for lk in result.links}
+    gone, new = links[("P77_B-P77_C_OK", "removed")], links[("P77_B-P77_C_DONE", "added")]
+    assert (gone.name_only, gone.counterpart) == (True, "P77_B-P77_C_DONE")
+    assert (new.name_only, new.counterpart) == (True, "P77_B-P77_C_OK")
+    b, c = _job(result, f"{C}/P77_B"), _job(result, f"{C}/P77_C")
+    assert b.name_only and c.name_only and b.groups == ()
+    assert {(r.change, r.name_only, r.counterpart) for r in c.relations} == {
+        ("removed", True, "P77_B-P77_C_DONE"),
+        ("added", True, "P77_B-P77_C_OK"),
+    }
+    assert result.summary()["name_only"] == 4  # P77_B, P77_C and the two conditions
+    real = result.real_only()
+    assert real.jobs == () and real.links == () and real.summary()["name_only"] == 0
+
+
+def test_a_new_name_with_another_odate_or_without_a_consumer_is_a_real_change(
+    tmp_path: Path,
+) -> None:
+    repo = _feature(tmp_path)
+    _call_it(repo, "P77_A-P77_B_OK", "P77_A-P77_B_DONE")
+    _call_it(repo, "P77_D-P77_NOBODY_OK", "P77_D-P77_NOBODY_DONE")  # nobody waits for it
+    apply(repo, update_relation(repo, "P77_A-P77_B_DONE", f"{C}/P77_B", odate="PREV"))
+    commit_all(repo.root, "feat: receive uat")
+
+    result = compare(repo.root, "main", "feature")
+
+    assert result.links and not any(lk.name_only for lk in result.links)
+    assert not any(j.name_only for j in result.jobs)
+    assert result.real_only().links == result.links
+    assert result.summary()["name_only"] == 0
+
+
+def test_real_only_keeps_a_job_with_a_real_change_without_its_name_only_relations(
+    tmp_path: Path,
+) -> None:
+    repo = _feature(tmp_path)
+    _call_it(repo, "P77_B-P77_C_OK", "P77_B-P77_C_DONE")
+    apply(repo, set_attributes(repo, f"{C}/P77_C", {"DESCRIPTION": "Loaded"}))
+    commit_all(repo.root, "feat: receive uat")
+
+    result = compare(repo.root, "main", "feature")
+
+    assert not _job(result, f"{C}/P77_C").name_only
+    real = result.real_only()
+    (c,) = real.jobs
+    assert c.node == f"{C}/P77_C" and c.relations == ()
+    assert [a.name for a in c.attributes] == ["DESCRIPTION"]
+
+
+def test_a_renamed_condition_is_a_name_only_change(tmp_path: Path) -> None:
+    repo = _feature(tmp_path)
+    apply(repo, rename_link(repo, "P77_D-P77_NOBODY_OK", "P77_D_DONE"))
+    commit_all(repo.root, "refactor: rename a condition")
+
+    result = compare(repo.root, "main", "feature")
+
+    (link,) = result.links
+    assert (link.change, link.name_only, link.counterpart) == ("renamed", True, None)
+    assert result.real_only().links == ()
+
+
+def test_the_text_marks_the_name_only_changes(tmp_path: Path) -> None:
+    repo = _feature(tmp_path)
+    _call_it(repo, "P77_B-P77_C_OK", "P77_B-P77_C_DONE")
+    commit_all(repo.root, "feat: receive uat")
+
+    text = render_text(compare(repo.root, "main", "feature"))
+
+    assert "4 changes only call a condition another name, marked [name only]" in text
+    assert f"modified job {C}/P77_C [name only]" in text
+    assert "predecessor P77_B-P77_C_OK removed [name only, now P77_B-P77_C_DONE]" in text
+    assert "condition removed P77_B-P77_C_OK [name only, now P77_B-P77_C_DONE]" in text

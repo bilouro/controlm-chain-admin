@@ -1,16 +1,34 @@
 import { useState } from "react";
 import { useChanges } from "@/features/changes/changes-context";
+import { ExceptionMark } from "@/features/exceptions/ExceptionMark";
 import { Button, TextInput } from "@/components/ui";
+
+/** What one environment has instead of the base, among these attributes. */
+export type AttributeExceptions = {
+  env: string;
+  /** attribute -> its value there; null: left out there */
+  values: Record<string, string | null>;
+  /** the base's values, for the tooltip */
+  base: Record<string, string>;
+};
 
 type Props = {
   node: string;
   attributes: Record<string, string>;
   /** Attributes shown read-only, with the command that changes them. */
   readOnly?: Record<string, string>;
+  /** Viewing one environment: its exceptions among these attributes, marked. */
+  exceptions?: AttributeExceptions | null;
 };
 
+function markTitle(exceptions: AttributeExceptions, key: string): string {
+  const base = exceptions.base[key];
+  const there = exceptions.values[key];
+  return `exception of ${exceptions.env}: ${there === null ? "left out" : there}; the base has ${base ?? "nothing"}`;
+}
+
 /** Edit plain attributes; "Review changes" proposes one set-attributes change. */
-export function AttributeForm({ node, attributes, readOnly = {} }: Props) {
+export function AttributeForm({ node, attributes, readOnly = {}, exceptions = null }: Props) {
   const { propose } = useChanges();
   const [values, setValues] = useState<Record<string, string | null>>({ ...attributes });
   const [newName, setNewName] = useState("");
@@ -26,6 +44,23 @@ export function AttributeForm({ node, attributes, readOnly = {} }: Props) {
   return (
     <div className="space-y-3">
       <div className="divide-y divide-border/60">
+        {exceptions &&
+          Object.entries(exceptions.values)
+            .filter(([key, value]) => value === null && !(key in values))
+            .map(([key]) => (
+              <div
+                key={key}
+                className="grid grid-cols-[minmax(10rem,14rem)_1fr_auto] items-center gap-3 py-1.5"
+              >
+                <span className="font-mono text-xs text-muted">
+                  {key} <ExceptionMark env={exceptions.env} title={markTitle(exceptions, key)} />
+                </span>
+                <span className="text-xs text-muted">
+                  left out in {exceptions.env} (the base has {exceptions.base[key] ?? "nothing"})
+                </span>
+                <span />
+              </div>
+            ))}
         {Object.entries(values).map(([key, value]) => (
           <div
             key={key}
@@ -33,6 +68,12 @@ export function AttributeForm({ node, attributes, readOnly = {} }: Props) {
           >
             <label htmlFor={`attr-${key}`} className="font-mono text-xs text-muted">
               {key}
+              {exceptions && key in exceptions.values && (
+                <>
+                  {" "}
+                  <ExceptionMark env={exceptions.env} title={markTitle(exceptions, key)} />
+                </>
+              )}
             </label>
             {key in readOnly ? (
               <span className="font-mono text-xs">

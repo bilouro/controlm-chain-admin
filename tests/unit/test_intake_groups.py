@@ -52,11 +52,11 @@ def test_each_repeated_difference_is_one_decision(repo: ChainRepo) -> None:
                              "prod": "app77proc"}  # fmt: skip
     geienv = groups["VARIABLE[NAME=%%GEIENV]/@VALUE"]  # one site is enough for a variable
     assert (geienv.count, geienv.default, geienv.suggested) == (1, "new", "var.geienv")
-    mail = groups["DOMAIL/@DEST"]  # inside an ON block: no exception there
+    mail = groups["DOMAIL/@DEST"]  # inside an ON block
     assert (mail.incoming, mail.default, mail.options) == (
-        "ops@example.com", "new", ("new", "change", "ignore"),
+        "ops@example.com", "new", ("new", "exceptions", "change", "ignore"),
     )  # fmt: skip
-    assert not [d for d in intake.decisions if d.kind in ("value", "children")]
+    assert not [d for d in intake.decisions if d.kind in ("value", "element")]
 
 
 def test_a_value_with_the_letter_of_the_environment_fills_every_environment(
@@ -237,8 +237,8 @@ def test_a_condition_of_one_job_is_decided_apart_from_its_group(tmp_path: Path) 
     first, second = signs.members
     apply(repo, receive(repo, data, choices={signs.id: "change", second.id: "ignore"}))
 
-    assert (signs.count, signs.options) == (2, ("new", "change", "ignore"))
+    assert (signs.count, signs.options) == (2, ("new", "exceptions", "change", "ignore"))
     assert (first.node, second.node) == (f"{C}/P77_A", f"{C}/P77_B")
-    assert first.options == ("change", "ignore")  # a condition cannot be an exception
+    assert first.options == ("change", "exception", "ignore")
     repo = load_repo(repo.root)
     assert export_xml(repo, "uat") == _flip(filter_applications(UAT, {APP}), b"UP77_A")

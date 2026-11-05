@@ -1,5 +1,5 @@
 import { Link, useParams, useSearchParams } from "react-router";
-import { useJob } from "@/lib/api/queries";
+import { useBaseJob, useJob } from "@/lib/api/queries";
 import { nodeRoute } from "@/lib/utils";
 import { useChanges } from "@/features/changes/changes-context";
 import { AttributeForm } from "@/features/editing/AttributeForm";
@@ -11,48 +11,92 @@ import { VariablesEditor, type Variable } from "@/features/editing/VariablesEdit
 import { Badge, Card, ErrorBox, Kv, Loading, TabPanel, Tabs, type TabItem } from "@/components/ui";
 import { exceptionCount } from "@/features/exceptions/exception-count";
 import { ExceptionsPanel } from "@/features/exceptions/ExceptionsPanel";
+import { ExceptionMark, ExceptionsStrip } from "@/features/exceptions/ExceptionMark";
+import { conditionLocator, lineMark, marksOf, type Marks } from "@/features/exceptions/marks";
 import { EnvBadge } from "@/features/environments/EnvBadge";
+import { useEnv } from "@/features/environments/env-context";
 
 type OnBlock = Record<string, unknown> & { children?: Array<Record<string, unknown>> };
 
-function OnBlocks({ blocks }: { blocks: OnBlock[] }) {
+/** The locator of an action inside an ON block: a DOCOND by its condition, the rest by place. */
+function actionLocator(block: string, actions: Array<Record<string, unknown>>, index: number) {
+  const action = actions[index] ?? {};
+  const tag = String(action.tag);
+  if (tag === "DOCOND" && typeof action.link === "string") {
+    return `${block}/${conditionLocator("DOCOND", action.link, String(action.ODATE ?? ""))}`;
+  }
+  const place = actions.slice(0, index).filter((a) => a.tag === tag).length;
+  return `${block}/${tag}[${place}]`;
+}
+
+function OnBlocks({ blocks, marks }: { blocks: OnBlock[]; marks: Marks | null }) {
   if (blocks.length === 0) return <p className="text-sm text-muted">No ON blocks.</p>;
   return (
     <ul className="divide-y divide-border">
-      {blocks.map((block, index) => (
-        <li key={index} className="py-2 text-sm">
-          <div className="font-mono text-xs">
-            ON {String(block.STMT ?? "*")} {String(block.CODE ?? "")}
-          </div>
-          <ul className="mt-1 space-y-0.5 pl-4">
-            {(block.children ?? []).map((action, i) => {
-              const { tag, ...attrs } = action;
-              return (
-                <li key={i} className="font-mono text-xs text-muted">
-                  <span className="text-text">{String(tag)}</span>{" "}
-                  {Object.entries(attrs)
-                    .map(([k, v]) => `${k}=${String(v)}`)
-                    .join(" ")}
-                </li>
-              );
-            })}
-          </ul>
-        </li>
-      ))}
+      {blocks.map((block, index) => {
+        const locator = `ON[STMT=${String(block.STMT ?? "")},CODE=${String(block.CODE ?? "")}]`;
+        const actions = block.children ?? [];
+        const blockMark = lineMark(marks, locator);
+        return (
+          <li key={index} className="py-2 text-sm">
+            <div className="font-mono text-xs">
+              ON {String(block.STMT ?? "*")} {String(block.CODE ?? "")}{" "}
+              {blockMark && marks && <ExceptionMark env={marks.env} title={blockMark} />}
+            </div>
+            <ul className="mt-1 space-y-0.5 pl-4">
+              {actions.map((action, i) => {
+                const { tag, ...attrs } = action;
+                const actionMark = marks && lineMark(marks, actionLocator(locator, actions, i));
+                return (
+                  <li key={i} className="font-mono text-xs text-muted">
+                    <span className="text-text">{String(tag)}</span>{" "}
+                    {Object.entries(attrs)
+                      .map(([k, v]) => `${k}=${String(v)}`)
+                      .join(" ")}{" "}
+                    {actionMark && marks && <ExceptionMark env={marks.env} title={actionMark} />}
+                  </li>
+                );
+              })}
+            </ul>
+          </li>
+        );
+      })}
     </ul>
   );
+}
+
+/** The attributes of one group the environment has otherwise, with the base's values. */
+function groupExceptions(
+  marks: Marks | null,
+  group: Record<string, string>,
+  base: Record<string, string> | undefined,
+) {
+  if (!marks) return null;
+  const values = Object.fromEntries(
+    Object.entries(marks.attributes).filter(([key]) => key in group || key in (base ?? {})),
+  );
+  return Object.keys(values).length ? { env: marks.env, values, base: base ?? {} } : null;
+}
+
+function variableExceptions(marks: Marks | null, base: Variable[] | undefined) {
+  if (!marks || Object.keys(marks.variables).length === 0) return null;
+  const baseValues = Object.fromEntries((base ?? []).map((v) => [v.NAME, v.VALUE]));
+  return { env: marks.env, values: marks.variables, base: baseValues };
 }
 
 export function JobPage() {
   const { folder = "", job = "" } = useParams();
   const [params, setParams] = useSearchParams();
   const { data, isPending, isError, error } = useJob(folder, job);
+  const { env } = useEnv();
+  const base = useBaseJob(folder, job, env !== null);
   const { propose } = useChanges();
 
   if (isPending) return <Loading what={`job ${job}`} />;
   if (isError) return <ErrorBox error={error} />;
 
   const node = `${folder}/${data.id}`;
+  const marks = marksOf(data.exceptions, env);
   const groupTabs: TabItem[] = Object.keys(data.groups)
     .filter((group) => group !== "metadata")
     .map((group) => ({ id: group, label: GROUP_LABELS[group] ?? group }));
@@ -107,6 +151,7 @@ export function JobPage() {
             onSubmit={(value) => propose({ op: "move-job", params: { node, target: value } })}
           />
         </span>
+        <ExceptionsStrip marks={marks} tabHref="?tab=environments" />
       </header>
 
       <Card className="p-4">
@@ -125,13 +170,23 @@ export function JobPage() {
                   node={node}
                   attributes={data.groups[tab.id] ?? {}}
                   readOnly={{ JOBNAME: "use Rename", PARENT_FOLDER: "use Move" }}
+                  exceptions={groupExceptions(
+                    marks,
+                    data.groups[tab.id] ?? {},
+                    base.data?.groups[tab.id],
+                  )}
                 />
               </TabPanel>
             ),
         )}
         {active === "variables" && (
           <TabPanel id="variables">
-            <VariablesEditor key={JSON.stringify(variables)} node={node} variables={variables} />
+            <VariablesEditor
+              key={JSON.stringify(variables)}
+              node={node}
+              variables={variables}
+              exceptions={variableExceptions(marks, base.data?.raw.VARIABLE as Variable[])}
+            />
           </TabPanel>
         )}
         {active === "relations" && (
@@ -141,12 +196,13 @@ export function JobPage() {
               folder={folder}
               predecessors={data.predecessors ?? []}
               successors={data.successors ?? []}
+              marks={marks}
             />
           </TabPanel>
         )}
         {active === "on" && (
           <TabPanel id="on">
-            <OnBlocks blocks={data.on as OnBlock[]} />
+            <OnBlocks blocks={data.on as OnBlock[]} marks={marks} />
           </TabPanel>
         )}
         {active === "environments" && (

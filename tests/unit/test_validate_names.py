@@ -10,7 +10,7 @@ import pytest
 from controlm_chain_admin.core.fixes import fixes_for
 from controlm_chain_admin.core.ops import import_xml
 from controlm_chain_admin.core.refactor import apply, run_operation
-from controlm_chain_admin.core.repo import ChainRepo, init_repo, load_repo, read_json
+from controlm_chain_admin.core.repo import ChainRepo, init_repo, load_repo, read_json, write_json
 from controlm_chain_admin.core.validate import Finding, validate
 from tests.support.anomalies import ANOMALY_EXPORT
 from tests.support.samples import SAMPLE_EXPORT
@@ -84,6 +84,30 @@ def test_a_resource_of_another_environment_is_an_error(repo: ChainRepo) -> None:
     apply(repo, run_operation(repo, fix.op, fix.params))  # type: ignore[attr-defined]
     names = [q["NAME"] for q in read_json(repo.job_file(C, "P77_B"))["QUANTITATIVE"]]
     assert names == ["RQ_AM"] and _findings(repo, "foreign-resource") == []
+
+
+def test_two_resources_of_other_environments_on_a_job_of_some_environments_are_fixed_together(
+    repo: ChainRepo,
+) -> None:
+    path = repo.job_file(C, "P77_B")
+    data = read_json(path)
+    data["QUANTITATIVE"].append({"NAME": "BRQ_PRICING", "QUANT": "1", "ONFAIL": "R", "ONOK": "R"})
+    data["envs"] = ["test", "uat", "bench"]  # not in prod: an exception of the environments
+    write_json(path, data)
+    report = validate(repo, write_index=False)
+    offered = dict(zip(report.findings, fixes_for(repo, report.findings), strict=True))
+    fixes = [o[0] for f, o in offered.items() if f.code == "foreign-resource"]
+    assert len(fixes) == 2
+
+    change = run_operation(
+        repo, "batch", {"changes": [{"op": f.op, "params": f.params} for f in fixes]}
+    )
+    apply(repo, change)
+
+    job = read_json(path)
+    assert [q["NAME"] for q in job["QUANTITATIVE"]] == ["RQ_AM", "RQ_PRICING"]
+    assert job["envs"] == ["test", "uat", "bench"]
+    assert _findings(repo, "foreign-resource") == []
 
 
 def test_a_letter_in_place_of_the_p(repo: ChainRepo) -> None:

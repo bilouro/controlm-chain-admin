@@ -14,7 +14,17 @@ async function environmentsTab() {
     http.get("/api/jobs/P77_INGEST_DAILY/P77_INGEST_LOAD", () =>
       HttpResponse.json({
         ...jobLoad,
-        exceptions: { prod: { attributes: { TASKTYPE: "Dummy", CMDLINE: null }, variables: {} } },
+        exceptions: {
+          prod: {
+            attributes: { TASKTYPE: "Dummy", CMDLINE: null },
+            variables: {},
+            elements: {
+              "OUTCOND[link=P77_INGEST_INIT-P77_INGEST_LOAD_OK,ODATE=ODAT]": { SIGN: "+" },
+              "INCOND[link=P77_FLAG,ODATE=ODAT]": { AND_OR: "A", after: null },
+              "SHOUT[WHEN=NOTOK,DEST=EM]": null,
+            },
+          },
+        },
       }),
     ),
   );
@@ -23,7 +33,7 @@ async function environmentsTab() {
     path: `/folders/${NODE.replace("/", "/jobs/")}`,
     pattern: "/folders/:folder/jobs/:job",
   });
-  await user.click(await screen.findByRole("tab", { name: "Environments (2)" }));
+  await user.click(await screen.findByRole("tab", { name: "Environments (5)" }));
   return user;
 }
 
@@ -34,6 +44,11 @@ describe("Exceptions of a job", () => {
     const table = screen.getByRole("table", { name: "Exceptions" });
     expect(within(table).getByRole("row", { name: /prod TASKTYPE/ })).toHaveTextContent("Dummy");
     expect(within(table).getByRole("row", { name: /prod CMDLINE/ })).toHaveTextContent("left out");
+    expect(within(table).getByRole("row", { name: /OUTCOND\[link=/ })).toHaveTextContent("SIGN=+");
+    expect(within(table).getByRole("row", { name: /INCOND\[link=P77_FLAG/ })).toHaveTextContent(
+      "added AND_OR=A",
+    );
+    expect(within(table).getByRole("row", { name: /SHOUT\[/ })).toHaveTextContent("left out");
     await user.click(within(table).getByRole("button", { name: "Remove TASKTYPE in prod" }));
 
     await screen.findByRole("dialog", { name: "Review change" });
@@ -41,6 +56,24 @@ describe("Exceptions of a job", () => {
       expect(calls.preview[0]).toEqual({
         op: "set-exception",
         params: { env: "prod", node: NODE, drop: ["TASKTYPE"] },
+      }),
+    );
+  });
+
+  it("makes an exception the base", async () => {
+    const user = await environmentsTab();
+    const table = screen.getByRole("table", { name: "Exceptions" });
+
+    await user.click(
+      within(table).getByRole("button", {
+        name: "Make INCOND[link=P77_FLAG,ODATE=ODAT] of prod the base",
+      }),
+    );
+
+    await waitFor(() =>
+      expect(calls.preview[0]).toEqual({
+        op: "promote-exception",
+        params: { env: "prod", node: NODE, names: ["INCOND[link=P77_FLAG,ODATE=ODAT]"] },
       }),
     );
   });

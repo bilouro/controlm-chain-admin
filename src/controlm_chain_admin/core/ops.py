@@ -25,6 +25,7 @@ from controlm_chain_admin.core.constants import (
     apply_import,
     keep_equivalent,
 )
+from controlm_chain_admin.core.elements import parse_locator
 from controlm_chain_admin.core.errors import (
     DuplicateName,
     EnvironmentRequired,
@@ -180,7 +181,7 @@ def _to_link_refs(element: XmlElement, ids_by_name: Mapping[str, str]) -> XmlEle
     return replace(element, attrs=attrs, children=children)
 
 
-def _from_link_refs(element: XmlElement, names: Mapping[str, str], where: str) -> XmlElement:
+def _from_link_refs(element: XmlElement, names: Mapping[str, str]) -> XmlElement:
     """Inverse of :func:`_to_link_refs`: ``link`` references become ``NAME`` attributes."""
     attrs = element.attrs
     if element.tag in CONDITION_TAGS:
@@ -188,14 +189,13 @@ def _from_link_refs(element: XmlElement, names: Mapping[str, str], where: str) -
         for key, value in attrs:
             if key == LINK_KEY:
                 if value not in names:
-                    raise ModelError(f"{where}: <{element.tag}> references unknown link {value!r}")
+                    raise ModelError(f"<{element.tag}> references unknown link {value!r}")
                 resolved.append(("NAME", names[value]))
             else:
                 resolved.append((key, value))
         attrs = tuple(resolved)
     children = tuple(
-        c if isinstance(c, XmlComment) else _from_link_refs(c, names, where)
-        for c in element.children
+        c if isinstance(c, XmlComment) else _from_link_refs(c, names) for c in element.children
     )
     return replace(element, attrs=attrs, children=children)
 
@@ -561,14 +561,14 @@ def load_document(
         raise ModelError(f"{repo.root}: nothing to export yet (no import was done)")
     meta = read_json(repo.export_meta_file)
     resolved, renamed = _export_names(repo, names)
+    for link_id in _exception_links(overrides or {}):  # a condition one environment adds
+        resolved.setdefault(link_id, link_id)
     if jobnames not in JOBNAME_POLICIES:
         raise ModelError(
             f"unknown jobnames policy {jobnames!r}; use one of {', '.join(JOBNAME_POLICIES)}"
         )
     elements = tuple(
-        _from_link_refs(
-            _read_folder(repo, name, jobnames, overrides or {}, env), resolved, f"folder {name}"
-        )
+        _from_link_refs(_read_folder(repo, name, jobnames, overrides or {}, env), resolved)
         for name in meta.get("folder_order", [])
         if (folders is None or name in folders) and belongs(read_json(repo.folder_file(name)), env)
     )
@@ -577,6 +577,30 @@ def load_document(
     comments = tuple(meta.get("prolog_comments", []))
     newline = str(meta.get("newline", "\n"))
     return XmlDocument(root, declaration, comments, newline, bool(meta.get("bom"))), renamed
+
+
+def _exception_links(overrides: Mapping[str, Override]) -> set[str]:
+    """The link ids of the conditions the exceptions add, named by their id unless known."""
+    found: set[str] = set()
+
+    def walk(data: Mapping[str, Any]) -> None:
+        for key, value in data.items():
+            if key == LINK_KEY and isinstance(value, str):
+                found.add(value)
+            elif isinstance(value, list):
+                for item in value:
+                    if isinstance(item, dict):
+                        walk(item)
+
+    for override in overrides.values():
+        for text, line in override.elements.items():
+            if line is None:
+                continue
+            last = parse_locator(text)[-1]
+            if LINK_KEY in last.where:
+                found.add(last.where[LINK_KEY])
+            walk(line)
+    return found
 
 
 def export_document(

@@ -92,3 +92,22 @@ def test_text_report_summarises_the_attributes_of_an_added_job(
     assert "JOBNAME: (none) -> P77_NEW" not in out
     assert "attributes (see --format json)" in out
     assert "predecessor P77_A-P77_NEW_OK added" in out
+
+
+def test_real_only_leaves_out_what_only_calls_a_condition_another_name(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = _feature(tmp_path)  # renaming P77_D renames its conditions
+    assert main(["compare", "main", "feature", "--repo", str(root)]) == 0
+    full = capsys.readouterr().out
+
+    assert main(["compare", "main", "feature", "--repo", str(root), "--real-only"]) == 0
+    real = capsys.readouterr().out
+    assert main(["compare", "main", "feature", "--repo", str(root), "--real-only",
+                 "--format", "json"]) == 0  # fmt: skip
+    body = json.loads(capsys.readouterr().out)
+
+    assert "condition renamed" in full and "[name only]" in full
+    assert "condition renamed" not in real and "[name only]" not in real
+    assert f"modified job {C}/P77_C" in real
+    assert body["links"] == [] and body["summary"]["name_only"] == 0

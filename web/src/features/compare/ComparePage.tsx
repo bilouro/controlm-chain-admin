@@ -15,6 +15,7 @@ import { DiffView } from "@/components/DiffView";
 import { CommitPicker } from "./CommitPicker";
 import { CopyMarkdownButton } from "./CopyMarkdownButton";
 import { PackagePanel } from "./PackagePanel";
+import { changeCount, realOnly } from "./real-only";
 import { defaultRefs, WORKTREE } from "./refs";
 import { TakeContext } from "./take-context";
 import { TakeBar, TakeBox } from "./TakeBar";
@@ -43,6 +44,56 @@ const CHANGES = ["added", "removed", "modified", "renamed", "moved"] as const;
 
 function ChangeBadge({ change }: { change: string }) {
   return <Badge tone={CHANGE_TONE[change] ?? "neutral"}>{change}</Badge>;
+}
+
+/** The same jobs use the condition the same way: only its name is different. */
+function NameOnlyBadge() {
+  return <Badge tone="neutral">name only</Badge>;
+}
+
+/** The name on the other side of a name-only change. */
+function Counterpart({ change, name }: { change: string; name: string | null | undefined }) {
+  if (!name) return null;
+  return (
+    <div className="whitespace-nowrap text-muted">
+      {change === "removed" ? "now" : "was"} {name}
+    </div>
+  );
+}
+
+/** Every change, or only the real ones: what only renames a condition left out. */
+function WhichChanges({
+  all,
+  real,
+  isRealOnly,
+  onChange,
+}: {
+  all: number;
+  real: number;
+  isRealOnly: boolean;
+  onChange: (isRealOnly: boolean) => void;
+}) {
+  return (
+    <div className="flex gap-1" role="group" aria-label="Which changes">
+      <Button
+        size="sm"
+        variant={isRealOnly ? "ghost" : "primary"}
+        aria-pressed={!isRealOnly}
+        onClick={() => onChange(false)}
+      >
+        All {all}
+      </Button>
+      <Button
+        size="sm"
+        variant={isRealOnly ? "primary" : "ghost"}
+        aria-pressed={isRealOnly}
+        title="Leave out what only calls a condition another name: the same jobs, the same ODATE and signs"
+        onClick={() => onChange(true)}
+      >
+        Real only {real}
+      </Button>
+    </div>
+  );
 }
 
 function RefSelect({
@@ -184,7 +235,7 @@ function RelationsTable({
                     label={`Take the condition ${row.name}`}
                   />
                 )}
-                <ChangeBadge change={row.change} />
+                <ChangeBadge change={row.change} /> {row.name_only && <NameOnlyBadge />}
               </td>
               <td className="whitespace-nowrap pr-3 align-top">
                 {row.direction === "predecessor" ? "waits for" : "then runs"}
@@ -197,6 +248,7 @@ function RelationsTable({
                 <Peers nodes={row.peers_after} folder={folder} />
               </td>
               <td className="align-top font-mono">
+                {row.name_only && <Counterpart change={row.change} name={row.counterpart} />}
                 {row.details.map((d) => (
                   <div key={d.name} className="whitespace-nowrap">
                     {d.name} <span className="text-error">{d.before ?? "—"}</span> →{" "}
@@ -260,6 +312,7 @@ function NodeDetail({
       <header className="flex flex-wrap items-center gap-2">
         <TakeBox item={whole} label={`Take the whole ${node.kind} ${node.node}`} />
         <ChangeBadge change={node.change} />
+        {node.name_only && <NameOnlyBadge />}
         <span className="text-xs text-muted">{node.kind}</span>
         <h2 className="font-mono text-base font-semibold">{node.node}</h2>
         {node.previous && <span className="font-mono text-xs text-muted">was {node.previous}</span>}
@@ -345,12 +398,14 @@ function ChangesBrowser({
   onSelect,
   head,
   openable,
+  emptyText = "No folder or job changed.",
 }: {
   result: ComparisonOut;
   selected: string | null;
   onSelect: (node: string) => void;
   head: string;
   openable: boolean;
+  emptyText?: string;
 }) {
   const [filter, setFilter] = useState<string | null>(null);
   const nodes = [...result.folders, ...result.jobs];
@@ -358,7 +413,7 @@ function ChangesBrowser({
   const visible = groups.flatMap((g) => (g.folderChange ? [g.folderChange, ...g.jobs] : g.jobs));
   const current = visible.find((n) => n.node === selected) ?? visible[0] ?? null;
   const commits = useMemo(() => new Map(result.commits.map((c) => [c.sha, c])), [result]);
-  if (nodes.length === 0) return <Empty>No folder or job changed.</Empty>;
+  if (nodes.length === 0) return <Empty>{emptyText}</Empty>;
   return (
     <div className="grid gap-4 lg:grid-cols-[22rem_1fr]">
       <div className="space-y-2">
@@ -406,6 +461,7 @@ function ChangesBrowser({
               >
                 📁 {group.folder}
                 {group.folderChange && <ChangeBadge change={group.folderChange.change} />}
+                {group.folderChange?.name_only && <NameOnlyBadge />}
               </button>
               <ul>
                 {group.jobs.map((job) => (
@@ -421,6 +477,7 @@ function ChangesBrowser({
                     >
                       <span className="truncate">{parseNode(job.node).job}</span>
                       <ChangeBadge change={job.change} />
+                      {job.name_only && <NameOnlyBadge />}
                     </button>
                   </li>
                 ))}
@@ -440,26 +497,24 @@ function ChangesBrowser({
   );
 }
 
+/** Counted from the lists, so that they follow what is shown. */
 function SummaryCards({ result }: { result: ComparisonOut }) {
-  const s = result.summary as Record<string, Record<string, number> | number>;
-  const total = (key: string) => {
-    const value = s[key];
-    return typeof value === "number"
-      ? value
-      : Object.values(value ?? {}).reduce((a, b) => a + b, 0);
-  };
-  const cards: [string, string][] = [
-    ["Folders", "folders"],
-    ["Jobs", "jobs"],
-    ["Conditions", "links"],
-    ["Relations", "relations"],
-    ["Constants", "constants"],
+  const relations = [...result.folders, ...result.jobs].reduce(
+    (total, node) => total + node.relations.length,
+    0,
+  );
+  const cards: [string, number][] = [
+    ["Folders", result.folders.length],
+    ["Jobs", result.jobs.length],
+    ["Conditions", result.links.length],
+    ["Relations", relations],
+    ["Constants", result.constants.length],
   ];
   return (
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-      {cards.map(([title, key]) => (
-        <div key={key} className="rounded-lg border border-border bg-surface px-3 py-2">
-          <div className="text-xl font-semibold tabular-nums">{total(key)}</div>
+      {cards.map(([title, count]) => (
+        <div key={title} className="rounded-lg border border-border bg-surface px-3 py-2">
+          <div className="text-xl font-semibold tabular-nums">{count}</div>
           <div className="text-xs text-muted">{title}</div>
         </div>
       ))}
@@ -515,6 +570,7 @@ export function ComparePage() {
   const head = params.get("head") ?? defaults.head;
   const mergeBase = params.get("mb") !== "0";
   const tab = params.get("tab") ?? "nodes";
+  const isRealOnly = params.get("real") === "1";
   const selection = head === WORKTREE ? null : parseSelection(params.get("commits"));
   const comparison = useCompare(base, head, mergeBase, selection);
   const everything = useCompare(base, head, mergeBase, null); // the commits to choose from
@@ -550,7 +606,10 @@ export function ComparePage() {
 
   if (git.isPending) return <Loading what="git refs" />;
   if (git.isError) return <ErrorBox error={git.error} />;
-  const result = comparison.data;
+  const full = comparison.data;
+  const result = full && isRealOnly ? realOnly(full) : full;
+  const markdownParams = compareParams(base, head, mergeBase, selection);
+  if (isRealOnly) markdownParams.set("real_only", "true");
   const tabs = result
     ? [
         { id: "nodes", label: `Folders & jobs (${result.folders.length + result.jobs.length})` },
@@ -706,7 +765,15 @@ export function ComparePage() {
                   <> · {result.metadata_files_changed} metadata file(s) changed</>
                 )}
               </p>
-              <CopyMarkdownButton params={compareParams(base, head, mergeBase, selection)} />
+              {full && (
+                <WhichChanges
+                  all={changeCount(full)}
+                  real={changeCount(realOnly(full))}
+                  isRealOnly={isRealOnly}
+                  onChange={(real) => update({ real: real ? "1" : null })}
+                />
+              )}
+              <CopyMarkdownButton params={markdownParams} />
             </div>
             <SummaryCards result={result} />
             <Card className="p-4">
@@ -724,13 +791,22 @@ export function ComparePage() {
                     onSelect={(node) => update({ node })}
                     head={head}
                     openable={head === WORKTREE || head === git.data.current}
+                    emptyText={
+                      isRealOnly && full && full.folders.length + full.jobs.length > 0
+                        ? "No real change: the folders and jobs only call conditions another name."
+                        : undefined
+                    }
                   />
                 </TabPanel>
               )}
               {tab === "links" && (
                 <TabPanel id="links">
                   {result.links.length === 0 ? (
-                    <Empty>No condition was added, removed or renamed.</Empty>
+                    <Empty>
+                      {isRealOnly && full && full.links.length > 0
+                        ? "No real change: the conditions only got other names."
+                        : "No condition was added, removed or renamed."}
+                    </Empty>
                   ) : (
                     <table className="w-full text-xs" aria-label="Condition changes">
                       <thead className="text-left text-[11px] text-muted">
@@ -750,10 +826,16 @@ export function ComparePage() {
                                   label={`Take the name ${link.after ?? link.link}`}
                                 />
                               )}
-                              <ChangeBadge change={link.change} />
+                              <ChangeBadge change={link.change} />{" "}
+                              {link.name_only && <NameOnlyBadge />}
                             </td>
                             <td className="text-error">{link.before ?? "—"}</td>
-                            <td className="text-ok">{link.after ?? "—"}</td>
+                            <td className="text-ok">
+                              {link.after ?? "—"}
+                              {link.name_only && (
+                                <Counterpart change={link.change} name={link.counterpart} />
+                              )}
+                            </td>
                           </tr>
                         ))}
                       </tbody>

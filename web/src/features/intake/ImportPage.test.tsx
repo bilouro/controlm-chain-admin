@@ -30,7 +30,7 @@ describe("ImportPage", () => {
   it("analyzes the export: environment, folders and the decisions with their defaults", async () => {
     await analyzed();
 
-    expect(calls.intake).toEqual([{ xml: XML, env: null, full: null, values_only: false }]);
+    expect(calls.intake).toEqual([{ xml: XML, env: null, full: null }]);
     expect(
       screen.getByText(/13 folder and job names carry the letter P of prod/),
     ).toBeInTheDocument();
@@ -64,7 +64,6 @@ describe("ImportPage", () => {
           env: "prod",
           choices: { "P77_CHAIN/P77_E@TASKTYPE": "exception" },
           full: true,
-          values_only: false,
         },
       }),
     );
@@ -252,18 +251,21 @@ describe("ImportPage, a group decided one by one", () => {
     expect(Object.keys(sent.params.choices)).toEqual(["P77_CHAIN/P77_B@RUN_AS"]);
   });
 
-  it("asks about the values of a job only the export has once the job is taken", async () => {
+  it("stops asking about the values of a job only the export has once it is left out", async () => {
     server.use(http.post("/api/intake", () => HttpResponse.json(intakeValues)));
     const user = await analyzed(/uat export/);
+
+    const unmatched = screen.getByRole("radiogroup", { name: "unmatched:RUN_AS=nobody" });
+    expect(
+      within(unmatched).getByRole("radio", { name: /Same in every environment/ }),
+    ).toBeChecked();
+
+    const added = screen.getByRole("radiogroup", { name: "P77_CHAIN/P77_UATONLY#added" });
+    await user.click(within(added).getByRole("radio", { name: "Leave out" }));
 
     const values = screen.getByRole("region", { name: "Values no constant has" });
     expect(values).toHaveTextContent("1 value of folders and jobs left out is not asked");
     expect(screen.queryByRole("radiogroup", { name: "unmatched:RUN_AS=nobody" })).toBeNull();
-
-    const added = screen.getByRole("radiogroup", { name: "P77_CHAIN/P77_UATONLY#added" });
-    await user.click(within(added).getByRole("radio", { name: "Only in uat" }));
-
-    expect(screen.getByRole("radiogroup", { name: "unmatched:RUN_AS=nobody" })).toBeInTheDocument();
   });
 });
 
@@ -298,35 +300,54 @@ describe("ImportPage, a full export", () => {
   });
 });
 
-describe("ImportPage, only the values of the environment", () => {
-  it("is asked for values only, then leaves the rest out by default", async () => {
-    const asked: unknown[] = [];
-    server.use(
-      http.post("/api/intake", async ({ request }) => {
-        const body = (await request.json()) as { values_only?: boolean };
-        asked.push(body);
-        if (body.values_only) return HttpResponse.json(intakeValues);
-        return HttpResponse.json({ ...intakeValues, values_only: false });
-      }),
-    );
+describe("ImportPage, the lines of a full export", () => {
+  it("shows a line only one side has, an exception of the environment by default", async () => {
+    server.use(http.post("/api/intake", () => HttpResponse.json(intakeValues)));
     const user = await analyzed(/uat export/);
-    const values = screen.getByRole("checkbox", { name: /Only the values of uat/ });
-    expect(values).not.toBeChecked();
 
-    await user.click(values);
-
-    await waitFor(() => expect(asked.at(-1)).toMatchObject({ values_only: true }));
-    expect(screen.getByRole("checkbox", { name: /Only the values of uat/ })).toBeChecked();
-    expect(screen.getByRole("heading", { name: /values only/ })).toBeInTheDocument();
-    const added = screen.getByRole("radiogroup", { name: "P77_CHAIN/P77_UATONLY#added" });
-    expect(within(added).getByRole("radio", { name: "Leave out" })).toBeChecked();
-    const value = screen.getByRole("radiogroup", { name: "P77_CHAIN/P77_D@TASKTYPE" });
-    expect(within(value).getByRole("radio", { name: "Ignore" })).toBeChecked();
+    const differences = screen.getByRole("region", { name: "Differences" });
+    const line = within(differences).getByRole("radiogroup", {
+      name: "P77_CHAIN/P77_B@INCOND[link=P77_X-P77_B_OK,ODATE=ODAT]",
+    });
+    expect(within(line).getByRole("radio", { name: "Exception for uat" })).toBeChecked();
+    expect(differences).toHaveTextContent("INCOND[link=P77_X-P77_B_OK,ODATE=ODAT]");
+    expect(differences).toHaveTextContent("only in the export");
+    expect(differences).toHaveTextContent("AND_OR=A");
+    expect(screen.queryByRole("checkbox", { name: /Only the values/ })).not.toBeInTheDocument();
+    await user.click(within(line).getByRole("radio", { name: "Change the base" }));
     await user.click(screen.getByRole("button", { name: "Review change" }));
+
     await waitFor(() =>
       expect(calls.preview[0]).toMatchObject({
-        params: { env: "uat", full: true, values_only: true },
+        params: {
+          env: "uat",
+          full: true,
+          choices: { "P77_CHAIN/P77_B@INCOND[link=P77_X-P77_B_OK,ODATE=ODAT]": "change" },
+        },
       }),
+    );
+  });
+});
+
+describe("ImportPage, what the environment has as exceptions already", () => {
+  it("keeps them folded and kept, and lets the base take one", async () => {
+    server.use(http.post("/api/intake", () => HttpResponse.json(intakeValues)));
+    const user = await analyzed(/uat export/);
+    const known = "P77_CHAIN/P77_A@OUTCOND[link=P77_A-P77_B_OK,ODATE=ODAT]/@SIGN";
+
+    const section = screen.getByRole("region", { name: "Already exceptions of uat" });
+    expect(section).toHaveTextContent("1");
+    expect(within(section).queryByRole("radiogroup", { name: known })).toBeNull();
+    const differences = screen.getByRole("region", { name: "Differences" });
+    expect(within(differences).queryByRole("radiogroup", { name: known })).toBeNull();
+    await user.click(within(section).getByRole("button", { name: "Show 1" }));
+    const row = within(section).getByRole("radiogroup", { name: known });
+    expect(within(row).getByRole("radio", { name: "Exception for uat" })).toBeChecked();
+    await user.click(within(row).getByRole("radio", { name: "Change the base" }));
+    await user.click(screen.getByRole("button", { name: "Review change" }));
+
+    await waitFor(() =>
+      expect(calls.preview[0]).toMatchObject({ params: { choices: { [known]: "change" } } }),
     );
   });
 });

@@ -4,6 +4,8 @@ import type { RelationOut } from "@/lib/api/client";
 import { useTable } from "@/lib/api/queries";
 import { nodeRoute, shortLabel } from "@/lib/utils";
 import { useChanges } from "@/features/changes/changes-context";
+import { ExceptionMark } from "@/features/exceptions/ExceptionMark";
+import { conditionLocator, lineMark, type Marks } from "@/features/exceptions/marks";
 import { Badge, Button, SelectInput, TextInput } from "@/components/ui";
 
 const ODATES = ["ODAT", "PREV", "NEXT", "STAT", "****"];
@@ -13,6 +15,8 @@ type Props = {
   folder: string;
   predecessors: RelationOut[];
   successors: RelationOut[];
+  /** Viewing one environment: its exceptions on the conditions, marked. */
+  marks?: Marks | null;
 };
 
 function NodeLink({ node, folder }: { node: string; folder: string }) {
@@ -204,8 +208,15 @@ function AddRelation({
 }
 
 /** Predecessors and successors of a node, keeping AND/OR, ODATE and the + / − details. */
-export function RelationsEditor({ node, folder, predecessors, successors }: Props) {
+export function RelationsEditor({ node, folder, predecessors, successors, marks = null }: Props) {
   const { propose } = useChanges();
+  const mark = (relation: RelationOut, tags: ("INCOND" | "OUTCOND" | "DOCOND")[]) => {
+    const text = lineMark(
+      marks,
+      ...tags.map((tag) => conditionLocator(tag, relation.link, relation.odate)),
+    );
+    return text && marks ? <ExceptionMark env={marks.env} title={text} /> : null;
+  };
   const update = (relation: RelationOut, params: Record<string, unknown>) =>
     propose({ op: "update-relation", params: { link: relation.link, consumer: node, ...params } });
 
@@ -233,7 +244,8 @@ export function RelationsEditor({ node, folder, predecessors, successors }: Prop
               {predecessors.map((relation) => (
                 <tr key={relation.link}>
                   <td className="py-1.5">
-                    <RenameLink relation={relation} /> <KindBadge relation={relation} />
+                    <RenameLink relation={relation} /> <KindBadge relation={relation} />{" "}
+                    {mark(relation, ["INCOND"])}
                   </td>
                   <td>
                     {relation.peers.length === 0 && (
@@ -318,7 +330,8 @@ export function RelationsEditor({ node, folder, predecessors, successors }: Prop
               {successors.map((relation) => (
                 <tr key={relation.link}>
                   <td className="py-1.5">
-                    <RenameLink relation={relation} /> <KindBadge relation={relation} />
+                    <RenameLink relation={relation} /> <KindBadge relation={relation} />{" "}
+                    {mark(relation, ["OUTCOND", "DOCOND"])}
                   </td>
                   <td>
                     {relation.sign === "+" ? (

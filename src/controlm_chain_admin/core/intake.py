@@ -12,7 +12,10 @@ repository, folder by folder and job by job. What still differs is a decision:
   this job, the new value of ``c``, or ignore;
 * ``value``: a plain attribute or variable differs: a change of the base (every environment),
   an exception for this environment, or ignore;
-* ``children``: conditions, ON blocks, resources... differ in their shape: change or ignore;
+* ``element``: a line (a condition, a SHOUT, an action inside an ON block) only the export or
+  only the repository has: a change of the base, an exception for this environment, or ignore;
+  a line both have is compared attribute by attribute (``value`` decisions named by the
+  line's locator, see :mod:`controlm_chain_admin.core.elements`);
 * ``group``: the same difference in several jobs (or a machine, user, mail or variable in one):
   a new constant with a value per environment, an exception in every job, a change of the base,
   or ignore. A value with the letter of the environment (``UP77_BATCH`` for ``PP77_BATCH``)
@@ -29,15 +32,11 @@ repository, folder by folder and job by job. What still differs is a decision:
   this environment does not have it, or keep it.
 
 An export of more than half of the folders is *full* unless told otherwise. A full export of
-an environment other than production leaves production alone by default: exceptions instead
-of changes, children ignored, what only it has or lacks noted on the folder or job
-(``"envs"``). Folders and jobs that do not exist in the environment are not compared.
-
-*Values only* takes from an export the values of its environment and nothing else, for an
-environment whose jobs carry releases production does not have yet: what makes a constant
-(machines, users, mails, the environment's name in a text) is created or learned; changes of
-the jobs, conditions, jobs it lacks and folders or jobs only it has are left out by default
-(the deliveries of the releases bring them).
+an environment other than production leaves production alone by default: every difference,
+attribute or line, is an exception of that environment, and what only it has or lacks is
+noted on the folder or job (``"envs"``). Folders and jobs that do not exist in the
+environment are not compared. Receiving the same export again changes nothing, and an
+exception equal to what the base gains later goes by itself.
 """
 
 from __future__ import annotations
@@ -59,8 +58,20 @@ from controlm_chain_admin.core.constants import (
     propose_name,
     values_from_pattern,
 )
+from controlm_chain_admin.core.elements import (
+    IDENTITY,
+    Segment,
+    elements_of,
+    find,
+    parse_locator,
+    resolve,
+    segment_of,
+    siblings,
+)
 from controlm_chain_admin.core.errors import InvalidChange, ModelError
-from controlm_chain_admin.core.membership import ENVS_KEY, belongs, environments_of, with_envs
+from controlm_chain_admin.core.jsonmodel import CHILDREN_KEY
+from controlm_chain_admin.core.links import LINK_KEY
+from controlm_chain_admin.core.membership import belongs, environments_of, with_envs
 from controlm_chain_admin.core.model import XmlDocument
 from controlm_chain_admin.core.ops import (
     JOB_TAG,
@@ -70,7 +81,13 @@ from controlm_chain_admin.core.ops import (
     import_xml,
     only_application,
 )
-from controlm_chain_admin.core.overrides import Override, load_overrides, write_overrides
+from controlm_chain_admin.core.overrides import (
+    AFTER_KEY,
+    Override,
+    load_overrides,
+    prune_overrides,
+    write_overrides,
+)
 from controlm_chain_admin.core.repo import ChainRepo, load_repo, read_json, write_json
 from controlm_chain_admin.core.xmlio import parse_xml
 
@@ -80,20 +97,25 @@ if TYPE_CHECKING:
 VARIABLE_TAG = "VARIABLE"
 _KNOWN_OPTIONS = ("exception", "new", "set-value", "ignore")
 _NAME_ATTRIBUTES = ("FOLDER_NAME", "JOBNAME")
-_STRUCTURAL_KEYS = ("link", TAG_KEY)  # a condition's link, an element's tag: not a value
+_OPTIONS = ("change", "exception", "ignore")
 
 
 @dataclass(frozen=True)
 class Site:
-    """One place of a value: a node, the attribute, variable or child path, and its base value."""
+    """One place of a value or a line: a node, the attribute, variable, child value or line,
+    and what the repository and the export have there."""
 
     node: str
     field: str
-    scope: str  # attribute | variable | child
-    path: tuple[Any, ...]
+    scope: str  # attribute | variable | child | element
+    path: tuple[Any, ...]  # into the node's JSON as the export has it (a line of the
+    # repository only: as the repository has it)
     current: str | None
     incoming: str | None
-    tag: str | None = None  # the element of a child value (DOMAIL, OUTCOND...)
+    tag: str | None = None  # the element of a child value or line (DOMAIL, OUTCOND...)
+    locator: str = ""  # the line (child: the line the value is in)
+    element: Mapping[str, Any] | None = None  # the line itself
+    after: str | None = None  # a line only the export has: the sibling before it there
 
     @property
     def selector(self) -> Selector:
@@ -104,17 +126,11 @@ class Site:
             return Selector(str(self.path[-1]), self.tag)
         return Selector(self.field)
 
-    @property
-    def can_except(self) -> bool:
-        return self.scope == "attribute" or (
-            self.scope == "variable" and self.incoming is not None
-        )
-
 
 @dataclass(frozen=True)
 class Decision:
     id: str
-    kind: str  # learn | set-value | constant | value | group | children | removed | unmatched
+    kind: str  # learn | set-value | constant | value | element | group | removed | unmatched
     options: tuple[str, ...]
     default: str
     node: str | None = None  # FOLDER/JOB or FOLDER/
@@ -129,6 +145,7 @@ class Decision:
     values: Mapping[str, str | None] | None = None  # of the new constant, per environment
     inline: bool = False  # the new constant replaces a token inside a text
     members: tuple[Decision, ...] = ()  # of a group: each job's own decision, to take apart
+    known: bool = False  # already an exception of the environment: the default keeps it
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -136,6 +153,7 @@ class Decision:
             "kind": self.kind,
             "options": list(self.options),
             "default": self.default,
+            "known": self.known,
             "node": self.node,
             "field": self.field,
             "constant": self.constant,
@@ -180,7 +198,6 @@ class Intake:
     warnings: tuple[str, ...]
     skipped: tuple[str, ...]  # folders of other applications
     full: bool = False  # every folder of the environment, not a delivery of some
-    values_only: bool = False  # the values of the environment, nothing else, by default
     rebound: tuple[Site, ...] = ()  # where the export's value fits the job's constant, and another
 
     def to_json(self) -> dict[str, Any]:
@@ -189,7 +206,6 @@ class Intake:
             "evidence": list(self.evidence),
             "partial": self.partial,
             "full": self.full,
-            "values_only": self.values_only,
             "folders": [f.to_json() for f in self.folders],
             "decisions": [d.to_json() for d in self.decisions],
             "unresolved": list(self.unresolved),
@@ -235,14 +251,6 @@ def _strings(data: Mapping[str, Any], volatile: frozenset[str]) -> dict[str, str
     }
 
 
-def _children(data: Mapping[str, Any]) -> dict[str, Any]:
-    return {
-        k: v
-        for k, v in data.items()
-        if not isinstance(v, str) and k not in (JOBS_KEY, VARIABLE_TAG, ENVS_KEY)
-    }
-
-
 def _variables(data: Mapping[str, Any]) -> dict[str, str]:
     return {
         str(v.get("NAME")): str(v.get("VALUE", ""))
@@ -251,49 +259,27 @@ def _variables(data: Mapping[str, Any]) -> dict[str, str]:
     }
 
 
-def _leaves(before: Any, after: Any, path: tuple[Any, ...] = ()) -> Iterator[tuple[Any, ...]]:
-    """Paths where two JSON trees differ; ``("shape",)`` when they are not the same shape."""
-    if isinstance(before, dict) and isinstance(after, dict):
-        if set(before) != set(after):
-            yield ("shape", *path)
-            return
-        for key in before:
-            yield from _leaves(before[key], after[key], (*path, key))
-    elif isinstance(before, list) and isinstance(after, list):
-        if len(before) != len(after):
-            yield ("shape", *path)
-            return
-        for index, (b, a) in enumerate(zip(before, after, strict=True)):
-            yield from _leaves(b, a, (*path, index))
-    elif before != after:
-        yield path if isinstance(before, str) and isinstance(after, str) else ("shape", *path)
-
-
-def _tag(tree: Any, path: tuple[Any, ...]) -> str | None:
-    """The tag of the element holding the value at ``path``."""
-    element = _get(tree, path[:-1])
-    if isinstance(element, dict) and isinstance(element.get(TAG_KEY), str):
-        return str(element[TAG_KEY])
-    keys = [key for key in path[:-1] if isinstance(key, str)]
-    return keys[-1] if keys else None
-
-
 def _get(tree: Any, path: tuple[Any, ...]) -> Any:
     for key in path:
         tree = tree[key]
     return tree
 
 
-def _path_text(path: tuple[Any, ...]) -> str:
-    parts: list[str] = []
-    for key in path:
-        if isinstance(key, int):
-            parts[-1] += f"[{key}]"
-        elif parts and parts[-1].endswith("]") and key[:1].isupper() and key != key.upper():
-            parts.append(key)
-        else:
-            parts.append(str(key))
-    return "/".join(parts)
+def _summary(element: Mapping[str, Any], tag: str, volatile: frozenset[str]) -> str:
+    """A line in a few words: its attributes but the ones its locator names, and what is inside."""
+    identity = (*IDENTITY.get(tag, ()), LINK_KEY)
+    words = [f"{k}={v}" for k, v in _strings(element, volatile).items() if k not in identity]
+    inside = sum(1 for _ in elements_of(element))
+    if inside:
+        words.append(f"({inside} line{'s' if inside != 1 else ''} inside)")
+    return " ".join(words)
+
+
+def _stored(site: Site) -> dict[str, Any]:
+    """What an exception keeps of a line only the environment has: everything but what its
+    locator names and the place it takes (``after``)."""
+    identity = (*IDENTITY.get(site.tag or "", ()), LINK_KEY, TAG_KEY)
+    return {k: v for k, v in (site.element or {}).items() if k not in identity}
 
 
 @dataclass
@@ -303,7 +289,6 @@ class _Collector:
     overrides: Mapping[str, Override]
     volatile: frozenset[str] = frozenset()
     elsewhere: bool = False  # a full export of another environment than production
-    values_only: bool = False  # only the values of the environment: the rest is ignored
     base: Mapping[str, str | None] = field(default_factory=dict)  # production's constants
     full: bool = False  # the export has the whole environment
     decisions: list[Decision] = field(default_factory=list)
@@ -313,13 +298,34 @@ class _Collector:
     contradicted: dict[str, dict[str, list[Site]]] = field(default_factory=dict)
     learning: dict[str, dict[str, list[Site]]] = field(default_factory=dict)
 
-    def classify(self, site: Site) -> None:
+    def excepted(self, site: Site) -> bool:
+        """Whether the environment already has what the export has there as an exception."""
         exception = self.overrides.get(site.node)
-        if exception is not None:
-            variable = site.scope == "variable"
-            values: Mapping[str, Any] = exception.variables if variable else exception.attributes
-            if site.field in values and values[site.field] == site.incoming:
-                return  # this environment already has it as an exception
+        if exception is None:
+            return False
+        if site.scope == "attribute":
+            return site.field in exception.attributes and (
+                exception.attributes[site.field] == site.incoming
+            )
+        if site.scope == "variable":
+            return site.field in exception.variables and (
+                exception.variables[site.field] == site.incoming
+            )
+        if site.locator not in exception.elements:
+            return False
+        line = exception.elements[site.locator]
+        if site.scope == "child":
+            return isinstance(line, dict) and line.get(site.path[-1]) == site.incoming
+        if site.incoming is None:
+            return line is None
+        return isinstance(line, dict) and (
+            {k: v for k, v in line.items() if k != AFTER_KEY} == _stored(site)
+        )
+
+    def classify(self, site: Site) -> None:
+        if self.excepted(site):  # kept by default; a change of the base or ignore drops it
+            self.decisions.append(_site_decision(site, "value", _OPTIONS, "exception", known=True))
+            return
         whole = PLACEHOLDER.fullmatch(site.current or "")
         if whole and site.incoming is not None and not PLACEHOLDER.fullmatch(site.incoming):
             constant = whole[1]
@@ -330,13 +336,8 @@ class _Collector:
         if adopted:
             self.adopting.setdefault(adopted, []).append(site)  # production's value of it
             return
-        options = ("change", "exception", "ignore") if site.can_except else ("change", "ignore")
-        default = "change"
-        if self.values_only:
-            default = "ignore"
-        elif self.elsewhere:
-            default = "exception" if site.can_except else "ignore"
-        self.decisions.append(_site_decision(site, "value", options, default))
+        default = "exception" if self.elsewhere else "change"
+        self.decisions.append(_site_decision(site, "value", _OPTIONS, default))
 
     def compare(self, node: str, before: Mapping[str, Any], after: Mapping[str, Any]) -> bool:
         size = self._size()
@@ -346,30 +347,68 @@ class _Collector:
         bv, av = _variables(before), _variables(after)
         for key in [*bv, *(k for k in av if k not in bv)]:
             self.settle(Site(node, key, "variable", (), bv.get(key), av.get(key)))
-        bc, ac = _children(before), _children(after)
-        structural = False
-        for path in _leaves(bc, ac):
-            if path[:1] == ("shape",) or path[-1] in _STRUCTURAL_KEYS:
-                structural = True
-                continue
-            current, incoming = _get(bc, path), _get(ac, path)
-            site = Site(node, _path_text(path), "child", path, current, incoming, _tag(bc, path))
-            if self.equivalent(current, incoming):
-                self.rebound.append(site)
-            elif (
-                PLACEHOLDER.fullmatch(current) and not PLACEHOLDER.fullmatch(incoming)
-            ) or self.adopts(current, incoming):
-                self.classify(site)
-            elif PLACEHOLDER.search(current) or PLACEHOLDER.search(incoming):
-                structural = True
-            else:
-                self.classify(site)  # a mail, a subject, a sign...: a value like the others
-        if structural:
-            default = "ignore" if self.elsewhere or self.values_only else "change"
-            self.decisions.append(
-                Decision(f"{node}#children", "children", ("change", "ignore"), default, node)
-            )
+        self.lines(node, before, after, (), "")
         return size != self._size()
+
+    def lines(
+        self, node: str, before: Mapping[str, Any], after: Mapping[str, Any],
+        path: tuple[Any, ...], prefix: str,
+    ) -> None:  # fmt: skip
+        """Align the lines inside two versions of one element, tag by tag: a line both have is
+        compared attribute by attribute and inside, a line one side alone has is a decision."""
+        tags = [tag for _, _, tag, _ in (*elements_of(before), *elements_of(after))]
+        for tag in dict.fromkeys(tags):
+            if tag == VARIABLE_TAG and not prefix:
+                continue  # the variables of a node are settled with its attributes
+            ours, theirs = siblings(before, tag), siblings(after, tag)
+            our_keys = [str(segment_of(before, tag, i)) for i in range(len(ours))]
+            their_keys = [str(segment_of(after, tag, i)) for i in range(len(theirs))]
+            for i, (key, index, element) in enumerate(theirs):
+                where = f"{prefix}/{their_keys[i]}" if prefix else their_keys[i]
+                if their_keys[i] in our_keys:
+                    mine = ours[our_keys.index(their_keys[i])][2]
+                    self.pair(node, mine, element, (*path, key, index), where, tag)
+                else:
+                    previous = their_keys[i - 1] if i else None
+                    self.line(node, where, (*path, key, index), None, element, tag, previous)
+            for i, (key, index, element) in enumerate(ours):
+                if our_keys[i] not in their_keys:
+                    where = f"{prefix}/{our_keys[i]}" if prefix else our_keys[i]
+                    self.line(node, where, (*path, key, index), element, None, tag)
+
+    def pair(
+        self, node: str, mine: Mapping[str, Any], theirs: Mapping[str, Any],
+        path: tuple[Any, ...], where: str, tag: str,
+    ) -> None:  # fmt: skip
+        b, a = _strings(mine, self.volatile), _strings(theirs, self.volatile)
+        for key in [*b, *(k for k in a if k not in b)]:
+            if key == LINK_KEY or b.get(key) == a.get(key):
+                continue  # a link is a name: it differs by the letter only
+            site = Site(
+                node, f"{where}/@{key}", "child", (*path, key), b.get(key), a.get(key), tag, where
+            )
+            if self.equivalent(site.current, site.incoming):
+                self.rebound.append(site)
+            else:
+                self.classify(site)
+        self.lines(node, mine, theirs, path, where)
+
+    def line(
+        self, node: str, where: str, path: tuple[Any, ...], mine: Mapping[str, Any] | None,
+        theirs: Mapping[str, Any] | None, tag: str, after: str | None = None,
+    ) -> None:  # fmt: skip
+        """A line one side alone has."""
+        current = None if mine is None else _summary(mine, tag, self.volatile)
+        incoming = None if theirs is None else _summary(theirs, tag, self.volatile)
+        element = theirs if theirs is not None else mine
+        site = Site(node, where, "element", path, current, incoming, tag, where, element, after)
+        if self.excepted(site):
+            self.decisions.append(
+                _site_decision(site, "element", _OPTIONS, "exception", known=True)
+            )
+            return
+        default = "exception" if self.elsewhere else "change"
+        self.decisions.append(_site_decision(site, "element", _OPTIONS, default))
 
     def settle(self, site: Site) -> None:
         """An attribute or variable of a node: a decision where it differs, a confirmed use of
@@ -431,10 +470,7 @@ class _Collector:
             confirming = self.confirming.get(constant, [])
             if not agreeing.get(constant) and len(by_value) == 1:
                 ranked, confirming = [], []
-            elif not (
-                len(sites) > agreeing.get(constant, 0) == len(confirming)
-                and all(site.can_except for site in confirming)
-            ):
+            elif not len(sites) > agreeing.get(constant, 0) == len(confirming):
                 confirming = []  # the value stays: the sites that differ are the exceptions
                 value, sites = "", []
             if sites:  # most of the export has another value: it becomes the constant's
@@ -452,13 +488,11 @@ class _Collector:
                 )
             for _, sites in ranked:
                 for site in sites:
-                    options = _KNOWN_OPTIONS if site.can_except else ("new", "set-value", "ignore")
                     disagree.append(
                         _site_decision(
-                            site, "constant", options,
-                            "exception" if site.can_except else "ignore", constant, value or known,
+                            site, "constant", _KNOWN_OPTIONS, "exception", constant, value or known
                         )
-                    )  # fmt: skip
+                    )
         for constant, learning in self.learning.items():
             ranked = sorted(learning.items(), key=lambda item: -len(item[1]))
             value, agreeing_sites = ranked[0]
@@ -471,13 +505,10 @@ class _Collector:
             )  # fmt: skip
             for _, other_sites in ranked[1:]:
                 for site in other_sites:
-                    learned_options: tuple[str, ...] = (
-                        ("exception", "new", "ignore") if site.can_except else ("new", "ignore")
-                    )
                     disagree.append(
                         _site_decision(
-                            site, "constant", learned_options,
-                            "exception" if site.can_except else "ignore", constant, value,
+                            site, "constant", ("exception", "new", "ignore"), "exception",
+                            constant, value,
                         )
                     )  # fmt: skip
         for constant, sites in self.adopting.items():
@@ -498,10 +529,11 @@ def _site_decision(
     default: str,
     constant: str | None = None,
     expected: str | None = None,
+    known: bool = False,
 ) -> Decision:
     return Decision(
         f"{site.node}@{site.field}", kind, options, default, site.node, site.field, constant,
-        site.current, expected, site.incoming, sites=(site,),
+        site.current, expected, site.incoming, sites=(site,), known=known,
     )  # fmt: skip
 
 
@@ -625,12 +657,11 @@ def _group_key(site: Site, env: str, envs: _Envs) -> _GroupKey:
 
 def _group(
     key: _GroupKey, sites: list[Site], env: str, envs: _Envs, taken: set[str], clean: bool,
-    elsewhere: bool, values_only: bool,
+    elsewhere: bool,
 ) -> Decision:  # fmt: skip
     spec, current, incoming, inline = key
     first = sites[0]
     environmental = first.scope == "variable" or first.selector.attribute in ENVIRONMENT_ATTRIBUTES
-    except_all = all(site.can_except for site in sites)
     if current is None or incoming is None:  # the name of the environment in a text
         values: dict[str, str | None] = dict(envs.displays)
         name = f"env.{first.selector.attribute.lower()}"
@@ -645,15 +676,13 @@ def _group(
         key_id = f"group:{spec}{'~' if inline else '='}{current}>{incoming}"
     # A constant for a pair another pair shares a value with (a role a few jobs have) is
     # bound job by job: the exports keep each job's constant where their values agree.
-    options = ("new", *(("exceptions",) if except_all else ()), "change", "ignore")
+    options = ("new", "exceptions", "change", "ignore")
     if inline and current is not None:  # a token with the letter: a constant from two jobs on
-        default = "new" if len(sites) > 1 else ("exceptions" if except_all else "ignore")
+        default = "new" if len(sites) > 1 else "exceptions"
     elif clean and (inline or environmental):
         default = "new"
-    elif values_only and not (inline or environmental):
-        default = "ignore"
     else:
-        default = "exceptions" if except_all else ("ignore" if elsewhere else "change")
+        default = "exceptions" if elsewhere else "change"
     suggested = _free_name(name, taken)
     taken.add(suggested)
     return Decision(
@@ -669,14 +698,12 @@ def _groups(
     envs: _Envs,
     taken: set[str],
     elsewhere: bool = False,
-    values_only: bool = False,
 ) -> list[Decision]:
     """The value decisions that repeat one difference, or concern a value of the environment
-    (machine, user, mail, variable), as one decision each, before the others; with
-    ``values_only`` a repeated difference of another attribute is ignored by default."""
+    (machine, user, mail, variable), as one decision each, before the others."""
     keyed: dict[_GroupKey, list[Site]] = {}
     for decision in decisions:
-        if decision.kind != "value":
+        if decision.kind != "value" or decision.known:
             continue
         [site] = decision.sites
         if site.current is None or site.incoming is None:
@@ -711,7 +738,7 @@ def _groups(
                 and largest[(spec, "incoming", incoming)] == len(sites)
             )
         )
-        group = _group(key, sites, env, envs, taken, clean, elsewhere, values_only)
+        group = _group(key, sites, env, envs, taken, clean, elsewhere)
         groups.append(replace(group, members=tuple(by_site[site] for site in sites)))
         grouped.update(sites)
     rest = [d for d in decisions if not (d.kind == "value" and d.sites[0] in grouped)]
@@ -723,10 +750,12 @@ def _unmatched(
     learned: Mapping[str, str], covered: Iterable[tuple[str, str]] = (),
     taken: Iterable[str] = (),
 ) -> list[Decision]:  # fmt: skip
-    """Values of new folders and jobs, bound to a constant, that no constant has there: create
-    a constant, use another one, or keep the value as it is in every environment. A value a
-    group would make a constant (``covered``: spec, value) waits for that group."""
+    """Values of new folders and jobs, bound to a constant, that no constant has there: keep the
+    value as it is in every environment (the default, unless it carries the letter of the
+    environment: then a new constant), create a constant, or use another one. A value a group
+    would make a constant (``covered``: spec, value) waits for that group."""
     covered = set(covered)
+    letter = box.load_env(env).letter
     selectors = box.config.constants
     unique: dict[str, Selector] = {}
     for selector in selectors.values():
@@ -758,14 +787,23 @@ def _unmatched(
         name = _free_name(propose_name(selector, value, prefixes), taken)
         taken.add(name)
         others = tuple(f"use:{c}" for c, s in selectors.items() if s == selector)
+        default = "new" if _carries_letter(value, letter, prefixes) else "literal"
         decisions.append(
             Decision(
-                f"unmatched:{spec}={value}", "unmatched", ("new", *others, "literal"), "new",
+                f"unmatched:{spec}={value}", "unmatched", ("new", *others, "literal"), default,
                 field=spec, constant=name, incoming=value, count=len(sites),
                 sites=tuple(sites), suggested=name,
             )
         )  # fmt: skip
     return decisions
+
+
+def _carries_letter(value: str, letter: str, prefixes: Iterable[str]) -> bool:
+    """Whether a value has the environment's letter before one of the prefixes (``UP77_X``)."""
+    alternation = "|".join(re.escape(p) for p in sorted(prefixes, key=len, reverse=True))
+    if not letter or not alternation:
+        return False
+    return re.search(rf"(?<![A-Za-z0-9]){re.escape(letter)}(?:{alternation})", value) is not None
 
 
 def _free_name(name: str, taken: set[str]) -> str:
@@ -784,17 +822,12 @@ def _bound(selector: Selector, tag: str, element: Mapping[str, Any]) -> bool:
 
 
 def analyze(
-    repo: ChainRepo,
-    data: bytes,
-    env: str | None = None,
-    full: bool | None = None,
-    values_only: bool = False,
+    repo: ChainRepo, data: bytes, env: str | None = None, full: bool | None = None
 ) -> Intake:
     """Compare an export with the repository: its environment and every decision it needs.
 
     ``full`` tells whether the export has every folder of its environment (default: more than
-    half of them); ``values_only`` makes every default take the values of the environment and
-    nothing else."""
+    half of them)."""
     from controlm_chain_admin.core.refactor import _sandbox, _tracked  # avoids an import cycle
 
     repo = load_repo(repo.root)
@@ -831,13 +864,10 @@ def analyze(
             else {}
         )
         collector = _Collector(
-            env, known, load_overrides(repo, env), volatile, elsewhere, values_only, base, full
+            env, known, load_overrides(repo, env), volatile, elsewhere, base, full
         )
-        placed = (
-            ("only-here", "everywhere", "skip"),
-            ("skip" if values_only else "only-here" if elsewhere else "everywhere"),
-        )
-        asked = full or values_only  # whether a new folder or job is a decision
+        placed = (("only-here", "everywhere", "skip"), "only-here" if elsewhere else "everywhere")
+        asked = full  # whether a new folder or job is a decision
         for name in report.folders:
             after_folder = read_json(box.folder_file(name))
             ids_after = [str(j) for j in after_folder.get(JOBS_KEY, [])]
@@ -876,8 +906,6 @@ def analyze(
                 if full
                 else (("remove", "keep"), "remove")
             )
-            if values_only:
-                gone = gone[0], "keep"
             for job_id in removed:
                 collector.decisions.append(
                     Decision(f"{name}/{job_id}#removed", "removed", *gone, f"{name}/{job_id}")
@@ -908,7 +936,7 @@ def analyze(
                 taken.add(name)
                 decisions[decisions.index(decision)] = replace(decision, suggested=name)
         envs = _Envs.of(repo, production if elsewhere else None)
-        decisions = _groups(decisions, env, envs, taken, elsewhere, values_only)
+        decisions = _groups(decisions, env, envs, taken, elsewhere)
         covered = {
             (d.field or "", d.incoming or "")
             for d in decisions
@@ -919,7 +947,7 @@ def analyze(
             decisions += [
                 Decision(
                     f"{name}/#absent", "absent", ("not-here", "keep"),
-                    "not-here" if elsewhere and not values_only else "keep", f"{name}/",
+                    "not-here" if elsewhere else "keep", f"{name}/",
                 )
                 for name in sorted(present - exported)
             ]  # fmt: skip
@@ -932,7 +960,7 @@ def analyze(
     return Intake(
         env, evidence, bool(present - exported), tuple(folders), tuple(decisions),
         tuple(unresolved), tuple(warnings), tuple(s.folder for s in report.skipped), full,
-        values_only, tuple(collector.rebound),
+        tuple(collector.rebound),
     )  # fmt: skip
 
 
@@ -972,8 +1000,8 @@ def _restore(box: ChainRepo, site: Site) -> None:
             data[site.field] = site.current
     elif site.scope == "variable":
         _set_variable(data, site.field, site.current)
-    else:
-        _get(data, site.path[:-1])[site.path[-1]] = site.current
+    elif site.scope == "child":
+        _set_inside(data, site.path, site.current)
     write_json(path, data)
 
 
@@ -985,9 +1013,18 @@ def _put(box: ChainRepo, site: Site, value: str) -> None:
         data[site.field] = value
     elif site.scope == "variable":
         _set_variable(data, site.field, value)
-    else:
-        _get(data, site.path[:-1])[site.path[-1]] = value
+    elif site.scope == "child":
+        _set_inside(data, site.path, value)
     write_json(path, data)
+
+
+def _set_inside(data: dict[str, Any], path: tuple[Any, ...], value: str | None) -> None:
+    """Set (or, with ``None``, remove) the attribute of a line at ``path``."""
+    element = _get(data, path[:-1])
+    if value is None:
+        element.pop(path[-1], None)
+    else:
+        element[path[-1]] = value
 
 
 _CONSTANT_NAME = re.compile(r"[a-z][a-z0-9_]*(?:\.[a-z0-9_]+)+")
@@ -1027,16 +1064,47 @@ def _creations(
     return created
 
 
-def _except(overrides: dict[str, Override], site: Site) -> None:
-    current = overrides.get(site.node, Override())
+def _forget(overrides: dict[str, Override], site: Site) -> None:
+    """Drop what the environment had at ``site`` as its exception."""
+    current = overrides.get(site.node)
+    if current is None:
+        return
+    attributes, variables = dict(current.attributes), dict(current.variables)
+    elements = dict(current.elements)
     if site.scope == "attribute":
-        overrides[site.node] = Override(
-            {**current.attributes, site.field: site.incoming}, current.variables
-        )
-    elif site.incoming is not None:
-        overrides[site.node] = Override(
-            current.attributes, {**current.variables, site.field: site.incoming}
-        )
+        attributes.pop(site.field, None)
+    elif site.scope == "variable":
+        variables.pop(site.field, None)
+    elif site.scope == "child":
+        line = elements.get(site.locator)
+        if isinstance(line, dict):
+            rest = {k: v for k, v in line.items() if k != site.path[-1]}
+            if {k for k in rest if k != AFTER_KEY}:
+                elements[site.locator] = rest
+            else:
+                elements.pop(site.locator)
+    else:
+        elements.pop(site.locator, None)
+    overrides[site.node] = Override(attributes, variables, elements)
+
+
+def _except(overrides: dict[str, Override], site: Site) -> None:
+    """Note what the environment has at ``site`` as its exception."""
+    current = overrides.get(site.node, Override())
+    attributes, variables = dict(current.attributes), dict(current.variables)
+    elements = dict(current.elements)
+    if site.scope == "attribute":
+        attributes[site.field] = site.incoming
+    elif site.scope == "variable":
+        variables[site.field] = site.incoming
+    elif site.scope == "child":
+        line = elements.get(site.locator)
+        elements[site.locator] = {**(line or {}), site.path[-1]: site.incoming}
+    elif site.incoming is None:
+        elements[site.locator] = None
+    else:
+        elements[site.locator] = {**_stored(site), AFTER_KEY: site.after}
+    overrides[site.node] = Override(attributes, variables, elements)
 
 
 def _undone(decision: Decision, option: str) -> bool:
@@ -1046,12 +1114,84 @@ def _undone(decision: Decision, option: str) -> bool:
     )
 
 
-def _keep_children(repo: ChainRepo, box: ChainRepo, node: str) -> None:
-    before = read_json(_node_file(repo, node))
+def _settle_lines(
+    repo: ChainRepo, box: ChainRepo, node: str, lines: list[tuple[Site, str]]
+) -> None:
+    """The lines of a node in the copy as the base keeps them: a line only the export has goes
+    unless the base takes it, a line only the base has comes back unless the base drops it."""
     path = _node_file(box, node)
-    data = {k: v for k, v in read_json(path).items() if k not in _children(read_json(path))}
-    data.update(_children(before))
+    data = dict(read_json(path))
+    base = read_json(_node_file(repo, node))
+    gone = [s for s, option in lines if s.current is None and option != "change"]
+    for site in sorted(gone, key=lambda s: s.path, reverse=True):  # last first: indexes hold
+        holder, key, index = _get(data, site.path[:-2]), site.path[-2], site.path[-1]
+        holder[key] = [e for i, e in enumerate(holder[key]) if i != index]
+    for site, option in lines:
+        if site.incoming is not None or option == "change" or site.element is None:
+            continue
+        segments = parse_locator(site.locator)
+        parent, base_parent = _at(data, segments[:-1]), resolve(base, segments[:-1])
+        if parent is not None and base_parent is not None:
+            _put_back(parent, base_parent, segments[-1], dict(site.element))
     write_json(path, data)
+
+
+def _at(data: dict[str, Any], segments: tuple[Segment, ...]) -> dict[str, Any] | None:
+    """The element the segments lead to, writable in place."""
+    current = data
+    for segment in segments:
+        found = find(current, segment)
+        if found is None:
+            return None
+        key, index = found
+        current = current[key][index]
+    return current
+
+
+def _put_back(
+    parent: dict[str, Any],
+    base_parent: Mapping[str, Any],
+    segment: Segment,
+    element: dict[str, Any],
+) -> None:
+    """Insert a line of the base into ``parent`` where the base has it: after the nearest
+    earlier sibling of its tag the parent also has, else first of its tag."""
+    same = siblings(base_parent, segment.tag)
+    found = find(base_parent, segment)
+    before = [segment_of(base_parent, segment.tag, i) for i in range(len(same))]
+    position = next((i for i, (k, idx, _) in enumerate(same) if (k, idx) == found), 0)
+    ordered = isinstance(parent.get(CHILDREN_KEY), list)
+    if ordered:
+        element = {TAG_KEY: segment.tag, **{k: v for k, v in element.items() if k != TAG_KEY}}
+    else:
+        element.pop(TAG_KEY, None)
+    place: tuple[str, int] | None = None
+    for earlier in reversed(before[:position]):
+        place = find(parent, earlier)
+        if place is not None:
+            break
+    key = CHILDREN_KEY if ordered else segment.tag
+    items = list(parent.get(key, []))
+    if place is not None:
+        at = place[1] + 1
+    else:
+        mine = [
+            i
+            for i, e in enumerate(items)
+            if isinstance(e, dict) and e.get(TAG_KEY, segment.tag) == segment.tag
+        ]
+        at = mine[0] if mine else len(items)
+    parent[key] = [*items[:at], element, *items[at:]]
+
+
+def _keep_elsewhere(repo: ChainRepo, box: ChainRepo, folder: str, env: str) -> None:
+    """The jobs of ``folder`` that exist in other environments only: the export of this one
+    does not have them, and says nothing about them."""
+    ids_after = {str(j) for j in read_json(box.folder_file(folder)).get(JOBS_KEY, [])}
+    for job_id in read_json(repo.folder_file(folder)).get(JOBS_KEY, []):
+        job_id = str(job_id)
+        if job_id not in ids_after and not belongs(read_json(repo.job_file(folder, job_id)), env):
+            _keep_job(repo, box, f"{folder}/{job_id}")
 
 
 def _keep_job(repo: ChainRepo, box: ChainRepo, node: str) -> None:
@@ -1252,14 +1392,13 @@ def receive(
     env: str | None = None,
     choices: Mapping[str, str] | None = None,
     full: bool | None = None,
-    values_only: bool = False,
 ) -> ChangeSet:
     """The export taken into the repository, with ``choices`` (decision id -> option) applied
     over the defaults of :func:`analyze`, as one change set to preview and apply."""
     from controlm_chain_admin.core.refactor import _finish, _sandbox, _tracked
 
     repo = load_repo(repo.root)
-    intake = _one_by_one(analyze(repo, data, env, full, values_only), choices or {})
+    intake = _one_by_one(analyze(repo, data, env, full), choices or {})
     choices = dict(choices or {})
     unknown = sorted(set(choices) - {d.id for d in intake.decisions})
     if unknown:
@@ -1310,7 +1449,10 @@ def receive(
             write_json(box.env_file(env), replace(env_config, constants=constants).to_json())
         import_xml(box, data, env)
         box = load_repo(box.root)
-        if (intake.full and env != repo.config.git_rules.production) or values_only:
+        for folder in intake.folders:  # the jobs this environment does not have stay as they are
+            if folder.status != "new":
+                _keep_elsewhere(repo, box, folder.name, env)
+        if intake.full and env != repo.config.git_rules.production:
             # production's header and job order stay; the export only adds what it has
             meta = read_json(repo.export_meta_file)
             order = read_json(box.export_meta_file).get("folder_order", [])
@@ -1329,25 +1471,9 @@ def receive(
                     _put(box, site, placeholder(name))
         overrides = load_overrides(box, env)
         exceptions = 0
-        taken = [
-            site
-            for d in intake.decisions
-            if d.kind != "children" and not _undone(d, chosen[d.id])
-            for site in d.sites
-            if site.scope == "child"
-        ]  # values inside children that stay, although the children are the repository's
+        lines: dict[str, list[tuple[Site, str]]] = {}
         for decision in intake.decisions:
             option = chosen[decision.id]
-            if decision.kind == "children":
-                if option == "ignore" and decision.node:
-                    node_data = read_json(_node_file(box, decision.node))
-                    inside = [
-                        (s, _get(node_data, s.path)) for s in taken if s.node == decision.node
-                    ]
-                    _keep_children(repo, box, decision.node)
-                    for child, value in inside:
-                        _put(box, child, value)
-                continue
             if decision.kind == "removed":
                 if option in ("keep", "not-here") and decision.node:
                     _keep_job(repo, box, decision.node)
@@ -1364,15 +1490,24 @@ def receive(
                 for site in decision.sites:
                     _put(box, site, "@{" + option[4:] + "}")
                 continue
+            for site in decision.sites:
+                if site.scope == "element":
+                    lines.setdefault(site.node, []).append((site, option))
             if option in ("exception", "exceptions"):
                 for site in decision.sites:
-                    _restore(box, site)
-                    if site.can_except:
-                        _except(overrides, site)
-                        exceptions += 1
+                    if site.scope != "element":
+                        _restore(box, site)
+                    _except(overrides, site)
+                    exceptions += not decision.known
             elif option == "ignore" or (decision.kind == "learn" and option != "learn"):
                 for site in decision.sites:
-                    _restore(box, site)
+                    if site.scope != "element":
+                        _restore(box, site)
+            if decision.known and option != "exception":  # the exception goes
+                for site in decision.sites:
+                    _forget(overrides, site)
+        for node, items in lines.items():
+            _settle_lines(repo, box, node, items)
         write_overrides(box, env, overrides)
         for node in sorted(left_out):
             _leave_out(box, node)
@@ -1405,6 +1540,7 @@ def receive(
                 f"{len(stand_ins)} new constant(s) have the base's value in {', '.join(others)} "
                 f"until an export of there is received: {', '.join(stand_ins)}"
             )
+        warnings += prune_overrides(load_repo(box.root))
         new = sum(1 for f in intake.folders if f.status == "new")
         changed = sum(1 for f in intake.folders if f.status == "changed")
         folders = len(intake.folders)
@@ -1417,6 +1553,4 @@ def receive(
             summary += f", {len(creations)} new constant(s)"
         if left_out:
             summary += f", {len(left_out)} folder(s) or job(s) left out"
-        if values_only:
-            summary += " (values only)"
         return _finish(original, box, summary, warnings)

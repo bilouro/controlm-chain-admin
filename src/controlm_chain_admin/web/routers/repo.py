@@ -24,4 +24,5 @@ def repo_info(repo: ChainRepo = Depends(get_repo)) -> RepoInfo:
         jobs=jobs,
         letter_rule=LetterRuleOut(prefixes=list(rule.prefixes), attributes=list(rule.attributes)),
         root=str(repo.root),
+        volatile_attributes=list(repo.config.volatile_attributes),
     )

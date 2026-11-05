@@ -259,12 +259,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="some folders only, e.g. a delivery",
     )
     rec.add_argument(
-        "--values-only",
-        action="store_true",
-        help="take the values of the environment (machines, users, mails, its name in texts) "
-        "and leave the rest out by default: for an environment with releases production has not",
-    )
-    rec.add_argument(
         "--choose",
         action="append",
         default=[],
@@ -305,6 +299,12 @@ def build_parser() -> argparse.ArgumentParser:
         "so only the changes made on head are shown, as in a pull request",
     )
     _commit_option(cmp_)
+    cmp_.add_argument(
+        "--real-only",
+        action="store_true",
+        help="leave out what only calls a condition another name (the same jobs, the same "
+        "ODATE and signs); by default it is shown, marked [name only]",
+    )
     cmp_.add_argument(
         "--repo", type=Path, default=Path("."), help="repository directory (default: .)"
     )
@@ -593,7 +593,7 @@ def cmd_env_help(args: argparse.Namespace) -> int:
 
 _SHOWN_PER_KIND = 20
 _DECISION_ORDER = (
-    "learn", "set-value", "adopt", "group", "constant", "unmatched", "value", "children",
+    "learn", "set-value", "adopt", "group", "constant", "unmatched", "value", "element",
     "removed", "added", "absent",
 )  # fmt: skip
 
@@ -610,6 +610,10 @@ def _decision_line(decision: intake_mod.Decision) -> str:
         return f"{head}  {decision.constant}: {decision.expected} -> {decision.incoming}{uses}"
     if decision.kind in ("value", "constant"):
         return f"{head}  {decision.current} -> {decision.incoming}"
+    if decision.kind == "element":
+        if decision.incoming is None:
+            return f"{head}  the repository alone has it ({decision.current})".rstrip(" ()")
+        return f"{head}  the export alone has it ({decision.incoming})".rstrip(" ()")
     if decision.kind == "adopt":
         uses = _plural(decision.count, "use")
         return f"{head}  {decision.incoming} where the repository has {decision.current} ({uses})"
@@ -639,7 +643,6 @@ def _print_intake(intake: intake_mod.Intake) -> None:
         f"Folders: {len(intake.folders)} ({statuses['new']} new, {statuses['changed']} changed, "
         f"{statuses['same']} unchanged)"
         + (", full export" if intake.full else ", some folders only" if intake.partial else "")
-        + (", values only" if intake.values_only else "")
     )
     if intake.decisions:
         print(
@@ -647,11 +650,17 @@ def _print_intake(intake: intake_mod.Intake) -> None:
             "a new constant with ID=new:NAME):"
         )
     for kind in _DECISION_ORDER:
-        of_kind = [d for d in intake.decisions if d.kind == kind]
+        of_kind = [d for d in intake.decisions if d.kind == kind and not d.known]
         for decision in of_kind[:_SHOWN_PER_KIND]:
             print(_decision_line(decision))
         if len(of_kind) > _SHOWN_PER_KIND:
             print(f"  ... {len(of_kind) - _SHOWN_PER_KIND} more {kind} decisions (--format json)")
+    known = sum(1 for d in intake.decisions if d.known)
+    if known:
+        print(
+            f"  {_plural(known, 'difference')} already exceptions of {intake.env}: kept "
+            "(--choose ID=change: the base takes it; ID=ignore: it goes; --format json lists them)"
+        )
     for line in intake.unresolved:
         print(f"unresolved: {line}")
     for warning in intake.warnings:
@@ -663,12 +672,12 @@ def cmd_receive(args: argparse.Namespace) -> int:
     repo = load_repo(args.repo)
     data = args.xml.read_bytes()
     choices = _pairs(args.choose, "ID=OPTION", last=True)  # ids may hold "=", options do not
-    intake = intake_mod.analyze(repo, data, args.env, args.full, args.values_only)
+    intake = intake_mod.analyze(repo, data, args.env, args.full)
     if args.format == "text":
         _print_intake(intake)
     if args.apply:
         workspace_mod.ensure_editable(repo)
-    change = intake_mod.receive(repo, data, intake.env, choices, intake.full, args.values_only)
+    change = intake_mod.receive(repo, data, intake.env, choices, intake.full)
     if args.format == "json":
         result = refactor_mod.apply(repo, change) if args.apply and change.edits else None
         body = {"intake": intake.to_json(), "change": change.to_json(), "applied": bool(result)}
@@ -869,6 +878,8 @@ def cmd_compare(args: argparse.Namespace) -> int:
         use_merge_base=not args.no_merge_base,
         commits=args.commits,
     )
+    if args.real_only:
+        result = result.real_only()
     if args.format == "json":
         print(json.dumps(result.to_json(), indent=2, ensure_ascii=False))
     elif args.format == "md":
@@ -1057,6 +1068,29 @@ def _add_refactorings(commands: Any) -> None:
     )
     _refactor_options(se)
     se.set_defaults(func=cmd_refactor, build=_build_exception)
+
+    pe = commands.add_parser(
+        "promote-exception",
+        help="make what one environment has as its exception the base (the exception goes)",
+    )
+    pe.add_argument("env")
+    pe.add_argument("node", metavar="FOLDER/JOB|FOLDER/")
+    pe.add_argument("names", nargs="+", metavar="NAME", help="attribute, %%%%variable or line")
+    _refactor_options(pe)
+    pe.set_defaults(
+        func=cmd_refactor,
+        build=lambda r, a: refactor_mod.promote_exception(r, a.env, a.node, a.names),
+    )
+
+    tech = commands.add_parser(
+        "technical",
+        help="the technical attributes (kept in meta, never compared, never an exception): "
+        "list them, or add and remove names",
+    )
+    tech.add_argument("--add", action="append", default=[], metavar="NAME")
+    tech.add_argument("--remove", action="append", default=[], metavar="NAME")
+    _refactor_options(tech)
+    tech.set_defaults(func=cmd_technical)
 
     rc = commands.add_parser("rename-constant", help="rename a constant everywhere it is used")
     rc.add_argument("old")
@@ -1258,6 +1292,15 @@ def cmd_resolve(args: argparse.Namespace) -> int:
     for finding in skipped:
         print(f"skipped: {finding.code} {finding.name} (no single {choice[finding.code]} fix)")
     return status
+
+
+def cmd_technical(args: argparse.Namespace) -> int:
+    if not args.add and not args.remove:
+        for name in load_repo(args.repo).config.volatile_attributes:
+            print(name)
+        return EXIT_OK
+    args.build = lambda r, a: refactor_mod.set_technical(r, a.add, a.remove)
+    return cmd_refactor(args)
 
 
 def cmd_refactor(args: argparse.Namespace) -> int:

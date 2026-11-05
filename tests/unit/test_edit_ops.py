@@ -22,7 +22,7 @@ from controlm_chain_admin.core.refactor import (
     unlink_nodes,
     update_relation,
 )
-from controlm_chain_admin.core.repo import ChainRepo, init_repo
+from controlm_chain_admin.core.repo import ChainRepo, init_repo, read_json, write_json
 from tests.support.anomalies import ANOMALY_EXPORT
 
 APP = "P77_RISK_ENGINE"
@@ -260,3 +260,18 @@ def test_numbered_job_ids_are_valid_nodes(tmp_path: Path) -> None:
     repo = _repo(tmp_path)
 
     assert set_attributes(repo, f"{C}/P77_F~2", {"DESCRIPTION": "x"}).edits
+
+
+def test_the_whole_json_of_a_node_of_some_environments_can_be_replaced(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    path = repo.job_file("P77_CHAIN", "P77_B")
+    data = read_json(path)
+    data["envs"] = ["uat"]
+    write_json(path, data)
+    data = {**read_json(path), "MAXWAIT": "7"}
+
+    apply(repo, replace_node(repo, "P77_CHAIN/P77_B", data))
+
+    assert read_json(path)["MAXWAIT"] == "7" and read_json(path)["envs"] == ["uat"]
+    with pytest.raises(InvalidChange, match="INCOND"):
+        replace_node(repo, "P77_CHAIN/P77_B", {**data, "INCOND": ["not an element"]})

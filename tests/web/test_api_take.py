@@ -78,6 +78,6 @@ def test_the_comparison_shows_exceptions(client: TestClient) -> None:
             "env": "prod",
             "node": f"{C}/P77_E",
             "before": None,
-            "after": {"set": {"TASKTYPE": "Dummy"}, "variables": {}},
+            "after": {"set": {"TASKTYPE": "Dummy"}, "variables": {}, "elements": {}},
         }
     ]

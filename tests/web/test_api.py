@@ -27,6 +27,7 @@ def test_repo_summary(client: TestClient) -> None:
     assert body["environments"] == ["test", "uat", "bench", "prod"]
     assert body["folders"] == 2 and body["jobs"] == 9
     assert body["letter_rule"]["prefixes"] == ["P77", "RQ_", "RC_"]
+    assert body["volatile_attributes"][:2] == ["JOBISN", "CREATION_USER"]
 
 
 def test_folder_list_with_counts_search_and_pagination(client: TestClient) -> None:
@@ -167,10 +168,14 @@ def test_job_and_folder_details_list_their_exceptions(client: TestClient, repo_r
     folder = client.get("/api/folders/P77_INGEST_DAILY").json()
 
     assert job["exceptions"] == {
-        "bench": {"attributes": {"MAXWAIT": "3"}, "variables": {}},
-        "prod": {"attributes": {"CMDLINE": None, "TASKTYPE": "Dummy"}, "variables": {}},
+        "bench": {"attributes": {"MAXWAIT": "3"}, "variables": {}, "elements": {}},
+        "prod": {
+            "attributes": {"CMDLINE": None, "TASKTYPE": "Dummy"}, "variables": {}, "elements": {},
+        },
+    }  # fmt: skip
+    assert folder["exceptions"] == {
+        "prod": {"attributes": {}, "variables": {"%%GEIENV": "x"}, "elements": {}}
     }
-    assert folder["exceptions"] == {"prod": {"attributes": {}, "variables": {"%%GEIENV": "x"}}}
     assert client.get("/api/jobs/P77_INGEST_DAILY/P77_INGEST_INIT").json()["exceptions"] == {}
 
 
@@ -211,3 +216,30 @@ def test_an_environment_s_view_has_its_nodes_with_its_values(
         for j in f["jobs"]
     } == {"PP77_BATCH"}
     assert unknown.status_code == 404 and "unknown environment 'nope'" in unknown.json()["message"]
+
+
+def test_the_technical_list_and_a_promoted_exception_are_previewed_changes(
+    client: TestClient, repo_root: Path
+) -> None:
+    repo = load_repo(repo_root)
+    write_overrides(repo, "prod", {"P77_CHAIN/P77_E": Override(attributes={"TASKTYPE": "Dummy"})})
+    headers = {"X-Ctmchain-Token": TOKEN}
+
+    technical = client.post(
+        "/api/changes/preview",
+        json={"op": "set-technical", "params": {"add": ["DESCRIPTION"]}},
+        headers=headers,
+    )
+    promoted = client.post(
+        "/api/changes/preview",
+        json={
+            "op": "promote-exception",
+            "params": {"env": "prod", "node": "P77_CHAIN/P77_E", "names": ["TASKTYPE"]},
+        },
+        headers=headers,
+    )
+
+    assert technical.status_code == 200, technical.text
+    assert technical.json()["summary"].startswith("technical attributes: +DESCRIPTION (")
+    assert promoted.status_code == 200, promoted.text
+    assert promoted.json()["summary"] == "the base takes what prod has on P77_CHAIN/P77_E: TASKTYPE"

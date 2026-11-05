@@ -5,7 +5,6 @@
   ],
   "partial": false,
   "full": true,
-  "values_only": true,
   "folders": [
     {
       "name": "P77_INGEST_DAILY",
@@ -166,19 +165,20 @@
       "inline": true
     },
     {
-      "id": "P77_CHAIN/P77_B#children",
-      "kind": "children",
+      "id": "P77_CHAIN/P77_B@INCOND[link=P77_X-P77_B_OK,ODATE=ODAT]",
+      "kind": "element",
       "options": [
         "change",
+        "exception",
         "ignore"
       ],
-      "default": "ignore",
+      "default": "exception",
       "node": "P77_CHAIN/P77_B",
-      "field": null,
+      "field": "INCOND[link=P77_X-P77_B_OK,ODATE=ODAT]",
       "constant": null,
       "current": null,
       "expected": null,
-      "incoming": null,
+      "incoming": "AND_OR=A",
       "count": 1,
       "suggested": null,
       "values": null,
@@ -192,7 +192,7 @@
         "exception",
         "ignore"
       ],
-      "default": "ignore",
+      "default": "exception",
       "node": "P77_CHAIN/P77_D",
       "field": "TASKTYPE",
       "constant": null,
@@ -212,7 +212,7 @@
         "remove",
         "keep"
       ],
-      "default": "keep",
+      "default": "not-here",
       "node": "P77_CHAIN/P77_E",
       "field": null,
       "constant": null,
@@ -232,7 +232,7 @@
         "everywhere",
         "skip"
       ],
-      "default": "skip",
+      "default": "only-here",
       "node": "P77_CHAIN/P77_UATONLY",
       "field": null,
       "constant": null,
@@ -251,7 +251,7 @@
         "new",
         "literal"
       ],
-      "default": "new",
+      "default": "literal",
       "node": null,
       "field": "RUN_AS",
       "constant": "user.nobody",
@@ -266,6 +266,27 @@
       "nodes": [
         "P77_CHAIN/P77_UATONLY"
       ]
+    },
+    {
+      "id": "P77_CHAIN/P77_A@OUTCOND[link=P77_A-P77_B_OK,ODATE=ODAT]/@SIGN",
+      "kind": "value",
+      "options": [
+        "change",
+        "exception",
+        "ignore"
+      ],
+      "default": "exception",
+      "known": true,
+      "node": "P77_CHAIN/P77_A",
+      "field": "OUTCOND[link=P77_A-P77_B_OK,ODATE=ODAT]/@SIGN",
+      "constant": null,
+      "current": "+",
+      "expected": null,
+      "incoming": "-",
+      "count": 1,
+      "suggested": null,
+      "values": null,
+      "inline": false
     }
   ],
   "unresolved": [],

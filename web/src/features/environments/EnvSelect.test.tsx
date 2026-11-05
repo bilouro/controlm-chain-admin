@@ -42,7 +42,7 @@ describe("EnvSelect", () => {
     );
 
     expect(await screen.findByRole("heading", { level: 1, name: "P77_CHAIN" })).toBeInTheDocument();
-    expect(calls.env).toEqual(["prod"]);
+    expect(calls.env).toEqual(["prod", null]); // the view, and the base beside it
     expect(await combobox()).toHaveValue("prod");
     expect(screen.getAllByText("prod values").length).toBeGreaterThan(0);
   });

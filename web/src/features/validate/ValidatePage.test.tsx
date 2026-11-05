@@ -1,8 +1,10 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { delay, http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
+import validate from "@/test/fixtures/validate.json";
 import { renderAt } from "@/test/render";
-import { calls } from "@/test/server";
+import { calls, server } from "@/test/server";
 import { ValidatePage } from "./ValidatePage";
 
 type Sent = { op: string; params: { changes?: { op: string }[] } & Record<string, unknown> };
@@ -128,5 +130,39 @@ describe("ValidatePage", () => {
       "update-relation",
       "rename-link",
     ]);
+  });
+});
+
+describe("ValidatePage after a change", () => {
+  it("offers no fix while the findings are computed again: the old ones may be gone", async () => {
+    let requests = 0;
+    let release: () => void = () => {};
+    server.use(
+      http.get("/api/validate", async () => {
+        requests += 1;
+        if (requests > 1) await new Promise<void>((resolve) => (release = resolve));
+        return HttpResponse.json(validate);
+      }),
+    );
+    const user = userEvent.setup();
+    renderAt(<ValidatePage />, { path: "/validate" });
+    await user.click(
+      await screen.findByRole("button", { name: "Resolve dangling P77_A-P77_E_OK" }),
+    );
+    const emit = "Preview this fix: P77_CHAIN/P77_A emits P77_A-P77_E_OK";
+    await user.click(screen.getByRole("button", { name: emit }));
+    const dialog = await screen.findByRole("dialog", { name: "Review change" });
+    await user.click(await within(dialog).findByRole("button", { name: "Apply change" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Checking the chains again after the change",
+    );
+    expect(screen.getByRole("button", { name: emit })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^Resolve selected/ })).toBeDisabled();
+
+    release();
+    await delay(0);
+    await waitFor(() => expect(screen.queryByRole("status")).not.toBeInTheDocument());
+    expect(screen.getByRole("button", { name: emit })).toBeEnabled();
   });
 });

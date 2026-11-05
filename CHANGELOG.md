@@ -30,6 +30,84 @@ All notable changes to this project are documented here. The format follows
 - `ctmchain receive`: a name with the environment's letter inside a text (`-j UP77_LOAD` in a
   `CMDLINE` for `-j PP77_LOAD`) is an inline constant, with the letter of each environment:
   the default when two jobs or more carry it, an exception of the one job otherwise.
+- Exceptions for any line of a folder or job. `envs/<env>/overrides.json` holds, besides the
+  attributes and variables, the lines one environment has otherwise (`elements`, by locator):
+  an attribute of a condition, a SHOUT or an action of an ON block
+  (`"OUTCOND[link=P77_A-P77_B_OK,ODATE=ODAT]": {"SIGN": "-"}`), a line only that environment
+  has (its attributes, and `after`: the sibling before it), a line it lacks (`null`), and a
+  variable it lacks (`"variables": {"%%X": null}`). The export applies them, `check` counts
+  them, the job and folder pages list them on the *Environments* tab, and `set-exception`
+  takes `elements` (the API) and drops a line by its locator.
+- A locator names a line by its tag and what tells it from its siblings, from the node down:
+  conditions by their link and ODATE, SHOUT by WHEN and DEST, ON blocks by STMT and CODE, the
+  rest by their position among their tag (`ON[STMT=*,CODE=NOTOK]/DOMAIL[0]`). Positions move;
+  locators hold.
+- `ctmchain receive` compares the lines of every folder and job one by one: a line both
+  sides have attribute by attribute (`value` decisions, named by the locator), a line only
+  the export or only the repository has as an `element` decision (change the base, an
+  exception, ignore), shown in *Differences* of the *Import* page. The `children` decision
+  (change or ignore everything inside a node) is gone.
+- `ctmchain technical [--add NAME] [--remove NAME]` and the *Technical attributes* box of the
+  *Environments* page: the attributes Control-M writes by itself (`volatile_attributes` of
+  `chain.json`) are listed and changed with a preview; a name added moves its values to
+  `meta/`, a name removed brings them back; the exports do not change, what is compared does.
+  `GET /api/repo` carries `volatile_attributes`; the change is `set-technical`.
+- A job or folder viewed as one environment says what that environment has otherwise: a
+  strip under the header lists its exceptions, and every attribute, variable, condition and
+  ON action it has otherwise carries a mark with the base's value beside (an attribute or
+  variable it leaves out is shown as such). On the *Environments* tab, *Make it the base*
+  gives the base what the environment has (`ctmchain promote-exception <env> <node> NAME...`,
+  the change `promote-exception`): the exception goes, and so do the exceptions of other
+  environments equal to the new base.
+- What an environment has as exceptions already comes back in every receive of its export,
+  as decisions marked `known` (the *Already exceptions of <env>* section of the *Import*
+  page, folded): kept by default, *change the base* makes the base take it, *ignore* drops
+  it. So a release that an environment carries whole (its full export) becomes the base of a
+  release branch in one go: *All N: Change the base*.
+- `ctmchain compare` and the *Compare* page tell the changes that only call a condition
+  another name from the real ones: a condition gone and one arrived that the same jobs use
+  the same way (the same producers and consumers, ODATE, signs, AND_OR and cleanup), or a
+  condition renamed, is marked *name only* with the other name beside, and so is a folder or
+  job whose every change is such (`name_only` and `counterpart` in the JSON,
+  `summary.name_only`). Everything is still listed by default; *All / Real only* beside *Copy
+  Markdown* (`real=1` in the address) and `--real-only` leave them out, the counts and the
+  Markdown follow (`real_only=true` on `/api/compare/markdown`). What is packaged does not
+  change.
+
+### Changed
+
+- A full export of an environment other than production makes every difference an exception
+  of that environment by default: attributes and variables (present or absent), the lines of
+  the folders and jobs, and the same difference repeated in several jobs (`exceptions`).
+  Production stays as it was. Receiving the same export again changes nothing. When a later
+  export of production or a delivery gives the base what an environment had as an exception,
+  that exception goes by itself; a line whose block the base lost is dropped with a warning.
+- A value of a new folder or job that no constant has (`unmatched`) stays as it is in every
+  environment by default (`literal`); `new` is the default only when the value carries the
+  environment's letter.
+- Every difference and every group offers an exception, inside ON blocks too; in a delivery,
+  a repeated difference changes the base by default.
+
+### Removed
+
+- `ctmchain receive --values-only`, the `values_only` field of `POST /api/intake` and the
+  *Only the values of <env>* box: a full export of another environment is received with its
+  differences as exceptions instead; the folders and jobs of the releases on their way may
+  still be left out one by one (*Leave out*) and come from their deliveries.
+
+### Fixed
+
+- Receiving an export of an environment no longer drops from the base the jobs that
+  environment does not have (`"envs"` without it): they stay as they are. A second full
+  export of uat used to remove them.
+- *Validate*: the fix of a resource of another environment (`foreign-resource`) failed on a
+  job that exists in some environments only (an internal error that also stopped every
+  batch holding it). It is now a targeted rename (`rename-resource`), so two such fixes on
+  one job in one batch both apply. Replacing the JSON of such a job (*Raw JSON*) works too,
+  and a list that holds no elements is refused with a message instead of an error.
+- *Validate*: while the findings are computed again after a change (seconds on a big
+  repository), the fixes and *Resolve selected* wait, with a note: a fix clicked from the
+  old list could name a condition that is gone.
 
 ## [0.1.3] - 2026-11-03
 

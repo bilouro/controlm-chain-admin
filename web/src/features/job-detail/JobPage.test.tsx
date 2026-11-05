@@ -1,9 +1,11 @@
-import { screen } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
 import preview from "@/test/fixtures/preview.json";
+import jobB from "@/test/fixtures/job-P77_CHAIN-P77_B.json";
 import { renderAt } from "@/test/render";
-import { calls } from "@/test/server";
+import { calls, server } from "@/test/server";
 import { JobPage } from "./JobPage";
 
 const at = (folder: string, job: string) =>
@@ -69,5 +71,62 @@ describe("JobPage", () => {
     at("P77_CHAIN", "NOPE");
 
     expect(await screen.findByRole("alert")).toHaveTextContent("unknown job 'NOPE'");
+  });
+});
+
+describe("JobPage viewed as one environment", () => {
+  const uat = {
+    attributes: { TASKTYPE: "Dummy", MAXWAIT: null },
+    variables: { "%%X": null },
+    elements: {
+      "INCOND[link=P77_A-P77_B_OK,ODATE=ODAT]": { AND_OR: "O" },
+      "OUTCOND[link=P77_B-P77_C_OK,ODATE=ODAT]": null,
+      "ON[STMT=*,CODE=NOTOK]/DOCOND[link=P77_B-P77_C_OK,ODATE=ODAT]": { SIGN: "-" },
+    },
+  };
+
+  it("marks every field and line uat has otherwise, with the base beside", async () => {
+    sessionStorage.setItem("ctmchain-env", "uat");
+    server.use(
+      http.get("/api/jobs/P77_CHAIN/P77_B", ({ request }) => {
+        const viewed = new URL(request.url).searchParams.get("env");
+        const groups = viewed
+          ? { ...jobB.groups, identity: { ...jobB.groups.identity, TASKTYPE: "Dummy" } }
+          : { ...jobB.groups, identity: { ...jobB.groups.identity, MAXWAIT: "5" } };
+        return HttpResponse.json({ ...jobB, groups, exceptions: { uat } });
+      }),
+    );
+    const user = userEvent.setup();
+    at("P77_CHAIN", "P77_B");
+
+    const strip = await screen.findByLabelText("Exceptions of uat");
+    expect(strip).toHaveTextContent("TASKTYPE=Dummy");
+    expect(strip).toHaveTextContent("MAXWAIT left out");
+    expect(strip).toHaveTextContent("INCOND[link=P77_A-P77_B_OK,ODATE=ODAT] in uat: AND_OR=O");
+    expect(strip).toHaveTextContent("OUTCOND[link=P77_B-P77_C_OK,ODATE=ODAT] left out in uat");
+    const taskType = await screen.findByLabelText("exception of uat: Dummy; the base has Command");
+    expect(taskType).toHaveTextContent("uat");
+    expect(screen.getByText(/left out in uat \(the base has 5\)/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: /Predecessors/ }));
+    const preds = screen.getByRole("table", { name: "Predecessors" });
+    expect(within(preds).getByLabelText("in uat: AND_OR=O")).toBeInTheDocument();
+    const succs = screen.getByRole("table", { name: "Successors" });
+    expect(within(succs).getByLabelText("left out in uat")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: "ON blocks" }));
+    expect(screen.getByLabelText("in uat: SIGN=-")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: /Variables/ }));
+    expect(screen.getByText(/not in uat/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: /Environments/ }));
+    await user.click(screen.getByRole("button", { name: "Make TASKTYPE of uat the base" }));
+    await waitFor(() =>
+      expect(calls.preview[0]).toEqual({
+        op: "promote-exception",
+        params: { env: "uat", node: "P77_CHAIN/P77_B", names: ["TASKTYPE"] },
+      }),
+    );
   });
 });

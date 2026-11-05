@@ -52,6 +52,8 @@ class RelationChange:
     peers_before: tuple[str, ...]
     peers_after: tuple[str, ...]
     details: tuple[ValueChange, ...] = ()
+    name_only: bool = False  # the same jobs, the condition called another name
+    counterpart: str | None = None  # that other name (the new one when removed, else the old)
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -62,6 +64,8 @@ class RelationChange:
             "peers_before": list(self.peers_before),
             "peers_after": list(self.peers_after),
             "details": [d.to_json() for d in self.details],
+            "name_only": self.name_only,
+            "counterpart": self.counterpart,
         }
 
 
@@ -81,6 +85,7 @@ class NodeChange:
     after: dict[str, Any] | None = None
     diff: str = ""
     commits: tuple[str, ...] = ()  # shas of the compared commits that changed it, newest first
+    name_only: bool = False  # every change of it only calls a condition another name
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -98,6 +103,7 @@ class NodeChange:
             "after": self.after,
             "diff": self.diff,
             "commits": list(self.commits),
+            "name_only": self.name_only,
         }
 
 
@@ -107,6 +113,8 @@ class LinkChange:
     change: str  # added | removed | renamed
     before: str | None
     after: str | None
+    name_only: bool = False  # renamed, or the same jobs use it under another link
+    counterpart: str | None = None  # the name of that other link
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -114,6 +122,8 @@ class LinkChange:
             "change": self.change,
             "before": self.before,
             "after": self.after,
+            "name_only": self.name_only,
+            "counterpart": self.counterpart,
         }
 
 
@@ -171,7 +181,22 @@ class Comparison:
             "constants": len(self.constants),
             "exceptions": len(self.exceptions),
             "commits": len(self.commits),
+            "name_only": sum(n.name_only for n in (*self.folders, *self.jobs))
+            + sum(lk.name_only for lk in self.links),
         }
+
+    def real_only(self) -> Comparison:
+        """The real changes only: without what only calls a condition another name."""
+
+        def real(node: NodeChange) -> NodeChange:
+            return replace(node, relations=tuple(r for r in node.relations if not r.name_only))
+
+        return replace(
+            self,
+            folders=tuple(real(f) for f in self.folders if not f.name_only),
+            jobs=tuple(real(j) for j in self.jobs if not j.name_only),
+            links=tuple(lk for lk in self.links if not lk.name_only),
+        )
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -234,7 +259,11 @@ def _load(root: Path) -> _Side:
                 EnvConfig.from_json(read_json(repo.env_file(env))).constants
             )
         side.exceptions[env] = {
-            node: {"set": dict(o.attributes), "variables": dict(o.variables)}
+            node: {
+                "set": dict(o.attributes),
+                "variables": dict(o.variables),
+                "elements": dict(o.elements),
+            }
             for node, o in load_overrides(repo, env).items()
         }
     meta_dir = root / "meta"
@@ -326,6 +355,73 @@ def _match_jobs(
     return mapping, kinds
 
 
+# ---------------------------------------------------------------- name-only changes
+
+_Use = tuple[str, str, str, str | None, bool, str, str | None]
+
+
+def _uses(side: _Side, nodes: Mapping[str, str]) -> dict[str, frozenset[_Use]]:
+    """Link id -> which nodes use it and how, the name left out (``nodes``: base -> head ids)."""
+    uses: dict[str, set[_Use]] = {}
+    for node, relations in side.relations.items():
+        where = nodes.get(node, node)
+        for direction, items in (
+            ("predecessor", relations.predecessors),
+            ("successor", relations.successors),
+        ):
+            for r in items:
+                use = (where, direction, r.odate, r.and_or, r.cleanup, r.sign, r.on_code)
+                uses.setdefault(r.link, set()).add(use)
+    return {link: frozenset(found) for link, found in uses.items()}
+
+
+def _name_pairs(base: _Side, head: _Side, nodes: Mapping[str, str]) -> dict[str, str]:
+    """Old link id -> new link id, for a condition the same jobs use the same way under another
+    name: one link gone and one arrived, each with a producer and a consumer, the same ODATE,
+    signs, AND_OR and cleanup at every end; only the name differs."""
+
+    def by_use(
+        side: _Side, links: Sequence[str], mapping: Mapping[str, str]
+    ) -> dict[frozenset[_Use], list[str]]:
+        uses = _uses(side, mapping)
+        found: dict[frozenset[_Use], list[str]] = {}
+        for link in links:
+            use = uses.get(link, frozenset())
+            if {u[1] for u in use} == {"predecessor", "successor"}:
+                found.setdefault(use, []).append(link)
+        return found
+
+    gone = by_use(base, [k for k in base.names if k not in head.names], nodes)
+    arrived = by_use(head, [k for k in head.names if k not in base.names], {})
+    return {
+        old[0]: arrived[use][0]
+        for use, old in gone.items()
+        if len(old) == 1 and len(arrived.get(use, ())) == 1
+    }
+
+
+def _relinked(data: Any, pairs: Mapping[str, str]) -> Any:
+    """``data`` with the links of ``pairs`` under their new id, to compare everything else."""
+    if isinstance(data, dict):
+        return {
+            k: pairs.get(v, v) if k == LINK_KEY and isinstance(v, str) else _relinked(v, pairs)
+            for k, v in data.items()
+        }
+    if isinstance(data, list):
+        return [_relinked(v, pairs) for v in data]
+    return data
+
+
+def _name_only(node: NodeChange) -> bool:
+    return (
+        node.change == "modified"
+        and bool(node.relations)
+        and all(r.name_only for r in node.relations)
+        and not (node.attributes or node.variables or node.groups)
+        and not (node.jobs_added or node.jobs_removed)
+    )
+
+
 # ---------------------------------------------------------------- node comparison
 
 
@@ -375,8 +471,11 @@ def _relations(
     nodes: Mapping[str, str],
     names_before: Mapping[str, str],
     names_after: Mapping[str, str],
+    counterparts: Mapping[str, str],
 ) -> tuple[RelationChange, ...]:
-    """Relation changes of one node; a removed relation keeps the condition name it had."""
+    """Relation changes of one node; a removed relation keeps the condition name it had.
+
+    ``counterparts`` maps the link ids of name-only changes to the name on the other side."""
     changes: list[RelationChange] = []
     for direction in ("predecessor", "successor"):
         attr = "predecessors" if direction == "predecessor" else "successors"
@@ -392,7 +491,11 @@ def _relations(
                 name = names_before.get(link, rb.name if rb else link)
             if rb is None or ra is None:
                 change = "added" if rb is None else "removed"
-                changes.append(RelationChange(direction, link, name, change, peers_b, peers_a))
+                other = counterparts.get(link)
+                relation = RelationChange(direction, link, name, change, peers_b, peers_a)
+                if other is not None:
+                    relation = replace(relation, name_only=True, counterpart=other)
+                changes.append(relation)
                 continue
             details: list[ValueChange] = []
             if direction == "predecessor":
@@ -438,8 +541,9 @@ def _node(
     relations: tuple[RelationChange, ...],
     jobs_added: tuple[str, ...] = (),
     jobs_removed: tuple[str, ...] = (),
+    pairs: Mapping[str, str] | None = None,
 ) -> NodeChange:
-    return NodeChange(
+    node = NodeChange(
         node=identity,
         kind=kind,
         change=change,
@@ -447,13 +551,14 @@ def _node(
         attributes=_values(before, after, ignore),
         variables=_variables(before, after),
         relations=relations,
-        groups=_groups(before, after),
+        groups=_groups(_relinked(before, pairs) if pairs else before, after),
         jobs_added=jobs_added,
         jobs_removed=jobs_removed,
         before=before,
         after=after,
         diff=_diff(before, after, f"a/{previous or identity}", f"b/{identity}"),
     )
+    return replace(node, name_only=_name_only(node))
 
 
 def _significant(node: NodeChange) -> bool:
@@ -475,6 +580,10 @@ def diff_snapshots(base_root: Path, head_root: Path) -> tuple[Any, ...]:
     job_map, job_kinds = _match_jobs(base, head, folder_map)
     node_map = {f"{old}/": f"{new}/" for old, new in folder_map.items()} | job_map
     reverse = {new: old for old, new in node_map.items()}
+    pairs = _name_pairs(base, head, node_map)
+    counterparts = {old: head.names[new] for old, new in pairs.items()} | {
+        new: base.names[old] for old, new in pairs.items()
+    }
 
     def folder_order(name: str) -> tuple[int, int]:
         if name in head.folders:
@@ -509,12 +618,14 @@ def diff_snapshots(base_root: Path, head_root: Path) -> tuple[Any, ...]:
             node_map,
             base.names,
             head.names,
+            counterparts,
         )
         node = _node(
             "folder", change, identity, old if change == "renamed" else None, before, after, {},
             relations,
             tuple(j for j in jobs_after if j not in arrived),
             tuple(b for b, a in jobs_before.items() if a not in jobs_after),
+            pairs,
         )  # fmt: skip
         if change != "modified" or _significant(node):
             folders.append(node)
@@ -537,14 +648,17 @@ def diff_snapshots(base_root: Path, head_root: Path) -> tuple[Any, ...]:
             node_map,
             base.names,
             head.names,
+            counterparts,
         )
         previous = old if change in ("renamed", "moved") else None
-        node = _node("job", change, identity, previous, before, after, ignore, relations)
+        node = _node(
+            "job", change, identity, previous, before, after, ignore, relations, pairs=pairs
+        )
         if change != "modified" or _significant(node):
             jobs.append(node)
     for identity in sorted(removed, key=base.position):
         relations = _relations(
-            base.relations.get(identity), None, node_map, base.names, head.names
+            base.relations.get(identity), None, node_map, base.names, head.names, counterparts
         )
         jobs.append(
             _node("job", "removed", identity, None, base.jobs[identity], None, {}, relations)
@@ -553,12 +667,13 @@ def diff_snapshots(base_root: Path, head_root: Path) -> tuple[Any, ...]:
     links: list[LinkChange] = []
     for link in [*head.names, *(k for k in base.names if k not in head.names)]:
         before_name, after_name = base.names.get(link), head.names.get(link)
+        other = counterparts.get(link)
         if before_name is None:
-            links.append(LinkChange(link, "added", None, after_name))
+            links.append(LinkChange(link, "added", None, after_name, other is not None, other))
         elif after_name is None:
-            links.append(LinkChange(link, "removed", before_name, None))
+            links.append(LinkChange(link, "removed", before_name, None, other is not None, other))
         elif before_name != after_name:
-            links.append(LinkChange(link, "renamed", before_name, after_name))
+            links.append(LinkChange(link, "renamed", before_name, after_name, True))
 
     constants: list[ConstantChange] = []
     for env in [*head.constants, *(e for e in base.constants if e not in head.constants)]:
@@ -659,6 +774,9 @@ def _value(value: str | None) -> str:
 
 def _relation_line(change: RelationChange) -> str:
     line = f"{change.direction} {change.name} {change.change}"
+    if change.name_only:
+        then = "now" if change.change == "removed" else "was"
+        return f"{line} [name only, {then} {change.counterpart}]"
     if change.details:
         line += ": " + "; ".join(
             f"{d.name} {_value(d.before)} -> {_value(d.after)}" for d in change.details
@@ -674,6 +792,8 @@ def _node_lines(node: NodeChange) -> list[str]:
     title = f"{node.change:8} {node.kind} {node.node}"
     if node.previous:
         title += f" (was {node.previous})"
+    if node.name_only:
+        title += " [name only]"
     lines = [title]
     if node.change in ("added", "removed"):
         # every value of a new or deleted node is a change: count them, list the relations
@@ -726,13 +846,17 @@ def render_text(result: Comparison) -> str:
         lines.append(f"No changes between {result.base.name} and {result.head.name}.")
         return "\n".join(lines) + "\n"
     lines.append("")
+    name_only = result.summary()["name_only"]
+    if name_only:
+        lines.append(f"{name_only} changes only call a condition another name, marked [name only]")
     for node in nodes:
         lines += _node_lines(node)
     for link in result.links:
         if link.change == "renamed":
-            lines.append(f"condition renamed {link.before} -> {link.after}")
+            line = f"condition renamed {link.before} -> {link.after}"
         else:
-            lines.append(f"condition {link.change} {link.after or link.before}")
+            line = f"condition {link.change} {link.after or link.before}"
+        lines.append(line + _link_mark(link))
     for c in result.constants:
         lines.append(f"constant {c.env} {c.name}: {_value(c.before)} -> {_value(c.after)}")
     for e in result.exceptions:
@@ -744,6 +868,14 @@ def render_text(result: Comparison) -> str:
             f"({result.metadata_files_changed} export metadata file(s) changed, not shown)"
         )
     return "\n".join(lines) + "\n"
+
+
+def _link_mark(link: LinkChange) -> str:
+    if not link.name_only:
+        return ""
+    if link.counterpart is None:
+        return " [name only]"
+    return f" [name only, {'now' if link.change == 'removed' else 'was'} {link.counterpart}]"
 
 
 def _exception(value: Mapping[str, Any] | None) -> str:
@@ -770,12 +902,14 @@ def render_markdown(result: Comparison) -> str:
             if node.previous:
                 details.insert(0, f"was {node.previous}")
             text = "<br>".join(_cell(d.strip()) for d in details) or "—"
-            lines.append(f"| {node.change} | {node.kind} | {_cell(node.node)} | {text} |")
+            change = f"{node.change} (name only)" if node.name_only else node.change
+            lines.append(f"| {change} | {node.kind} | {_cell(node.node)} | {text} |")
         lines.append("")
     if result.links:
         lines += ["### Conditions", "", "| change | before | after |", "|---|---|---|"]
         lines += [
-            f"| {lk.change} | {_cell(_value(lk.before))} | {_cell(_value(lk.after))} |"
+            f"| {lk.change}{_cell(_link_mark(lk))} | {_cell(_value(lk.before))} | "
+            f"{_cell(_value(lk.after))} |"
             for lk in result.links
         ]
         lines.append("")

@@ -517,9 +517,15 @@
             "type": "boolean"
           },
           "kind": {
-            "description": "learn | set-value | adopt | constant | group | value | children | removed | added | absent | unmatched",
+            "description": "learn | set-value | adopt | constant | group | value | element | removed | added | absent | unmatched",
             "title": "Kind",
             "type": "string"
+          },
+          "known": {
+            "default": false,
+            "description": "already an exception of the environment: the default keeps it, change makes the base take it, ignore drops it",
+            "title": "Known",
+            "type": "boolean"
           },
           "members": {
             "description": "of a group: the decision of each job on its own, to choose apart from it",
@@ -817,10 +823,34 @@
             "title": "Attributes",
             "type": "object"
           },
+          "elements": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "description": "line (by its locator) -> the attributes it has there, a whole line only that environment has (with 'after': the sibling before it), or null: not there",
+            "title": "Elements",
+            "type": "object"
+          },
           "variables": {
             "additionalProperties": {
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             },
+            "description": "variable -> its value in that environment; null: not there",
             "title": "Variables",
             "type": "object"
           }
@@ -1341,12 +1371,6 @@
             "title": "Unresolved",
             "type": "array"
           },
-          "values_only": {
-            "default": false,
-            "description": "the defaults take the values of the environment and nothing else",
-            "title": "Values Only",
-            "type": "boolean"
-          },
           "warnings": {
             "items": {
               "type": "string"
@@ -1393,12 +1417,6 @@
             ],
             "description": "every folder of the environment; default: more than half of them",
             "title": "Full"
-          },
-          "values_only": {
-            "default": false,
-            "description": "by default take the values of the environment and nothing else",
-            "title": "Values Only",
-            "type": "boolean"
           },
           "xml": {
             "description": "the export, as text",
@@ -1584,9 +1602,27 @@
             "title": "Change",
             "type": "string"
           },
+          "counterpart": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the name of that other link",
+            "title": "Counterpart"
+          },
           "link": {
             "title": "Link",
             "type": "string"
+          },
+          "name_only": {
+            "default": false,
+            "description": "renamed, or the same jobs use it the same way under another link",
+            "title": "Name Only",
+            "type": "boolean"
           }
         },
         "required": [
@@ -1813,6 +1849,12 @@
           "kind": {
             "title": "Kind",
             "type": "string"
+          },
+          "name_only": {
+            "default": false,
+            "description": "every change of it only renames a condition",
+            "title": "Name Only",
+            "type": "boolean"
           },
           "node": {
             "title": "Node",
@@ -2143,6 +2185,18 @@
             "title": "Change",
             "type": "string"
           },
+          "counterpart": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "that other name: the new one when removed, the old one when added",
+            "title": "Counterpart"
+          },
           "details": {
             "items": {
               "$ref": "#/components/schemas/ValueChangeOut"
@@ -2161,6 +2215,12 @@
           "name": {
             "title": "Name",
             "type": "string"
+          },
+          "name_only": {
+            "default": false,
+            "description": "the same jobs use the condition the same way under another name",
+            "title": "Name Only",
+            "type": "boolean"
           },
           "peers_after": {
             "items": {
@@ -2350,6 +2410,14 @@
           "root": {
             "title": "Root",
             "type": "string"
+          },
+          "volatile_attributes": {
+            "description": "the technical attributes: kept in meta, never compared, never an exception",
+            "items": {
+              "type": "string"
+            },
+            "title": "Volatile Attributes",
+            "type": "array"
           }
         },
         "required": [
@@ -3069,6 +3137,18 @@
       "get": {
         "operationId": "compare_markdown_api_compare_markdown_get",
         "parameters": [
+          {
+            "description": "leave out what only calls a condition another name",
+            "in": "query",
+            "name": "real_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "leave out what only calls a condition another name",
+              "title": "Real Only",
+              "type": "boolean"
+            }
+          },
           {
             "description": "base ref, e.g. develop",
             "in": "query",

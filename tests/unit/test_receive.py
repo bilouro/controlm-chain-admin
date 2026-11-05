@@ -89,10 +89,10 @@ NEW_JOB = ANOMALY_EXPORT.replace(
 @pytest.mark.parametrize(
     ("choice", "constant", "run_as"),
     [
-        (None, "user.nobody", "@{user.nobody}"),
+        ("new", "user.nobody", "@{user.nobody}"),
         ("new:user.lala_user_proc", "user.lala_user_proc", "@{user.lala_user_proc}"),
         ("use:user.proc", None, "@{user.proc}"),
-        ("literal", None, "nobody"),
+        (None, None, "nobody"),  # the default: the value as it is
     ],
 )
 def test_a_value_no_constant_has_gets_a_new_constant_or_another_one(

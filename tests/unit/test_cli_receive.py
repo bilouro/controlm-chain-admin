@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from controlm_chain_admin.cli import main
+from controlm_chain_admin.core.overrides import load_overrides
 from controlm_chain_admin.core.repo import load_repo
 from tests.support.anomalies import ANOMALY_EXPORT
 from tests.support.envexports import both, constants_repo, fresh_repo, job, to_prod
@@ -58,9 +59,9 @@ def test_receive_shows_a_group_with_the_values_of_its_constant(
         "(test TP77_BATCH, uat UP77_BATCH, bench BP77_BATCH, prod PP77_BATCH)"
     ) in out
     assert (
-        "  group:DOMAIL/@SUBJECT~env  new [new|change|ignore]  DOMAIL/@SUBJECT: the name of the "
-        "environment inside the text (1 use); new: env.subject (inline: test TEST, uat UAT, "
-        "bench BENCH, prod PROD)"
+        "  group:DOMAIL/@SUBJECT~env  new [new|exceptions|change|ignore]  DOMAIL/@SUBJECT: "
+        "the name of the environment inside the text (1 use); new: env.subject (inline: "
+        "test TEST, uat UAT, bench BENCH, prod PROD)"
     ) in out
 
 
@@ -81,7 +82,7 @@ def test_receive_is_told_a_delivery_is_the_whole_environment(
     assert "  P77_INGEST_DAILY/#absent  not-here [not-here|keep]" in out
 
 
-def test_receive_can_take_only_the_values_of_the_environment(
+def test_receive_makes_the_differences_of_a_full_export_exceptions(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     plain_git_identity(monkeypatch, tmp_path)
@@ -90,17 +91,18 @@ def test_receive_can_take_only_the_values_of_the_environment(
     uat = tmp_path / "uat.xml"
     uat.write_bytes(job(both(), b"UP77_D", b'TASKTYPE="Command"', b'TASKTYPE="Dummy"'))
 
-    assert main(["receive", str(uat), "--repo", str(root), "--values-only", "--apply"]) == 0
+    assert main(["receive", str(uat), "--repo", str(root), "--apply"]) == 0
 
     out = capsys.readouterr().out
-    assert "full export, values only" in out
-    assert f"  {C}/P77_D@TASKTYPE  ignore [change|exception|ignore]" in out
-    assert "(values only)" in out and "Applied" in out
+    assert "full export" in out
+    assert f"  {C}/P77_D@TASKTYPE  exception [change|exception|ignore]" in out
+    assert "1 exception(s)" in out and "Applied" in out
     repo = load_repo(root)
     assert "user.app77proc" in repo.config.constants
     assert json.loads(repo.job_file(C, "P77_D").read_text(encoding="utf-8"))["TASKTYPE"] == (
         "Command"
     )
+    assert load_overrides(repo, "uat")[f"{C}/P77_D"].attributes == {"TASKTYPE": "Dummy"}
 
 
 def test_receive_shows_a_constant_to_use_where_production_has_its_value(
@@ -112,10 +114,10 @@ def test_receive_shows_a_constant_to_use_where_production_has_its_value(
     uat, bench = tmp_path / "uat.xml", tmp_path / "bench.xml"
     uat.write_bytes(ANOMALY_EXPORT)  # without P77_INGEST_DAILY
     bench.write_bytes(both().replace(b"UP77", b"BP77").replace(b"URQ_", b"BRQ_"))
-    assert main(["receive", str(uat), "--repo", str(root), "--values-only", "--apply"]) == 0
+    assert main(["receive", str(uat), "--repo", str(root), "--apply"]) == 0
     capsys.readouterr()
 
-    assert main(["receive", str(bench), "--repo", str(root), "--values-only", "--stat"]) == 0
+    assert main(["receive", str(bench), "--repo", str(root), "--stat"]) == 0
 
     [line] = [line for line in capsys.readouterr().out.splitlines() if "adopt:" in line]
     assert "  adopt [adopt|ignore]  @{node." in line

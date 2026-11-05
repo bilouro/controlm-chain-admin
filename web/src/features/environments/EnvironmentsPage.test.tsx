@@ -67,3 +67,30 @@ describe("EnvironmentsPage", () => {
     );
   });
 });
+
+describe("EnvironmentsPage, technical attributes", () => {
+  it("lists them, removes one and adds one through the review", async () => {
+    const { user } = await page();
+
+    const names = screen.getByRole("list", { name: "Technical attribute names" });
+    expect(within(names).getByText("JOBISN")).toBeInTheDocument();
+    expect(within(names).getByText("CHANGE_TIME")).toBeInTheDocument();
+    await user.click(
+      within(names).getByRole("button", { name: "Remove JOBISN from the technical attributes" }),
+    );
+    await waitFor(() =>
+      expect(calls.preview.at(-1)).toEqual({ op: "set-technical", params: { remove: ["JOBISN"] } }),
+    );
+
+    const form = screen.getByRole("form", { name: "New technical attribute" });
+    await user.type(within(form).getByLabelText("Attribute"), "last_upload");
+    await user.click(within(form).getByRole("button", { name: "Add" }));
+
+    await waitFor(() =>
+      expect(calls.preview.at(-1)).toEqual({
+        op: "set-technical",
+        params: { add: ["LAST_UPLOAD"] },
+      }),
+    );
+  });
+});

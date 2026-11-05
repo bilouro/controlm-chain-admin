@@ -104,7 +104,21 @@ function Description({ decision }: { decision: DecisionOut }) {
   if (decision.kind === "value" && decision.current != null && decision.incoming != null) {
     return (
       <>
-        {decision.node} · {decision.field}: <Change from={decision.current} to={decision.incoming} />
+        {decision.node} · {decision.field}:{" "}
+        <Change from={decision.current} to={decision.incoming} />
+      </>
+    );
+  }
+  if (decision.kind === "element") {
+    const isAdded = decision.current == null;
+    const summary = isAdded ? decision.incoming : decision.current;
+    return (
+      <>
+        {decision.node} · <span className="font-mono">{decision.field}</span>{" "}
+        <Badge tone={isAdded ? "ok" : "warning"}>
+          {isAdded ? "only in the export" : "only in the repository"}
+        </Badge>
+        {summary ? <span className="text-muted"> {summary}</span> : null}
       </>
     );
   }
@@ -123,8 +137,8 @@ function describe(decision: DecisionOut): string {
       return `${decision.node} · ${decision.field}: ${decision.incoming} instead of ${decision.expected ?? decision.current}`;
     case "value":
       return `${decision.node} · ${decision.field}: ${decision.current ?? "(none)"} → ${decision.incoming ?? "(none)"}`;
-    case "children":
-      return `${decision.node}: conditions, ON blocks or other children differ`;
+    case "element":
+      return `${decision.node} · ${decision.field}: ${decision.current == null ? "only in the export" : "only in the repository"}`;
     case "unmatched":
       return `${decision.field} = ${decision.incoming} (${plural(decision.count, "use")})`;
     case "added":
@@ -138,7 +152,13 @@ function describe(decision: DecisionOut): string {
   }
 }
 
-const SECTIONS: { kind: string[]; title: string; help: string }[] = [
+const SECTIONS: {
+  kind: string[];
+  title: string;
+  help: string;
+  /** The differences the environment already has as exceptions, kept unless chosen otherwise. */
+  known?: boolean;
+}[] = [
   {
     kind: ["group"],
     title: "The same difference in several jobs",
@@ -165,14 +185,9 @@ const SECTIONS: { kind: string[]; title: string; help: string }[] = [
     help: "An exception keeps the constant and gives this job its own value in this environment.",
   },
   {
-    kind: ["value"],
+    kind: ["value", "element"],
     title: "Differences",
-    help: "The repository's value → the export's: change the base (every environment), an exception (this environment only), or ignore.",
-  },
-  {
-    kind: ["children"],
-    title: "Conditions, ON blocks and other children",
-    help: "Take them as the export has them, or keep the repository's.",
+    help: "The repository's value → the export's, and the lines (a condition, a SHOUT, an action of an ON block) only one side has: change the base (every environment), an exception (this environment only), or ignore.",
   },
   {
     kind: ["removed"],
@@ -188,6 +203,12 @@ const SECTIONS: { kind: string[]; title: string; help: string }[] = [
     kind: ["absent"],
     title: "Folders this export does not have",
     help: "A full export without a folder of the repository: note that this environment does not have it (its export leaves it out), or keep it.",
+  },
+  {
+    kind: ["value", "element"],
+    title: "Already exceptions of this environment",
+    help: "What this environment has instead of the base and the repository knows already. Kept as they are unless you choose: change the base (the base takes what the environment has, as when a release goes to production) or ignore (the exception goes, the environment follows the base).",
+    known: true,
   },
 ];
 
@@ -330,6 +351,7 @@ function Section({
   env,
   choices,
   onChoose,
+  collapsed = false,
 }: {
   title: string;
   help: string;
@@ -338,8 +360,11 @@ function Section({
   env: string;
   choices: Record<string, string>;
   onChoose: Choose;
+  /** Start folded: the header and the count only, until "Show". */
+  collapsed?: boolean;
 }) {
   const [isAll, setIsAll] = useState(false);
+  const [isOpen, setIsOpen] = useState(!collapsed);
   if (decisions.length === 0 && !note) return null;
   const shown = isAll ? decisions : decisions.slice(0, SHOWN);
   const offered = [...new Set(decisions.flatMap((d) => d.options))];
@@ -350,42 +375,54 @@ function Section({
       <header className="flex flex-wrap items-center gap-2 border-b border-border bg-surface-2 px-3 py-2">
         <h3 className="text-base font-semibold">{title}</h3>
         <Badge tone={decisions.length > 0 ? "warning" : "neutral"}>{decisions.length}</Badge>
-        <span className="basis-full text-xs text-muted">{help}</span>
-      </header>
-      <div className="space-y-1 px-3 py-2">
-        {note && <p className="text-xs text-muted">{note}</p>}
-        {decisions.length > 1 && (
-          <div
-            role="group"
-            aria-label="Set every decision of the section to"
-            className="flex flex-wrap items-center gap-1 text-xs"
+        {collapsed && decisions.length > 0 && (
+          <Button
+            size="sm"
+            variant="ghost"
+            aria-expanded={isOpen}
+            onClick={() => setIsOpen(!isOpen)}
           >
-            <span className="text-muted">All {decisions.length}:</span>
-            {offered.map((option) => (
-              <Button key={option} size="sm" variant="ghost" onClick={() => chooseAll(option)}>
-                {optionLabel(option, env)}
-              </Button>
-            ))}
-          </div>
-        )}
-        <ul className="divide-y divide-border/60">
-          {shown.map((decision) => (
-            <DecisionRow
-              key={decision.id}
-              decision={decision}
-              env={env}
-              value={choices[decision.id] ?? decision.default}
-              choices={choices}
-              onChoose={onChoose}
-            />
-          ))}
-        </ul>
-        {decisions.length > shown.length && (
-          <Button size="sm" variant="ghost" onClick={() => setIsAll(true)}>
-            Show all {decisions.length}
+            {isOpen ? "Hide" : `Show ${decisions.length}`}
           </Button>
         )}
-      </div>
+        <span className="basis-full text-xs text-muted">{help}</span>
+      </header>
+      {isOpen && (
+        <div className="space-y-1 px-3 py-2">
+          {note && <p className="text-xs text-muted">{note}</p>}
+          {decisions.length > 1 && (
+            <div
+              role="group"
+              aria-label="Set every decision of the section to"
+              className="flex flex-wrap items-center gap-1 text-xs"
+            >
+              <span className="text-muted">All {decisions.length}:</span>
+              {offered.map((option) => (
+                <Button key={option} size="sm" variant="ghost" onClick={() => chooseAll(option)}>
+                  {optionLabel(option, env)}
+                </Button>
+              ))}
+            </div>
+          )}
+          <ul className="divide-y divide-border/60">
+            {shown.map((decision) => (
+              <DecisionRow
+                key={decision.id}
+                decision={decision}
+                env={env}
+                value={choices[decision.id] ?? decision.default}
+                choices={choices}
+                onChoose={onChoose}
+              />
+            ))}
+          </ul>
+          {decisions.length > shown.length && (
+            <Button size="sm" variant="ghost" onClick={() => setIsAll(true)}>
+              Show all {decisions.length}
+            </Button>
+          )}
+        </div>
+      )}
     </section>
   );
 }
@@ -398,7 +435,6 @@ export function ImportPage() {
   const [file, setFile] = useState<{ name: string; text: string } | null>(null);
   const [env, setEnv] = useState("");
   const [full, setFull] = useState<boolean | null>(null);
-  const [valuesOnly, setValuesOnly] = useState(false);
   const [choices, setChoices] = useState<Record<string, string>>({});
   const analyze = useMutation({
     mutationFn: (body: IntakeRequest) => postApi<IntakeOut>("/api/intake", body),
@@ -425,19 +461,13 @@ export function ImportPage() {
     const chosen = event.target.files?.[0];
     analyze.reset();
     setFull(null);
-    setValuesOnly(false);
     setFile(chosen ? { name: chosen.name, text: await readText(chosen) } : null);
   };
-  const handleAnalyze = (scope: boolean | null = full, onlyValues: boolean = valuesOnly) =>
-    file &&
-    analyze.mutate({ xml: file.text, env: env || null, full: scope, values_only: onlyValues });
+  const handleAnalyze = (scope: boolean | null = full) =>
+    file && analyze.mutate({ xml: file.text, env: env || null, full: scope });
   const handleScope = (isFull: boolean) => {
     setFull(isFull);
     handleAnalyze(isFull);
-  };
-  const handleValuesOnly = (isValuesOnly: boolean) => {
-    setValuesOnly(isValuesOnly);
-    handleAnalyze(full, isValuesOnly);
   };
   const handleChoose: Choose = (id, option) =>
     setChoices((current) => {
@@ -462,7 +492,6 @@ export function ImportPage() {
         env: result.env,
         choices: changed,
         full: result.full,
-        values_only: result.values_only ?? false,
       },
     });
   };
@@ -516,7 +545,6 @@ export function ImportPage() {
             <h2 className="text-base font-semibold">
               {result.env} export{file ? ` · ${file.name}` : ""}
               {result.full ? " · full export" : result.partial ? " · some folders only" : ""}
-              {result.values_only ? " · values only" : ""}
             </h2>
             <label className="flex items-center gap-2 text-xs">
               <input
@@ -527,20 +555,8 @@ export function ImportPage() {
               />
               Full export of {result.env}
               <span className="text-muted">
-                (every folder it has; what it lacks or alone has is noted, production is left alone)
-              </span>
-            </label>
-            <label className="flex items-center gap-2 text-xs">
-              <input
-                type="checkbox"
-                checked={result.values_only ?? false}
-                disabled={analyze.isPending}
-                onChange={(e) => handleValuesOnly(e.target.checked)}
-              />
-              Only the values of {result.env}
-              <span className="text-muted">
-                (machines, users, mails, its name in texts; changes of the jobs and what it alone
-                has or lacks are left out: the deliveries of the releases bring them)
+                (every folder it has; every difference is its exception, what it lacks or alone has
+                is noted, production is left alone)
               </span>
             </label>
             <ul className="text-xs text-muted">
@@ -610,13 +626,16 @@ export function ImportPage() {
           {SECTIONS.map((section) => (
             <Section
               key={section.title}
-              title={section.title}
+              title={section.known ? `Already exceptions of ${result.env}` : section.title}
               help={section.help}
               note={section.kind.includes("unmatched") ? notAsked : undefined}
-              decisions={asked.filter((d) => section.kind.includes(d.kind))}
+              decisions={asked.filter(
+                (d) => section.kind.includes(d.kind) && Boolean(d.known) === Boolean(section.known),
+              )}
               env={result.env}
               choices={choices}
               onChoose={handleChoose}
+              collapsed={section.known}
             />
           ))}
           <div className="flex items-center justify-end gap-2">

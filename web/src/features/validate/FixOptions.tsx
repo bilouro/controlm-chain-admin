@@ -7,6 +7,8 @@ import { Button } from "@/components/ui";
 type Props = {
   finding: FindingOut;
   onPropose: (request: ChangeRequest, details?: ProposeDetails) => void;
+  /** The findings are being computed again: these fixes may be out of date. */
+  isDisabled?: boolean;
 };
 
 function Steps() {
@@ -26,7 +28,7 @@ function Steps() {
 }
 
 /** The fixes of one finding: what each does to which job, and a button to review it. */
-export function FixOptions({ finding, onPropose }: Props) {
+export function FixOptions({ finding, onPropose, isDisabled = false }: Props) {
   const id = useId();
   return (
     <section aria-label={`Fixes for ${finding.name}`} className="space-y-2">
@@ -50,6 +52,7 @@ export function FixOptions({ finding, onPropose }: Props) {
               className="self-start"
               aria-label={`Preview this fix: ${fix.label}`}
               aria-describedby={`${id}-${index}`}
+              disabled={isDisabled}
               onClick={() =>
                 onPropose({ op: fix.op, params: fix.params }, { effects: fix.effects ?? [] })
               }

@@ -421,3 +421,180 @@ describe("ComparePage, taking changes into the checked-out branch", () => {
     });
   });
 });
+
+describe("ComparePage, real changes only", () => {
+  const job = (node: string) => comparison.jobs.find((j) => j.node === node)!;
+  const nameOnly = (direction: string, link: string, change: string, other: string) => ({
+    direction,
+    link,
+    name: link,
+    change,
+    peers_before: change === "removed" ? ["P77_CHAIN/P77_E"] : [],
+    peers_after: change === "added" ? ["P77_CHAIN/P77_E"] : [],
+    details: [],
+    name_only: true,
+    counterpart: other,
+  });
+  const p77c = job("P77_CHAIN/P77_C");
+  const withNameOnly = {
+    ...comparison,
+    jobs: [
+      ...comparison.jobs.map((j) =>
+        j === p77c
+          ? {
+              ...p77c,
+              relations: [
+                ...p77c.relations,
+                nameOnly("successor", "P77_C-P77_X_OK", "removed", "P77_C-P77_X_DONE"),
+              ],
+            }
+          : j,
+      ),
+      {
+        ...job("P77_CHAIN/P77_E"),
+        node: "P77_CHAIN/P77_F",
+        attributes: [],
+        variables: [],
+        commits: [],
+        name_only: true,
+        relations: [
+          nameOnly("predecessor", "P77_E-P77_F_OK", "removed", "P77_E-P77_F_DONE"),
+          nameOnly("predecessor", "P77_E-P77_F_DONE", "added", "P77_E-P77_F_OK"),
+        ],
+      },
+    ],
+    links: [
+      ...comparison.links,
+      {
+        link: "P77_E-P77_F_OK",
+        change: "removed",
+        before: "P77_E-P77_F_OK",
+        after: null,
+        name_only: true,
+        counterpart: "P77_E-P77_F_DONE",
+      },
+      {
+        link: "P77_E-P77_F_DONE",
+        change: "added",
+        before: null,
+        after: "P77_E-P77_F_DONE",
+        name_only: true,
+        counterpart: "P77_E-P77_F_OK",
+      },
+    ],
+  };
+  // all: 2 folders, 8 jobs, 7 conditions, 1 constant; real: 7 jobs, 2 conditions
+  const useNameOnly = () =>
+    server.use(http.get("/api/compare", () => HttpResponse.json(withNameOnly)));
+
+  it("shows every change, marks the name-only ones and shows the real ones on request", async () => {
+    useNameOnly();
+    const user = userEvent.setup();
+    renderAt(<ComparePage />, { path: "/compare" });
+
+    const which = await screen.findByRole("group", { name: "Which changes" });
+    expect(within(which).getByRole("button", { name: "All 18" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    const list = () => screen.getByRole("list", { name: "Changed folders and jobs" });
+    expect(
+      within(list()).getByRole("button", { name: "P77_F modified name only" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Jobs").parentElement).toHaveTextContent("8");
+
+    await user.click(within(which).getByRole("button", { name: "Real only 12" }));
+
+    expect(within(which).getByRole("button", { name: "Real only 12" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(within(list()).queryByRole("button", { name: /P77_F/ })).not.toBeInTheDocument();
+    expect(within(list()).getByRole("button", { name: "P77_C modified" })).toBeInTheDocument();
+    expect(screen.getByText("Jobs").parentElement).toHaveTextContent("7");
+    expect(screen.getByRole("tab", { name: "Conditions (2)" })).toBeInTheDocument();
+  });
+
+  it("opens as the address says and hides the name-only relations of a job with real ones", async () => {
+    useNameOnly();
+    const user = userEvent.setup();
+    renderAt(<ComparePage />, { path: "/compare?real=1&node=P77_CHAIN%2FP77_C" });
+    await screen.findByRole("heading", { name: "P77_CHAIN/P77_C" });
+
+    expect(screen.getByRole("button", { name: "Real only 12" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.getByRole("table", { name: "Relation changes" })).not.toHaveTextContent(
+      "P77_C-P77_X_OK",
+    );
+
+    await user.click(screen.getByRole("button", { name: "All 18" }));
+
+    const relations = screen.getByRole("table", { name: "Relation changes" });
+    expect(relations).toHaveTextContent("P77_C-P77_X_OK");
+    expect(relations).toHaveTextContent("name only");
+    expect(relations).toHaveTextContent("now P77_C-P77_X_DONE");
+  });
+
+  it("marks the conditions that only got another name", async () => {
+    useNameOnly();
+    const user = userEvent.setup();
+    renderAt(<ComparePage />, { path: "/compare" });
+    await screen.findByRole("group", { name: "Which changes" });
+
+    await user.click(screen.getByRole("tab", { name: "Conditions (7)" }));
+
+    const rows = within(screen.getByRole("table", { name: "Condition changes" })).getAllByRole(
+      "row",
+    );
+    const gone = rows.find((r) => r.textContent?.includes("P77_E-P77_F_OK"));
+    expect(gone).toHaveTextContent("name only");
+    expect(gone).toHaveTextContent("now P77_E-P77_F_DONE");
+    const added = rows.find((r) => r.textContent?.includes("P77_C-P77_E_OK"));
+    expect(added).not.toHaveTextContent("name only");
+  });
+
+  it("says so when every change only renames a condition", async () => {
+    const names = withNameOnly.links.filter((link) => link.link.startsWith("P77_E-P77_F"));
+    const onlyNames = {
+      ...withNameOnly,
+      folders: [],
+      jobs: withNameOnly.jobs.filter((j) => j.node === "P77_CHAIN/P77_F"),
+      links: names,
+      constants: [],
+    };
+    server.use(http.get("/api/compare", () => HttpResponse.json(onlyNames)));
+    const user = userEvent.setup();
+    renderAt(<ComparePage />, { path: "/compare?real=1" });
+
+    expect(
+      await screen.findByText(
+        "No real change: the folders and jobs only call conditions another name.",
+      ),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("tab", { name: "Conditions (0)" }));
+    expect(
+      screen.getByText("No real change: the conditions only got other names."),
+    ).toBeInTheDocument();
+  });
+
+  it("copies the real changes only when only they are shown", async () => {
+    const asked: URLSearchParams[] = [];
+    server.use(
+      http.get("/api/compare/markdown", ({ request }) => {
+        asked.push(new URL(request.url).searchParams);
+        return HttpResponse.text("## Chain changes\n", {
+          headers: { "Content-Type": "text/markdown" },
+        });
+      }),
+    );
+    const user = userEvent.setup();
+    renderAt(<ComparePage />, { path: "/compare?real=1" });
+
+    await user.click(await screen.findByRole("button", { name: "Copy Markdown" }));
+
+    expect(await screen.findByText("Markdown copied")).toBeInTheDocument();
+    expect(asked[0]?.get("real_only")).toBe("true");
+  });
+});

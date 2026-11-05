@@ -67,31 +67,34 @@ git add -A && git commit -m "chore: production baseline"
 This first commit is the only one made on `main` by hand: from now on `main` mirrors
 production and every change goes through a release.
 
-### 3. The values of the other environments, one release
+### 3. The other environments, one release
 
-The full exports of the other environments also carry the releases that are installed there
-but not in production yet. Take only their *values* from them (machines, users, mails, the
-environment's name in texts, variables): the jobs stay as production has them, and the
-releases come later from their deliveries (step 6).
+The full export of another environment says what that environment has: its machines, users
+and mails (constants), and everything it has otherwise (its exceptions). Nothing of it changes
+production by default.
 
 ```bash
 ctmchain release start environments
-ctmchain receive ../exports/uat/<uat>.xml --values-only   # preview: the decisions
+ctmchain receive ../exports/uat/<uat>.xml   # preview: the decisions
 ```
 
 Read the decisions with the person, by section, before `--apply`:
 
 - **groups** (a machine, user, mail or variable, or the environment's name in a text): a new
   constant with a value per environment. Give them readable names with
-  `--choose 'group:...=new:<name>'`, or in the *Import* page of `ctmchain serve` (box *Only
-  the values of <env>*).
+  `--choose 'group:...=new:<name>'`, or in the *Import* page of `ctmchain serve`;
 - a group that mixes things that are not alike (the sign of a condition, a text): *One by one*
-  in the Import page (`--choose 'FOLDER/JOB@FIELD=ignore'` in the CLI) decides each job
+  in the Import page (`--choose 'FOLDER/JOB@FIELD=exception'` in the CLI) decides each job
   apart from the group;
-- everything else is left out by default: changes of jobs (**differences**, **children**),
-  jobs the environment lacks (**removed**: kept) and folders or jobs only it has
-  (**added**: left out). A difference the person knows is the environment's own (a job that
-  is Dummy there, another command line) may be made an **exception** instead.
+- **differences**: every other difference, attribute or line (a condition, a SHOUT, an action
+  of an ON block, a variable only one side has), is an exception of the environment by
+  default: the base stays, the environment keeps what it has. *Change the base* only for what
+  the person knows production should get; *Ignore* only for noise (then consider
+  `ctmchain technical --add NAME`, which stops comparing that attribute for good);
+- jobs the environment lacks (**removed**: noted as not there) and folders or jobs only it has
+  (**added**: only there). The folders and jobs of a release that production has not yet may
+  be left out instead (*Leave out*) and come from their deliveries (step 6); either is fine,
+  ask the person.
 
 Then `--apply` and check, before the commit:
 
@@ -100,14 +103,13 @@ ctmchain check ../exports/uat/<uat>.xml --env uat     # counts per field, never 
 ctmchain check ../exports/prod/<prod>.xml --env prod  # must still be "the same byte for byte"
 ```
 
-The *repository vs uat* column is what the repository's uat export still differs in: the
-machines and users (`NODEID`, `RUN_AS`) should be 0, mails nearly 0. What is left is what
-values-only leaves out on purpose: conditions named per environment (`INCOND`, `OUTCOND`),
-jobs that are Dummy there (`TASKTYPE`), another command line (`CMDLINE`), variables only one
-side has, and the folders and jobs only in the export (the releases' business, step 6).
-`--format json` names the nodes of each field. Report the counts to the person; if production
-is not byte for byte any more, stop and say so. Then commit, and the same for bench and test
-(they only learn the values of the constants that exist by now).
+The *repository vs uat* column is what the repository's uat export still differs in: with the
+defaults it is 0 for every field, and the folders and jobs are all "in both" (what was left
+out shows as "only in the export"). `--format json` names the nodes of a field that is not 0.
+Report the counts to the person; if production is not byte for byte any more, stop and say so.
+Then commit, and the same for bench and test. Receiving the same export again changes nothing;
+when a release reaches production (step 6), the exceptions equal to the new base go by
+themselves.
 
 ### 4. The conventions agreed for these chains
 
@@ -138,11 +140,14 @@ ctmchain release installed prod     # nothing to install: it only describes the 
 ctmchain release close
 ```
 
-### 6. The releases already on their way, from their deliveries
+### 6. The releases already on their way
 
-For each release installed somewhere but not in production yet, ask, numbered: its name,
-the delivery XML of each of its parts, and the environments it is installed in. Then, from
-`main`, one release each:
+For each release installed somewhere but not in production yet, ask, numbered: its name, the
+environments it is installed in, and what carries it: a delivery XML of its parts, or the full
+export of an environment that has it whole (bench carries 26.6.3, uat 26.7.0...). Then, from
+`main`, one release each.
+
+From a delivery:
 
 ```bash
 ctmchain release start <name>
@@ -151,6 +156,12 @@ ctmchain receive ../exports/deliveries/<name>.xml --apply  # are the release's c
 ctmchain commit -m "feat: release <name>"
 ctmchain release installed uat                             # each environment it is in
 ```
+
+From a full export, in the *Import* page of `ctmchain serve` on the release branch: analyze
+the export; its differences are *Already exceptions of <env>* (folded: *Show*); *All N:
+Change the base* makes the base of the release take them, and *All N: Everywhere* in *Only in
+this export* brings the jobs only it has; review, apply, commit, `release installed <env>`.
+What the person knows is the environment's own (a Dummy job there) stays an exception.
 
 A folder two releases both changed comes whole in each delivery: when the first one is closed
 into `main`, *Update from main* in the other merges them. Check each release with

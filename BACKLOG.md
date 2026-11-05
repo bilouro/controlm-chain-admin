@@ -220,9 +220,23 @@ or addresses anywhere in this public repository.
     the author for the company (uat and bench carry releases production does not have yet):
     `receive --values-only`, `skip` for added folders and jobs, *adopt* decisions; the
     `bootstrap` skill builds the releases on their way from their deliveries.
+16. **Exceptions for any line, technical attributes — DONE (2026-11-05), for 0.1.5**, asked by
+    the author («qualquer elemento do xml pode ser exception»): any attribute or line of a
+    folder or job (a condition, a SHOUT, an action of an ON block, a variable it lacks) may be
+    an exception of one environment (`elements` of `overrides.json`, by locator); a full
+    export of another environment makes every difference an exception by default and may be
+    received again without a change; what the base gains later drops the exceptions equal to
+    it; `--values-only` is gone; the technical list (`volatile_attributes`) is edited in the
+    CLI (`technical`) and the *Environments* page. Compare marks the changes that only call a
+    condition another name and shows the real ones only on request (*All / Real only*,
+    `--real-only`).
+17. **Choosing the name of a condition per environment — later**, asked by the author: for a
+    name-only change of a received release, three options per condition: each environment
+    keeps its own name (an exception of the environment), every environment takes
+    production's name (the environment's package carries the fix), or the base takes the
+    environment's name (production's package carries it).
 
-Later, unordered: `envs` variants of sub-elements; second-environment import with learning; `diff`
-of environments and XML files with `xmldiffreport`; mapping editor; upstream graph explorer
-(paused by the author); cycle detection in `validate`; a check for one condition name used by
-two links; bilingual docs; per-environment variants of children (conditions or ON blocks that
-differ in one environment).
+Later, unordered: second-environment import with learning; `diff` of environments and XML
+files with `xmldiffreport`; mapping editor; upstream graph explorer (paused by the author);
+cycle detection in `validate`; a check for one condition name used by two links; bilingual
+docs.

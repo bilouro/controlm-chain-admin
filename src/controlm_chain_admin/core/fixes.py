@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping, Sequence
-from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -30,7 +29,6 @@ from controlm_chain_admin.core.validate import (
     embeds_endpoints,
     parse_condition_name,
     replaced_words,
-    resources,
     similar_names,
     validate,
 )
@@ -399,12 +397,6 @@ def _name_fixes(finding: Finding, index: _Index) -> list[Fix]:
         leading = rule.leading_pattern()
         if not (leading and leading.match(fixed)) and len(rule.bare_pattern().findall(fixed)) > 1:
             return []  # its inner prefix would get a letter too: needs letter_rule.leading_only
-        folder, _, job = finding.node.partition("/")
-        path = index.repo.job_file(folder, job) if job else index.repo.folder_file(folder)
-        data = deepcopy(read_json(path))
-        for _, item in resources(data):
-            if str(item.get("NAME", "")).removeprefix("literal:") == finding.name:
-                item["NAME"] = fixed
         return [
             Fix(
                 "remove-letter",
@@ -412,8 +404,8 @@ def _name_fixes(finding: Finding, index: _Index) -> list[Fix]:
                 f"resource {finding.name} -> {fixed}",
                 f"Uses {fixed}: on export each environment gets its own resource "
                 f"({fixed} with its letter in front).",
-                "replace-node",
-                {"node": finding.node, "data": data},
+                "rename-resource",
+                {"node": finding.node, "old": finding.name, "new": fixed},
                 (Effect(finding.node, "change", "resource", finding.name, fixed),),
             )
         ]

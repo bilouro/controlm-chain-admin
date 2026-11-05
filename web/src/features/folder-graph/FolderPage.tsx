@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
 import type { EdgeOut, LinkOut } from "@/lib/api/client";
-import { useFolder } from "@/lib/api/queries";
+import { useBaseFolder, useFolder } from "@/lib/api/queries";
 import { nodeRoute, shortLabel } from "@/lib/utils";
 import { useChanges } from "@/features/changes/changes-context";
 import { AttributeForm } from "@/features/editing/AttributeForm";
@@ -27,7 +27,10 @@ import {
 } from "@/components/ui";
 import { exceptionCount } from "@/features/exceptions/exception-count";
 import { ExceptionsPanel } from "@/features/exceptions/ExceptionsPanel";
+import { ExceptionsStrip } from "@/features/exceptions/ExceptionMark";
+import { marksOf } from "@/features/exceptions/marks";
 import { EnvBadge } from "@/features/environments/EnvBadge";
+import { useEnv } from "@/features/environments/env-context";
 import { FolderGraph } from "./FolderGraph";
 import { edgeId } from "./flow";
 
@@ -71,6 +74,8 @@ export function FolderPage() {
   const { folder = "" } = useParams();
   const [params, setParams] = useSearchParams();
   const { data, isPending, isError, error } = useFolder(folder);
+  const { env } = useEnv();
+  const base = useBaseFolder(folder, env !== null);
   const { propose } = useChanges();
   const [selected, setSelected] = useState<EdgeOut | null>(null);
 
@@ -78,6 +83,16 @@ export function FolderPage() {
   if (isError) return <ErrorBox error={error} />;
 
   const node = `${folder}/`;
+  const marks = marksOf(data.exceptions, env);
+  const baseGroups = base.data?.groups ?? {};
+  const baseStrings = Object.fromEntries(
+    Object.entries(base.data?.folder ?? {}).filter(
+      (entry): entry is [string, string] => typeof entry[1] === "string",
+    ),
+  );
+  const baseVariables = Object.fromEntries(
+    ((base.data?.folder.VARIABLE ?? []) as Variable[]).map((v) => [v.NAME, v.VALUE]),
+  );
   const groups = data.groups ?? {};
   const groupTabs: TabItem[] = Object.keys(groups)
     .filter((group) => group !== "metadata")
@@ -133,6 +148,7 @@ export function FolderPage() {
           />
         </span>
         {description && <p className="w-full text-sm text-muted">{description}</p>}
+        <ExceptionsStrip marks={marks} tabHref="?tab=environments" />
       </header>
 
       <Card className="p-4">
@@ -242,18 +258,47 @@ export function FolderPage() {
                     JOBNAME: "follows the folder name",
                     PARENT_FOLDER: "follows the folder name",
                   }}
+                  exceptions={
+                    marks && Object.keys(marks.attributes).length
+                      ? {
+                          env: marks.env,
+                          values: Object.fromEntries(
+                            Object.entries(marks.attributes).filter(
+                              ([key]) =>
+                                key in (groups[tab.id] ?? {}) || key in (baseGroups[tab.id] ?? {}),
+                            ),
+                          ),
+                          base: { ...baseStrings, ...(baseGroups[tab.id] ?? {}) },
+                        }
+                      : null
+                  }
                 />
               </TabPanel>
             ),
         )}
         {active === "variables" && (
           <TabPanel id="variables">
-            <VariablesEditor key={JSON.stringify(variables)} node={node} variables={variables} />
+            <VariablesEditor
+              key={JSON.stringify(variables)}
+              node={node}
+              variables={variables}
+              exceptions={
+                marks && Object.keys(marks.variables).length
+                  ? { env: marks.env, values: marks.variables, base: baseVariables }
+                  : null
+              }
+            />
           </TabPanel>
         )}
         {active === "relations" && (
           <TabPanel id="relations">
-            <RelationsEditor node={node} folder={folder} predecessors={preds} successors={succs} />
+            <RelationsEditor
+              node={node}
+              folder={folder}
+              predecessors={preds}
+              successors={succs}
+              marks={marks}
+            />
           </TabPanel>
         )}
         {active === "environments" && (

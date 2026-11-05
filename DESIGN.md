@@ -290,26 +290,50 @@ still exports prod byte for byte; uat comes out identical in 257 of 329 folders 
 production has them, listed by `validate`). Sub-element variants (an ON block for one
 environment only) remain open.
 
-**Only the values of an environment** (2026-11-03, asked by the author for the company, where
-the full exports of uat and bench carry releases production does not have yet):
-`receive --values-only` (the *Only the values of <env>* box of the Import page) takes from an
-export what makes a constant — machines, users, mails, variables, the environment's name in a
-text — and leaves everything else out by default: differences and children ignored, jobs it
-lacks kept (*removed*: `keep`), folders it lacks kept (*absent*: `keep`), folders and jobs only
-it has left out (*added*: `skip`, also offered in any full export; with values only it is a
-decision in a delivery too); a repeated difference of another attribute is ignored rather than
-made exceptions. The releases then come from their deliveries, one release branch each (the
-`bootstrap` skill, step 6). Two decisions came with it, for every receive: *adopt* (one per
+**Only the values of an environment** (2026-11-03, superseded on 2026-11-05): `receive
+--values-only` took from a full export what makes a constant and ignored everything else, the
+releases coming from their deliveries. It left two things that stay: *adopt* decisions (one per
 constant) — a job no earlier export of the environment had still has production's value of a
 constant where this export has the constant, in the whole value or inside a text
 (`[P77][PROD]` for `[P77][@{env.subject}]`): using the constant leaves production as it was, so
-it is the default (it replaces the exceptions a full export made there); and values taken
-inside children whose shape is kept (a release's new condition on the job that sends the mail)
-stay taken. A job numbered by the deduplication (`P77_F2`) that another environment names
-otherwise keeps its original JOBNAME when it is kept. On the real exports: prod first, then
-uat and bench with values only, give 42 + 15 constants, no exception, prod byte for byte, uat
-identical in 234 of 329 folders (the rest are its releases and its own folders) and bench in
-287 of 341.
+it is the default — and a job numbered by the deduplication (`P77_F2`) that another
+environment names otherwise keeps its original JOBNAME when it is kept.
+
+**Exceptions for any line** (2026-11-05, asked by the author: «qualquer elemento do xml pode ser
+exception»). Ignoring a difference was never right: what an environment has is what it has.
+So `envs/<env>/overrides.json` holds, besides attributes and variables, the lines one
+environment has otherwise, under `elements`, by *locator*: `OUTCOND[link=P77_A-P77_B_OK,
+ODATE=ODAT]` with `{"SIGN": "-"}` (an attribute of a line), `INCOND[link=P77_FLAG,ODATE=ODAT]`
+with its attributes and `after` (a line only that environment has, placed after that sibling;
+`null`: first of its tag), `SHOUT[WHEN=NOTOK,DEST=EM]: null` (a line it lacks),
+`ON[STMT=*,CODE=NOTOK]/DOMAIL[0]` (inside a block); a variable it lacks is `"variables":
+{"%%X": null}`. A locator names a line by its tag and what tells it from its siblings
+(`core/elements.py`: conditions by link and ODATE, SHOUT by WHEN and DEST, ON by STMT and CODE,
+CONTROL and QUANTITATIVE by NAME, the rest by position among their tag; a repeated key gets
+`#2`), so it survives the base gaining or losing other lines. The export applies them after
+the attributes; a link only an exception references is named by its id. `receive` aligns the
+lines of every node tag by tag with the same locators: a line both sides have is compared
+attribute by attribute and inside (`value` decisions named by the locator, grouped like any
+other), a line one side alone has is an `element` decision; the `children` decision is gone.
+The defaults of a full export of another environment: every difference is that environment's
+exception (attributes, variables present or absent, lines, repeated differences), what it
+lacks or alone has is noted on the node; a delivery changes the base. What is an exception
+already is restored in the base when the export comes again, so receiving it twice changes
+nothing (it used to drop the jobs the environment does not have); after every receive the
+exceptions of every environment equal to the base go (`prune_overrides`), and a line whose
+block the base lost is dropped with a warning. What is an exception already comes back as a
+decision marked `known` (default `exception`: kept; `change`: the base takes it, the exception
+goes; `ignore`: the exception goes), not grouped, folded in the Import page: this is how a
+release an environment carries whole is promoted (*All N: Change the base* on a release
+branch), and how the author wanted it (everything an exception first, promoted when it goes
+on). The technical attributes (`volatile_attributes`,
+kept in `meta/`, never compared, never an exception) are edited with `ctmchain technical` and
+the *Technical attributes* box of the *Environments* page (`set-technical`): a name added moves
+its values to `meta/`, a name removed brings them back, the exports do not change. A value of
+a new job that no constant has stays as it is by default (`literal`), a constant only when it
+carries the environment's letter. Rehearsed on the real exports (2026-11-05), production first and then
+uat, bench and test with the defaults alone: prod byte for byte after each; uat 943 exceptions and 24
+constants, bench 790, test 1313; `check` 0 in every field for the three, every folder and job in both.
 
 ## 6. Import
 
@@ -378,8 +402,8 @@ identical in 234 of 329 folders (the rest are its releases and its own folders) 
   `foreign-letter` (warning: a condition name keeps another environment's letter,
   `…-UP77D…` in prod) → rename without the letter (`remove-letter`); `foreign-resource`
   (error: a job uses a resource of another environment, `TRQ_AM` in uat) → the neutral
-  resource (`remove-letter`, offered only when the export of the result is right, e.g. with
-  `leading_only` for `URQ_P77_X`); `letter-for-p` (warning: a letter in place of the P of the
+  resource (`remove-letter`, the `rename-resource` change, offered only when the export of the
+  result is right, e.g. with `leading_only` for `URQ_P77_X`); `letter-for-p` (warning: a letter in place of the P of the
   application prefix, `U77CHECKRIGHT`, in a condition or a MEMNAME) → `P77…` back
   (`restore-prefix`; for a MEMNAME the explanation warns that the script name changes);
   `replaced-first-letter` (warning: a word of a condition name is a word of the jobs it links
@@ -419,7 +443,13 @@ identical in 234 of 329 folders (the rest are its releases and its own folders) 
   folder keeps its body or most of its jobs), and effects of a rename elsewhere (peers,
   `PARENT_FOLDER`, the folder's job list) are not reported twice. Volatile metadata alone is only
   counted (`metadata_files_changed`). Output: text, Markdown (for a pull request description) or
-  JSON; the web UI shows the same structure.
+  JSON; the web UI shows the same structure. A change that only calls a condition another name
+  is marked `name_only` (2026-11-05, asked by the author: a release received from another
+  environment brings many): a link gone and a link arrived used the same way by the same nodes
+  (producers and consumers, ODATE, signs, AND_OR, cleanup; one of each), with the other name
+  as `counterpart`, a link renamed, and a folder or job with no other change. It is a
+  difference all the same and is listed; `--real-only` (`Comparison.real_only()`) leaves it
+  out of the report, never out of a package.
   `--commit <sha>` (repeatable) compares only some commits of the branch (implemented
   2026-11-02): they are applied on the base side in their order, cherry-pick style, file by file
   and in memory (a change is taken as it is when the file is as the commit found it, merged three
@@ -624,7 +654,10 @@ Server-side concerns (not in the core):
   `GET /api/compare?base=&head=&merge_base=&commits=`, `GET /api/package?…&env=` and
   `GET /api/package/xml?…` (cached per pair of commits and options; the working tree is never
   cached). *Copy Markdown* copies `GET /api/compare/markdown` (the `--format md` report, left-out
-  commits marked) for a pull request description. With the checked-out branch as base and
+  commits marked) for a pull request description. *All N / Real only M* beside it (`real=1` in
+  the URL) hides the name-only changes everywhere on the page, the cards and tab counts
+  included, and the Markdown follows (`real_only=true`); in *All*, they carry a *name only*
+  badge and the other name. With the checked-out branch as base and
   another branch as head (a button swaps them), every item has a box to take it: the whole job
   or folder in the detail's header, each attribute, variable, predecessor and successor, each
   changed group, and in the other tabs (*Conditions*, *Constants*, *Exceptions*) the condition
@@ -661,11 +694,15 @@ Server-side concerns (not in the core):
   and its value in each environment, missing values marked and counted, *Only missing values*
   and a text filter; a value is given in place (the `set-values` change) and a constant renamed
   everywhere (`rename-constant`), both through the review. `GET /api/environments`.
-- **Exceptions (implemented 2026-11-02).** The job and folder pages have an *Environments*
-  tab: the exceptions of each environment (attribute or variable, the value used there, or
-  *left out*), *Remove*, and a form for a new one (environment, attribute or `%%variable`,
-  value or *leave it out*), reviewed as the `set-exception` change. `GET /api/jobs/...` and
-  `GET /api/folders/...` carry `exceptions` by environment.
+- **Exceptions (implemented 2026-11-02, lines and marks 2026-11-05).** The job and folder
+  pages have an *Environments* tab: the exceptions of each environment (attribute, variable
+  or line, the value used there, *added*, or *left out*), *Make it the base* (the
+  `promote-exception` change: the base takes it, the exception goes), *Remove*, and a form
+  for a new one (environment, attribute or `%%variable`, value or *leave it out*), reviewed as
+  the `set-exception` change. Viewed as one environment, the page shows a strip of what that
+  environment has otherwise and marks each such attribute, variable, condition and ON action,
+  the base's value in the tooltip. `GET /api/jobs/...` and `GET /api/folders/...` carry
+  `exceptions` by environment.
 - **Releases (implemented 2026-11-02).** The header shows the checked-out branch (*read-only*
   on the trunk) and opens the *Releases* dialog: the current branch and its uncommitted files
   (*Stash changes*, *Discard changes…* with a confirmation), *Update from main* and *Close
@@ -724,10 +761,12 @@ the first import.
 Quality
 - `validate [--env <env>] [--strict]` — graph, naming, overlay and resolution checks; exit code = highest severity.
 - `resolve [CODE=KIND...] [--apply] [--stat]` — implemented: fixes for the findings (see §8); without arguments, the fix kinds per code.
-- `receive <xml> [--env ENV] [--full|--partial] [--values-only] [--choose ID=OPTION ...] [--apply] [--stat] [--format text|json]` — implemented: an export of one environment (some folders or all) taken into the checked-out release (§5): the decisions with their defaults, then the change set. `--values-only`: the environment's values and nothing else by default. A group's id holds `=`: `--choose 'group:RUN_AS=a>b=new:user.batch_user_proc'`.
+- `receive <xml> [--env ENV] [--full|--partial] [--choose ID=OPTION ...] [--apply] [--stat] [--format text|json]` — implemented: an export of one environment (some folders or all) taken into the checked-out release (§5): the decisions with their defaults, then the change set. A full export of another environment makes every difference its exception by default. A group's id holds `=`: `--choose 'group:RUN_AS=a>b=new:user.batch_user_proc'`; a line's id is its locator: `--choose 'P77_CHAIN/P77_B@INCOND[link=P77_X-P77_B_OK,ODATE=ODAT]=change'`.
 - `check <xml> [--env ENV] [--format text|json]` — implemented: the export of one environment against the repository's export of it, folder by folder and job by job (paired by their names without the letter; a name twice in one folder by its place), field by field (every attribute but the volatile ones, child elements by their path such as `ON/DOMAIL`): per field, the nodes where the repository's export still differs and, for an environment other than production, how many differ from production's export; whether it is byte for byte, the nodes on one side only, the constants and exceptions of the environment. Text shows counts only (`--format json` names the nodes), never values. Exit 1 when anything but volatile attributes, order or layout differs.
 - `env learn <xml> [--env ENV] [--only PREFIX ...] [--apply]` — implemented: only the values of the constants in that environment (`--only user.` keeps some constants, e.g. when the export is anonymised).
-- `set-exception <env> <node> [--set ATTR=VALUE] [--unset ATTR] [--var %%NAME=VALUE] [--drop NAME]` — implemented: an exception of one environment for one job or folder (§5), previewed, `--apply` writes `envs/<env>/overrides.json`.
+- `set-exception <env> <node> [--set ATTR=VALUE] [--unset ATTR] [--var %%NAME=VALUE] [--drop NAME]` — implemented: an exception of one environment for one job or folder (§5), previewed, `--apply` writes `envs/<env>/overrides.json`; `--drop` takes a line's locator too (the API's `set-exception` takes `elements`).
+- `promote-exception <env> <node> NAME...` — implemented: the base takes what the environment has as its exception (attribute, `%%variable` or line by locator); the exception goes, and the exceptions of other environments equal to the new base go too.
+- `technical [--add NAME] [--remove NAME]` — implemented: the technical attributes, listed, or changed with a preview (`--apply`): a name added moves its values to `meta/`, a name removed brings them back.
 - `rename-constant <old> <new>` — implemented: placeholders, `chain.json`, environment values and exceptions follow.
 - `release status|start <name>|switch <branch>|installed <env>|update|close` — implemented: the release flow of §8 (`--stash` to stash uncommitted files first, `installed --release --commit` to tag another commit). Stash, discard, push and pull are plain git on the command line.
 - `commit [-m <message>] [--branch <name>] [--dry-run]` — implemented: commits the chain files only (`chain.json`, `folders/`, `meta/`, `envs/`, with `git commit --only`, so other staged or untracked files are left alone). Without `-m` the message is suggested from the semantic comparison of HEAD with the working tree: a Conventional Commits subject (`feat` when jobs or folders are added, `refactor` for renames and moves only, `fix` otherwise; e.g. `fix: update job X in F`, `feat: add 1 job, rename 2 conditions, update 3 jobs`) and a body listing every change. A batch of fixes is one apply and one commit.
@@ -739,7 +778,7 @@ Inspection
 - `links <node> | links --name <condition>` — edges of a node, or who produces/consumes/deletes a name.
 
 Comparison
-- `compare <base> [<head>] [--worktree] [--no-merge-base] [--commit <sha>...] [--format text|md|json]` — implemented: semantic comparison of two git refs of the repository (see §8). `head` defaults to `HEAD`; `--worktree` compares `base` with the uncommitted files; `--commit` keeps only those commits of head.
+- `compare <base> [<head>] [--worktree] [--no-merge-base] [--commit <sha>...] [--real-only] [--format text|md|json]` — implemented: semantic comparison of two git refs of the repository (see §8). `head` defaults to `HEAD`; `--worktree` compares `base` with the uncommitted files; `--commit` keeps only those commits of head; `--real-only` leaves out what only calls a condition another name.
 - `take <head> [--base HEAD] [--item ID ...] [--theirs ID ...] [--list] [--commit <sha>...] [--no-merge-base] [--apply] [--stat]` — implemented: changes of another branch taken into the checked-out one, item by item (see §8).
 - `package <base> [<head>] --env <env> [--commit <sha>...] [--worktree] [--no-merge-base] [--jobnames original|deduped] [--names original|standard] [-o <file>] [--dry-run] [--format text|json]` — implemented: the Control-M import file with every changed folder, whole, and why (see §8). Default file name `deploy_<env>_<head>[_<n>-of-<m>]_<date>.xml`.
 - `diff <A> <B>` — planned: A and B may be repo directories, `env:<name>` resolved views or XML files; XML↔XML goes through `xmldiffreport`.

@@ -39,7 +39,7 @@ def _uat_with_a_role() -> bytes:
 def _with_role(tmp_path: Path) -> tuple[ChainRepo, bytes]:
     repo = fresh_repo(tmp_path)
     uat = _uat_with_a_role()
-    apply(repo, receive(repo, uat, values_only=True, choices={ROLE_GROUP: f"new:{ROLE}"}))
+    apply(repo, receive(repo, uat, choices={ROLE_GROUP: f"new:{ROLE}"}))
     return load_repo(repo.root), uat
 
 
@@ -49,9 +49,9 @@ def test_a_role_of_some_jobs_can_be_a_constant_beside_the_one_most_jobs_have(
     repo = fresh_repo(tmp_path)
     uat = _uat_with_a_role()
 
-    intake = analyze(repo, uat, values_only=True)
+    intake = analyze(repo, uat)
     role = {d.id: d for d in intake.decisions}[ROLE_GROUP]
-    apply(repo, receive(repo, uat, values_only=True, choices={ROLE_GROUP: f"new:{ROLE}"}))
+    apply(repo, receive(repo, uat, choices={ROLE_GROUP: f"new:{ROLE}"}))
 
     assert (role.kind, role.count, role.default) == ("group", 2, "exceptions")
     assert role.options == ("new", "exceptions", "change", "ignore")
@@ -87,7 +87,7 @@ def test_an_environment_without_the_role_gives_both_constants_its_user(tmp_path:
     repo, _ = _with_role(tmp_path)
     bench = _as(b"B", PROD, b"abp77proc")
 
-    apply(repo, receive(repo, bench, values_only=True))
+    apply(repo, receive(repo, bench))
 
     repo = load_repo(repo.root)
     assert repo.load_env("bench").constants[ROLE] == "abp77proc"
@@ -106,8 +106,8 @@ def test_a_role_of_production_bound_to_its_jobs_when_the_environment_has_one_use
     uat = _as(b"U", prod, b"aup77proc").replace(b'RUN_AS="approle"', b'RUN_AS="aup77proc"')
     group = "group:RUN_AS=approle>aup77proc"
 
-    role = {d.id: d for d in analyze(repo, uat, values_only=True).decisions}[group]
-    apply(repo, receive(repo, uat, values_only=True, choices={group: f"new:{ROLE}"}))
+    role = {d.id: d for d in analyze(repo, uat).decisions}[group]
+    apply(repo, receive(repo, uat, choices={group: f"new:{ROLE}"}))
 
     assert (role.count, role.default) == (2, "exceptions")
     assert role.values == {

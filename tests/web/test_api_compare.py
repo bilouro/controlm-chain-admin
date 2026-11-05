@@ -62,3 +62,20 @@ def test_git_endpoints_on_a_directory_that_is_not_a_git_repository(client: TestC
     response = client.get("/api/git")
 
     assert response.status_code == 422 and response.json()["error"] == "GitError"
+
+
+def test_name_only_changes_are_marked_and_left_out_of_the_markdown_on_request(
+    git_client: TestClient,
+) -> None:
+    params = {"base": "develop", "head": "feature/x"}
+
+    body = git_client.get("/api/compare", params=params).json()
+    full = git_client.get("/api/compare/markdown", params=params).text
+    real = git_client.get("/api/compare/markdown", params={**params, "real_only": True}).text
+
+    renamed = [lk for lk in body["links"] if lk["change"] == "renamed"]
+    assert renamed and all(lk["name_only"] and lk["counterpart"] is None for lk in renamed)
+    assert body["summary"]["name_only"] == len(renamed)
+    assert all(j["name_only"] is False for j in body["jobs"])
+    assert "| renamed [name only] |" in full
+    assert "### Conditions" in full and "### Conditions" not in real

@@ -108,7 +108,7 @@ def folder_detail(
         predecessors=[RelationOut.model_validate(r.to_json()) for r in relations.predecessors],
         successors=[RelationOut.model_validate(r.to_json()) for r in relations.successors],
         exceptions={
-            env: ExceptionOut(attributes=o.attributes, variables=o.variables)
+            env: ExceptionOut(attributes=o.attributes, variables=o.variables, elements=o.elements)
             for env, o in node_exceptions(repo, f"{name}/").items()
         },
     )

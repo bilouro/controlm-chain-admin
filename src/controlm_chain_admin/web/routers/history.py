@@ -132,5 +132,11 @@ def compare_refs(result: Comparison = Depends(_comparison)) -> ComparisonOut:
     responses={**ERRORS, 200: {"content": {"text/markdown": {}}, "description": "Markdown"}},
     summary="The comparison as Markdown, for a pull request",
 )
-def compare_markdown(result: Comparison = Depends(_comparison)) -> PlainTextResponse:
-    return PlainTextResponse(render_markdown(result), media_type="text/markdown")
+def compare_markdown(
+    result: Comparison = Depends(_comparison),
+    real_only: bool = Query(
+        False, description="leave out what only calls a condition another name"
+    ),
+) -> PlainTextResponse:
+    shown = result.real_only() if real_only else result
+    return PlainTextResponse(render_markdown(shown), media_type="text/markdown")

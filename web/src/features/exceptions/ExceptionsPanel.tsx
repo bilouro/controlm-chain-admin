@@ -10,6 +10,14 @@ type Props = {
   exceptions: Record<string, ExceptionOut>;
 };
 
+/** A line one environment has: its attributes, and "added" when only that environment has it. */
+function lineText(line: Record<string, unknown>): string {
+  const words = Object.entries(line)
+    .filter(([key, value]) => key !== "after" && typeof value === "string")
+    .map(([key, value]) => `${key}=${String(value)}`);
+  return "after" in line ? ["added", ...words].join(" ") : words.join(" ");
+}
+
 /** What each environment uses for this job or folder instead of the base, and a new one. */
 export function ExceptionsPanel({ node, exceptions }: Props) {
   const repo = useRepo();
@@ -28,6 +36,11 @@ export function ExceptionsPanel({ node, exceptions }: Props) {
       field,
       value: v as string | null,
     })),
+    ...Object.entries(e.elements ?? {}).map(([field, line]) => ({
+      where,
+      field,
+      value: line === null ? null : lineText(line),
+    })),
   ]);
 
   const handleSubmit = (event: FormEvent) => {
@@ -43,9 +56,11 @@ export function ExceptionsPanel({ node, exceptions }: Props) {
   return (
     <div className="space-y-4">
       <p className="text-xs text-muted">
-        An exception is the value one environment uses instead of the base: a job that does nothing
-        there (TASKTYPE Dummy), another command line, a variable. Every other environment keeps the
-        base.
+        An exception is what one environment has instead of the base: a job that does nothing there
+        (TASKTYPE Dummy), another command line, a variable, a condition or a SHOUT only it has or
+        lacks. Every other environment keeps the base. <em>Make it the base</em> gives the base that
+        value (the exception goes, the other environments follow); <em>Remove</em> puts the
+        environment back on the base.
       </p>
       {rows.length === 0 ? (
         <p className="text-sm text-muted">No exception: every environment uses the base.</p>
@@ -54,7 +69,7 @@ export function ExceptionsPanel({ node, exceptions }: Props) {
           <thead>
             <tr className="text-left text-xs uppercase tracking-wide text-muted">
               <th className="py-1 font-medium">Environment</th>
-              <th className="py-1 font-medium">Attribute or variable</th>
+              <th className="py-1 font-medium">Attribute, variable or line</th>
               <th className="py-1 font-medium">Value there</th>
               <th className="py-1" />
             </tr>
@@ -68,6 +83,20 @@ export function ExceptionsPanel({ node, exceptions }: Props) {
                   {row.value === null ? <span className="text-muted">left out</span> : row.value}
                 </td>
                 <td className="py-1 text-right">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    title="The base takes this value; every environment follows it"
+                    aria-label={`Make ${row.field} of ${row.where} the base`}
+                    onClick={() =>
+                      propose({
+                        op: "promote-exception",
+                        params: { env: row.where, node, names: [row.field] },
+                      })
+                    }
+                  >
+                    Make it the base
+                  </Button>
                   <Button
                     size="sm"
                     variant="ghost"

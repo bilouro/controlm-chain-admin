@@ -59,18 +59,17 @@ def test_what_the_repository_does_not_know_of_an_environment_yet(repo: ChainRepo
     assert fields["TASKTYPE"].differs == (f"{C}/P77_D",)
 
 
-def test_after_its_values_only_what_the_releases_changed_is_left(repo: ChainRepo) -> None:
-    apply(repo, receive(repo, UAT, values_only=True))
+def test_after_a_full_export_of_an_environment_nothing_differs(repo: ChainRepo) -> None:
+    apply(repo, receive(repo, UAT))
 
     check = check_export(load_repo(repo.root), UAT, "uat")
     fields = _fields(check)
 
     assert fields["RUN_AS"] == FieldCheck("RUN_AS", (), 10)  # uat's own, now in the repository
-    assert fields["NODEID"].differs == fields["ON/DOMAIL"].differs == ()
-    assert fields["VARIABLE"].differs == ()
-    assert fields["TASKTYPE"].differs == (f"{C}/P77_D",)
-    assert fields["INCOND"].differs == (f"{C}/P77_B",)
-    assert check.exceptions == 0 and check.constants > 0 and check.unresolved == ()
+    assert fields["TASKTYPE"] == FieldCheck("TASKTYPE", (), 1)  # exceptions of uat
+    assert fields["INCOND"] == FieldCheck("INCOND", (), 1)
+    assert check.clean and check.only_export == check.only_repository == ()
+    assert check.exceptions == 2 and check.constants > 0 and check.unresolved == ()
     assert check_export(load_repo(repo.root), PROD, "prod").identical
 
 

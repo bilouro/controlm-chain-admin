@@ -64,6 +64,24 @@ export function useJob(folder: string, job: string) {
   });
 }
 
+/** The neutral base of a job, beside an environment's view: what its exceptions replace. */
+export function useBaseJob(folder: string, job: string, enabled: boolean) {
+  return useQuery({
+    queryKey: [...queryKeys.job(folder, job), null],
+    queryFn: () => api<JobDetail>(`/api/jobs/${encode(folder)}/${encode(job)}`),
+    enabled,
+  });
+}
+
+/** The neutral base of a folder, beside an environment's view. */
+export function useBaseFolder(name: string, enabled: boolean) {
+  return useQuery({
+    queryKey: [...queryKeys.folder(name), null],
+    queryFn: () => api<FolderDetail>(`/api/folders/${encode(name)}`),
+    enabled,
+  });
+}
+
 export function useValidate() {
   return useQuery({
     queryKey: queryKeys.validate,

@@ -74,7 +74,7 @@ def test_a_full_export_of_another_environment_leaves_production_alone(repo: Chai
         "added", ("only-here", "everywhere", "skip"), "only-here",
     )  # fmt: skip
     assert by_id[f"{C}/P77_D@TASKTYPE"].default == "exception"
-    assert by_id[f"{C}/P77_B#children"].default == "ignore"
+    assert by_id[f"{C}/P77_B@INCOND[link=P77_X-P77_B_OK,ODATE=ODAT]"].default == "exception"
 
 
 def test_taking_the_defaults_keeps_production_as_it_was(repo: ChainRepo) -> None:
@@ -130,7 +130,8 @@ def test_a_value_only_a_job_of_the_environment_has_needs_no_value_elsewhere(
         b'TASKTYPE="Dummy" PARENT_FOLDER="BP77_CHAIN" />\n        <JOB JOBISN="7"',
     )
 
-    change = receive(load_repo(repo.root), bench)
+    choices = {"unmatched:RUN_AS=benchuser": "new"}
+    change = receive(load_repo(repo.root), bench, choices=choices)
 
     assert "user.benchuser" in change.summary or any(
         "user.benchuser" in e.path or "user.benchuser" in (e.after or "") for e in change.edits

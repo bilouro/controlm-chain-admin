@@ -16,7 +16,7 @@ function keyOf(finding: FindingOut): string {
 }
 
 export function ValidatePage() {
-  const { data, isPending, isError, error } = useValidate();
+  const { data, isPending, isError, error, isFetching } = useValidate();
   const { propose } = useChanges();
   const [active, setActive] = useState<Set<Severity>>(new Set(SEVERITIES));
   const [code, setCode] = useState<string | null>(null);
@@ -34,6 +34,7 @@ export function ValidatePage() {
 
   if (isPending) return <Loading what="validation" />;
   if (isError) return <ErrorBox error={error} />;
+  const isUpdating = isFetching; // after a change: the fixes shown may not exist any more
 
   const toggleSeverity = (severity: Severity) => {
     const next = new Set(active);
@@ -115,7 +116,7 @@ export function ValidatePage() {
         ))}
       </div>
 
-      {isResolving && selected.length > 0 && (
+      {isResolving && selected.length > 0 && !isUpdating && (
         <ResolvePanel
           key={selected.map(keyOf).join(",")}
           findings={selected}
@@ -131,12 +132,17 @@ export function ValidatePage() {
           <Button
             size="sm"
             className="ml-auto"
-            disabled={selected.length === 0}
+            disabled={selected.length === 0 || isUpdating}
             onClick={() => setIsResolving(true)}
           >
             Resolve selected ({selected.length})
           </Button>
         </div>
+        {isUpdating && (
+          <p role="status" className="border-b border-border bg-info/10 px-3 py-1.5 text-xs">
+            Checking the chains again after the change… the fixes come back when it is done.
+          </p>
+        )}
         {findings.length === 0 ? (
           <Empty>Nothing to report for the selected filters.</Empty>
         ) : (
@@ -234,7 +240,11 @@ export function ValidatePage() {
                       <tr className="border-b border-border/60 bg-accent-soft/20">
                         <td />
                         <td colSpan={4} className="py-2 pr-3">
-                          <FixOptions finding={finding} onPropose={propose} />
+                          <FixOptions
+                            finding={finding}
+                            onPropose={propose}
+                            isDisabled={isUpdating}
+                          />
                         </td>
                       </tr>
                     )}

@@ -55,7 +55,7 @@ class Check:
     fields: tuple[FieldCheck, ...]
     constants: int  # constants with a value in the environment
     unresolved: tuple[str, ...]  # constants the export needs and the environment has no value of
-    exceptions: int  # values the environment's exceptions set
+    exceptions: int  # values and lines the environment's exceptions set
     production: str | None  # the environment compared with, None when it is production
 
     @property
@@ -186,6 +186,6 @@ def check_export(repo: ChainRepo, data: bytes, env: str | None = None) -> Check:
         fields=tuple(fields),
         constants=sum(1 for name in repo.config.constants if values.get(name) is not None),
         unresolved=tuple(sorted(report.constants.unresolved)),
-        exceptions=sum(len(o.attributes) + len(o.variables) for o in overrides),
+        exceptions=sum(o.count for o in overrides),
         production=production,
     )

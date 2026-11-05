@@ -23,9 +23,10 @@ Environments: {environments}. Production is {production}: `{trunk}` mirrors it.
    it) and closed into `{trunk}` once {production} has it (`ctmchain release close`).
 3. Exports come in through `ctmchain receive <xml>` or the *Import* page: preview, decide,
    `--apply`, commit. A full export of an environment other than {production} leaves
-   {production} alone by default; a delivery (some folders) changes the release. When that
-   environment has releases {production} has not, take only its values (`--values-only`, box
-   *Only the values* of the *Import* page): the releases come from their deliveries.
+   {production} alone by default: every difference, attribute or line, is that environment's
+   exception; a delivery (some folders) changes the release. A release an environment carries
+   whole is promoted on its release branch: *Already exceptions of <env>* in the *Import* page,
+   *All N: Change the base*.
 4. Never hand-edit `index.json` (derived) or `meta/` (volatile attributes, export header);
    edit through `ctmchain` or the web UI, which preview every change.
 5. Exports are big: read them with scripts and counts, never whole.
@@ -47,7 +48,8 @@ Environments: {environments}. Production is {production}: `{trunk}` mirrors it.
 ctmchain release status                        # branch, releases, what may be edited
 ctmchain receive exports/uat/delivery.xml      # preview the decisions of an export
 ctmchain receive exports/uat/delivery.xml --apply
-ctmchain receive exports/uat/full.xml --values-only   # machines, users, mails of uat only
+ctmchain receive exports/uat/full.xml          # all of uat: its constants and exceptions
+ctmchain technical                             # the attributes never compared (add, remove)
 ctmchain check exports/uat/full.xml --env uat  # what the repository's uat export still lacks
 ctmchain take release/<other> --list           # what another release changed, item by item
 ctmchain validate                              # broken chains, dirty names, suggested fixes

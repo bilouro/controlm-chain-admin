@@ -19,6 +19,10 @@ class RepoInfo(BaseModel):
     jobs: int
     letter_rule: LetterRuleOut
     root: str
+    volatile_attributes: list[str] = Field(
+        default_factory=list,
+        description="the technical attributes: kept in meta, never compared, never an exception",
+    )
 
 
 class FolderSummary(BaseModel):
@@ -103,7 +107,14 @@ class ExceptionOut(BaseModel):
     attributes: dict[str, str | None] = Field(
         description="attribute -> value used in that environment; null: left out there"
     )
-    variables: dict[str, str]
+    variables: dict[str, str | None] = Field(
+        description="variable -> its value in that environment; null: not there"
+    )
+    elements: dict[str, dict[str, Any] | None] = Field(
+        default_factory=dict,
+        description="line (by its locator) -> the attributes it has there, a whole line only "
+        "that environment has (with 'after': the sibling before it), or null: not there",
+    )
 
 
 class FolderDetail(BaseModel):
@@ -302,6 +313,12 @@ class RelationChangeOut(BaseModel):
     peers_before: list[str]
     peers_after: list[str]
     details: list[ValueChangeOut]
+    name_only: bool = Field(
+        False, description="the same jobs use the condition the same way under another name"
+    )
+    counterpart: str | None = Field(
+        None, description="that other name: the new one when removed, the old one when added"
+    )
 
 
 class NodeChangeOut(BaseModel):
@@ -319,6 +336,7 @@ class NodeChangeOut(BaseModel):
     after: dict[str, Any] | None = None
     diff: str
     commits: list[str] = Field([], description="compared commits that changed it, newest first")
+    name_only: bool = Field(False, description="every change of it only renames a condition")
 
 
 class LinkChangeOut(BaseModel):
@@ -326,6 +344,10 @@ class LinkChangeOut(BaseModel):
     change: str
     before: str | None = None
     after: str | None = None
+    name_only: bool = Field(
+        False, description="renamed, or the same jobs use it the same way under another link"
+    )
+    counterpart: str | None = Field(None, description="the name of that other link")
 
 
 class ConstantChangeOut(BaseModel):
@@ -461,19 +483,21 @@ class IntakeRequest(BaseModel):
     full: bool | None = Field(
         None, description="every folder of the environment; default: more than half of them"
     )
-    values_only: bool = Field(
-        False, description="by default take the values of the environment and nothing else"
-    )
 
 
 class DecisionOut(BaseModel):
     id: str
     kind: str = Field(
-        description="learn | set-value | adopt | constant | group | value | children | removed "
+        description="learn | set-value | adopt | constant | group | value | element | removed "
         "| added | absent | unmatched"
     )
     options: list[str]
     default: str
+    known: bool = Field(
+        False,
+        description="already an exception of the environment: the default keeps it, change "
+        "makes the base take it, ignore drops it",
+    )
     node: str | None = None
     field: str | None = None
     constant: str | None = None
@@ -509,9 +533,6 @@ class IntakeOut(BaseModel):
     evidence: list[str]
     partial: bool = Field(description="some folders of the repository are not in the export")
     full: bool = Field(False, description="taken as every folder of the environment")
-    values_only: bool = Field(
-        False, description="the defaults take the values of the environment and nothing else"
-    )
     folders: list[FolderIntakeOut]
     decisions: list[DecisionOut]
     unresolved: list[str] = Field(description="values no constant explains: they block")
