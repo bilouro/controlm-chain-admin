@@ -242,8 +242,12 @@ or addresses anywhere in this public repository.
     same steps and the preview's id, so it holds across restarts of the server) and
     `ctmchain kilo init` (server, `controlm` agent, skill, vocabulary). Tried with Kilo and an
     OpenAI model on the synthetic chain: a question, a change, a prod-only exception with a
-    rename in one preview. Next: a prompt box in the web UI talking to `kilo serve`; `claude
-    init` for Claude Code.
+    rename in one preview. Then the *Assistant* panel of the web UI over `kilo serve`
+    (`ctmchain serve --assistant`), approvals with the repository's own preview, and
+    Playwright end-to-end tests (`npm run test:e2e`, with a real model on request). Tried on
+    the real data (a clone of the rehearsal repository, OpenAI): questions answered right, a
+    change and a prod-only exception written after approval, a rejected one left out. Next:
+    `claude init` for Claude Code.
 
 Later, unordered: second-environment import with learning; `diff` of environments and XML
 files with `xmldiffreport`; mapping editor; upstream graph explorer (paused by the author);

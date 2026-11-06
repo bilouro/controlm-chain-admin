@@ -3,8 +3,9 @@
   "workflow": [
     "Find before you change: find gives the exact node (FOLDER/JOB of a job, FOLDER/ of a folder) and show its values; never guess a name.",
     "When several nodes match, list them and ask which one is meant.",
-    "Preview first: tell the user each change in one line (where, field, before -> after) and every warning, then wait for their yes.",
-    "Apply only what the user agreed to: apply takes the same steps and the preview_id. Once anything changed, a preview is stale: preview again.",
+    "Preview first: tell the user each change in one line (where, field, before -> after) and every warning.",
+    "Then call apply with the same steps and the preview_id: the user is asked to approve it before it runs, so do not ask for a yes in the text as well. Only preview when the user asked only to see the change.",
+    "When apply is refused or rejected, say so and change nothing else. Once anything changed, a preview is stale: preview again.",
     "Changes that belong together go in one preview, as steps in the order they must run.",
     "The base is what every environment has. A change for one environment only (\"only in prod\") is change-in-env, never change-fields.",
     "Never write the repository files yourself, and never commit or push: the user does that (the Workspace page, or git).",

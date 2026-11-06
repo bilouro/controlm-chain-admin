@@ -49,12 +49,15 @@ class Written:
 def project_dir(repo_root: Path) -> Path:
     """Where Kilo is opened: the top of the git repository holding the chains, else the
     chain repository itself."""
-    result = subprocess.run(
-        ["git", "-C", str(repo_root), "rev-parse", "--show-toplevel"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(repo_root), "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError:  # no git on this machine
+        return repo_root.resolve()
     top = result.stdout.strip()
     return Path(top).resolve() if result.returncode == 0 and top else repo_root.resolve()
 
@@ -138,9 +141,9 @@ description: {SKILL_DESCRIPTION}
    parameters, rules and an example.
 2. ctmchain_find and ctmchain_show give the exact nodes (FOLDER/JOB, FOLDER/) and values.
 3. ctmchain_preview with steps [{{"do": "<capability>", "params": {{...}}}}] shows each field
-   before -> after; tell the user and wait for their yes.
-4. ctmchain_apply with the same steps and the preview_id writes it. Nothing is committed:
-   the user commits.
+   before -> after; tell the user.
+4. ctmchain_apply with the same steps and the preview_id writes it once the user approves it
+   (Kilo asks them). Nothing is committed: the user commits.
 
 ## Local words
 

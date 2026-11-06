@@ -18,6 +18,7 @@ from starlette.types import Scope
 from controlm_chain_admin import __version__
 from controlm_chain_admin.web import errors
 from controlm_chain_admin.web.routers import (
+    assistant,
     changes,
     environments,
     folders,
@@ -90,6 +91,10 @@ TAGS = [
         "name": "workspace",
         "description": "Where edits go: releases from the trunk, installations, stash, push.",
     },
+    {
+        "name": "assistant",
+        "description": "Conversations with the assistant (kilo serve) that asks before it writes.",
+    },
 ]
 
 
@@ -122,6 +127,7 @@ def create_app(settings: Settings, *, static_dir: Path = STATIC_DIR) -> FastAPI:
         environments.router,
         intake.router,
         workspace.router,
+        assistant.router,
     ):
         app.include_router(router)
 

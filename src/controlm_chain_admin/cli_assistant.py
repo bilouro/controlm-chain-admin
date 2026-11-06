@@ -15,12 +15,13 @@ from controlm_chain_admin.core.capabilities import load_catalogue, render_menu
 from controlm_chain_admin.core.errors import ChainError
 from controlm_chain_admin.core.kilo import (
     AGENT,
+    CONFIG,
     VOCABULARY_FILE,
     kilo_files,
     project_dir,
     write_files,
 )
-from controlm_chain_admin.core.repo import load_repo
+from controlm_chain_admin.core.repo import ChainRepo, load_repo
 
 EXIT_OK = 0  # the codes of cli.py
 EXIT_USAGE = 2
@@ -87,6 +88,32 @@ def cmd_mcp(args: argparse.Namespace) -> int:
 def cmd_kilo_help(args: argparse.Namespace) -> int:
     print(KILO_USAGE)
     return EXIT_USAGE
+
+
+def serve_options(parser: argparse.ArgumentParser) -> None:
+    """``ctmchain serve --assistant``: the options of the assistant of the web UI."""
+    parser.add_argument(
+        "--assistant", action="store_true",
+        help="start Kilo (kilo serve) for the Assistant panel; writes .kilo/ when missing",
+    )  # fmt: skip
+    parser.add_argument(
+        "--assistant-model", metavar="PROVIDER/MODEL",
+        help="the model of the conversations, e.g. openai/gpt-5-mini (default: Kilo's own)",
+    )  # fmt: skip
+
+
+def start_assistant(repo: ChainRepo, model: str | None) -> Any:
+    """Start ``kilo serve`` in the Kilo project of ``repo`` (its files written when missing)."""
+    from controlm_chain_admin.web.assistant import start_kilo  # the [web] extra
+
+    target = project_dir(repo.root)
+    if not (target / CONFIG).exists():
+        for written in write_files(target, kilo_files(repo.root, sys.executable)):
+            print(f"{written.action} {written.path}")
+    kilo = start_kilo(target)
+    shown = model or "Kilo's own"
+    print(f"Assistant: Kilo (agent {AGENT}, model {shown}) at {kilo.url}")
+    return kilo
 
 
 def cmd_kilo_init(args: argparse.Namespace) -> int:

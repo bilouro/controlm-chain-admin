@@ -131,6 +131,10 @@ ctmchain kilo init --repo ./my-chains     # writes .kilo/ at the top of the git 
 kilo --agent controlm                     # "set MAXWAIT to 3 on P77_B", "only in prod, ..."
 ```
 
+In the web UI, `ctmchain serve --assistant --assistant-model openai/gpt-5-mini` starts Kilo
+with the server: *Assistant* in the header opens the conversation beside the page, and a
+change waits there, shown field by field, for *Apply* or *Reject*.
+
 The `controlm` agent may use the ctmchain tools only: it cannot edit files or run commands,
 and `ctmchain_apply` asks before it writes (`.kilo/kilo.json`). Words of your team go in
 `.kilo/skills/ctmchain/vocabulary.md`. Any other MCP client runs

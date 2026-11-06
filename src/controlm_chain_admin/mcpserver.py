@@ -21,18 +21,19 @@ from mcp.types import ToolAnnotations
 from controlm_chain_admin import __version__
 from controlm_chain_admin.core.capabilities import (
     Catalogue,
-    changes_of,
+    cut_lines,
     load_catalogue,
     plan,
+    preview_steps,
     render_menu,
 )
+from controlm_chain_admin.core.capabilities import preview_id as id_of
 from controlm_chain_admin.core.compare import compare as compare_refs
 from controlm_chain_admin.core.compare import render_text
 from controlm_chain_admin.core.errors import ChainError, ChangeConflict
 from controlm_chain_admin.core.links import folder_names
 from controlm_chain_admin.core.lookup import describe_node, find_condition, find_nodes
 from controlm_chain_admin.core.refactor import apply as apply_change
-from controlm_chain_admin.core.refactor import fingerprint
 from controlm_chain_admin.core.repo import load_repo
 from controlm_chain_admin.core.validate import validate as validate_repo
 from controlm_chain_admin.core.workspace import ensure_editable
@@ -66,13 +67,6 @@ def instructions(catalogue: Catalogue) -> str:
         "Tools over a Control-M chain repository (ctmchain). menu lists what can be asked "
         "and how; preview turns steps into a change, apply writes it.\n" + rules
     )
-
-
-def _cut(text: str, lines: int, hint: str) -> str:
-    rows = text.splitlines()
-    if len(rows) <= lines:
-        return text
-    return "\n".join([*rows[:lines], f"... {len(rows) - lines} more lines ({hint})"])
 
 
 class ChainTools:
@@ -118,18 +112,10 @@ class ChainTools:
     def compare(self, base: str, head: str, real_only: bool = False, lines: int = 200) -> str:
         result = compare_refs(self.root, base, head)
         text = render_text(result.real_only() if real_only else result)
-        return _cut(text, lines, "real_only=true leaves out the conditions only renamed")
+        return cut_lines(text, lines, "real_only=true leaves out the conditions only renamed")
 
     def preview(self, steps: list[dict[str, Any]], diff_lines: int = 400) -> dict[str, Any]:
-        change = plan(load_repo(self.root), steps)
-        return {
-            "preview_id": fingerprint(change)[:12] if change.edits else None,
-            "summary": change.summary if change.edits else f"{change.summary}: nothing to change",
-            "warnings": list(change.warnings),
-            "changes": changes_of(change),
-            "files": [edit.path for edit in change.edits],
-            "diff": _cut(change.diff(), diff_lines, "diff_lines shows more"),
-        }
+        return preview_steps(load_repo(self.root), steps, diff_lines=diff_lines)
 
     def apply(self, steps: list[dict[str, Any]], preview_id: str) -> dict[str, Any]:
         repo = load_repo(self.root)
@@ -137,7 +123,7 @@ class ChainTools:
         change = plan(repo, steps)
         if not change.edits:
             raise ChangeConflict(f"{change.summary}: nothing to change any more")
-        if fingerprint(change)[:12] != preview_id:
+        if id_of(change) != preview_id:
             raise ChangeConflict(
                 f"this is not the change previewed as {preview_id}: the repository changed "
                 "since, or the steps are not the same; preview again"

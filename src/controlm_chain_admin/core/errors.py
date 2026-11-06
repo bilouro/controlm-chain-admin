@@ -87,6 +87,10 @@ class ProtectedBranch(ChainError):
     """Edits are refused on the trunk, another protected branch or a detached HEAD."""
 
 
+class AssistantUnavailable(ChainError):
+    """No assistant server, or it does not answer (``kilo serve``)."""
+
+
 class UncommittedChanges(GitError):
     """Uncommitted chain files stop a switch, a merge or a restore: commit, stash or discard."""
 

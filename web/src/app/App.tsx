@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, NavLink, Navigate, Route, Routes } from "react-router";
+import { AssistantPanel } from "@/features/assistant/AssistantPanel";
 import { ChainTablePage } from "@/features/chain-table/ChainTablePage";
 import { ChangeProvider } from "@/features/changes/ChangeProvider";
 import { CommitButton } from "@/features/commit/CommitButton";
@@ -15,7 +17,18 @@ import { ValidatePage } from "@/features/validate/ValidatePage";
 import { RepoBadge } from "@/features/repo/RepoBadge";
 import { BranchButton } from "@/features/workspace/BranchButton";
 import { ProtectedBanner } from "@/features/workspace/ProtectedBanner";
+import { Button } from "@/components/ui";
 import { cn } from "@/lib/utils";
+
+const ASSISTANT_OPEN = "ctmchain-assistant-open";
+
+function openAtStart(): boolean {
+  try {
+    return sessionStorage.getItem(ASSISTANT_OPEN) === "1";
+  } catch {
+    return false;
+  }
+}
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, retry: 1, refetchOnWindowFocus: false } },
@@ -38,6 +51,15 @@ function NavItem({ to, children }: { to: string; children: React.ReactNode }) {
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
+  const [assistant, setAssistant] = useState(openAtStart);
+  const toggleAssistant = (open: boolean) => {
+    setAssistant(open);
+    try {
+      sessionStorage.setItem(ASSISTANT_OPEN, open ? "1" : "0");
+    } catch {
+      // storage unavailable: the panel closes on reload
+    }
+  };
   return (
     <div className="flex h-full flex-col">
       <header className="flex items-center gap-4 border-b border-border bg-surface px-4 py-2">
@@ -55,10 +77,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <BranchButton />
           <CommitButton />
           <RepoBadge />
+          <Button
+            variant={assistant ? "primary" : "ghost"}
+            size="sm"
+            aria-expanded={assistant}
+            aria-controls="assistant-panel"
+            onClick={() => toggleAssistant(!assistant)}
+          >
+            Assistant
+          </Button>
         </div>
       </header>
       <ProtectedBanner />
-      <main className="min-h-0 flex-1 overflow-auto">{children}</main>
+      <div className="flex min-h-0 flex-1">
+        <main className="min-h-0 flex-1 overflow-auto">{children}</main>
+        {assistant && (
+          <div id="assistant-panel" className="min-h-0">
+            <AssistantPanel onClose={() => toggleAssistant(false)} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

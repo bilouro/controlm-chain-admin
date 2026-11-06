@@ -14,7 +14,8 @@
     "test:run": "vitest run",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "gen:api": "openapi-typescript ../tests/web/openapi.snapshot.json -o src/lib/api/types.gen.ts && prettier --write src/lib/api/types.gen.ts"
+    "gen:api": "openapi-typescript ../tests/web/openapi.snapshot.json -o src/lib/api/types.gen.ts && prettier --write src/lib/api/types.gen.ts",
+    "test:e2e": "vite build && playwright test"
   },
   "dependencies": {
     "@dagrejs/dagre": "^1.1.4",
@@ -30,6 +31,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.29.0",
+    "@playwright/test": "^1.56.1",
     "@tailwindcss/vite": "^4.1.0",
     "@testing-library/jest-dom": "^6.6.0",
     "@testing-library/react": "^16.3.0",

@@ -73,6 +73,15 @@ function unauthorized(request: Request) {
 }
 
 export const handlers = [
+  http.get("/api/assistant", () =>
+    HttpResponse.json({
+      available: false,
+      reason: "no assistant: start the server with ctmchain serve --assistant",
+      agent: "controlm",
+      model: null,
+      directory: null,
+    }),
+  ),
   http.get("/api/repo", () => HttpResponse.json(repo)),
   http.get("/api/table", ({ request }) => {
     viewedEnv(request);

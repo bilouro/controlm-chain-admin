@@ -48,6 +48,15 @@ export type DecisionOut = Schemas["DecisionOut"];
 export type ExceptionOut = Schemas["ExceptionOut"];
 export type EnvironmentsOut = Schemas["EnvironmentsOut"];
 export type ConstantOut = Schemas["ConstantOut"];
+export type AssistantOut = Schemas["AssistantOut"];
+export type AssistantSessionOut = Schemas["AssistantSessionOut"];
+export type AssistantMessageOut = Schemas["AssistantMessageOut"];
+export type AssistantPartOut = Schemas["AssistantPartOut"];
+export type ApprovalOut = Schemas["ApprovalOut"];
+export type StepsPreviewOut = Schemas["StepsPreviewOut"];
+export type FieldChangeOut = Schemas["FieldChangeOut"];
+export type ConversationOut = Schemas["ConversationOut"];
+export type AckOut = Schemas["AckOut"];
 
 export const TOKEN_HEADER = "X-Ctmchain-Token";
 

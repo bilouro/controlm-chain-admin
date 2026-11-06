@@ -190,5 +190,8 @@ there:
 4. Open Kilo in the data repository with `kilo --agent controlm`; try a question («what does
    <job> wait for?»), then a change on a release branch: it previews field by field and asks
    before `ctmchain_apply`. Nothing is committed by the agent.
-5. `kilo mcp list` shows `ctmchain connected`; if not, run the command of `kilo.json` by hand
+5. In the web UI: `ctmchain serve --assistant` (optionally `--assistant-model
+   provider/model`; default: Kilo's own) starts Kilo with the server; *Assistant* in the
+   header opens the conversation, and every change waits there for *Apply* or *Reject*.
+6. `kilo mcp list` shows `ctmchain connected`; if not, run the command of `kilo.json` by hand
    (`<python> -m controlm_chain_admin mcp --repo <chains>`): it waits on stdin when it works.

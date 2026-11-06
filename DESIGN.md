@@ -632,7 +632,23 @@ with their message.
 `.kilo/kilo.json` (the server with this machine's Python and repository; `ctmchain_*` allowed,
 `ctmchain_apply` asked), `.kilo/agents/controlm.md` (edit, bash, web denied: the ctmchain
 tools only), `.kilo/skills/ctmchain/SKILL.md` and `vocabulary.md` (the team's words, never
-overwritten). Later: a prompt box in the web UI over `kilo serve`.
+overwritten).
+
+The web UI talks to the same assistant (`web/assistant.py`, `routers/assistant.py`): a
+client of `kilo serve` (standard library HTTP, Basic auth with Kilo's password, every call in
+the Kilo project's directory) opens a session with the `controlm` agent, sends the prompt
+(`prompt_async`, the model of `--assistant-model`), and reads the messages back as text, tool
+calls (the `ctmchain_` prefix dropped, outputs cut) and errors. What the assistant waits to
+be allowed to do (Kilo's pending permissions of the session) is listed as approvals; an
+`apply` carries this repository's preview of its steps (`preview_steps`), and a problem when
+the preview's id is not the assistant's (the repository moved) or the steps fail. *Apply* /
+*Reject* reply `once` / `reject`; nothing is written by the web server itself: the MCP server
+writes after the approval. The UI polls the conversation while the assistant has the floor
+(busy, an approval pending, or the message it took not stored yet) and invalidates every
+other query after an `apply` completes. `ctmchain serve --assistant` starts `kilo serve` in
+its own process group on a free port with a random password and waits for it; the server
+stops it on exit, SIGTERM and SIGHUP included (uvicorn re-raises SIGTERM after a graceful
+stop; `run` turns it into `SystemExit` so the cleanup runs).
 
 ### Web UI
 
@@ -816,6 +832,7 @@ Inspection
 Assistant
 - `menu [<capability>] [--format text|json]` — implemented: what can be asked in plain words, from `core/capabilities.json` (§11, *Assistant*).
 - `mcp [--repo DIR]` — implemented: the MCP server over stdio for an assistant (the `[mcp]` extra).
+- `serve --assistant [--assistant-model PROVIDER/MODEL]` — implemented: the web UI with its *Assistant* panel; starts and stops Kilo.
 - `kilo init [--repo DIR] [--dir DIR] [--force]` — implemented: `.kilo/` for Kilo (server, `controlm` agent, skill, vocabulary) at the top of the git repository.
 
 Comparison

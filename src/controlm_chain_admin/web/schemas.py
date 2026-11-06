@@ -558,3 +558,79 @@ class ConstantOut(BaseModel):
 class EnvironmentsOut(BaseModel):
     environments: list[EnvironmentOut]
     constants: list[ConstantOut]
+
+
+# ---------------------------------------------------------------- assistant
+
+
+class AssistantOut(BaseModel):
+    available: bool
+    reason: str | None = Field(None, description="why there is no assistant, and how to start one")
+    agent: str
+    model: str | None = Field(None, description="provider/model; null: the one Kilo is set to")
+    directory: str | None = Field(None, description="the Kilo project the conversations run in")
+
+
+class AssistantSessionOut(BaseModel):
+    id: str
+
+
+class AssistantPartOut(BaseModel):
+    kind: str = Field(description="text, tool or error")
+    text: str | None = None
+    tool: str | None = Field(None, description="a ctmchain tool: find, show, preview, apply...")
+    status: str | None = Field(None, description="of a tool: pending, running, completed, error")
+    input: Any = None
+    output: str | None = Field(None, description="what the tool gave back (cut when long)")
+
+
+class AssistantMessageOut(BaseModel):
+    id: str
+    role: str
+    parts: list[AssistantPartOut]
+
+
+class FieldChangeOut(BaseModel):
+    where: str
+    field: str | None
+    before: str | None
+    after: str | None
+
+
+class StepsPreviewOut(BaseModel):
+    preview_id: str | None
+    summary: str
+    warnings: list[str]
+    changes: list[FieldChangeOut]
+    files: list[str]
+    diff: str
+
+
+class ApprovalOut(BaseModel):
+    id: str
+    tool: str
+    input: Any = None
+    preview: StepsPreviewOut | None = Field(
+        None, description="this repository's preview of an apply's steps"
+    )
+    problem: str | None = Field(None, description="why the apply would not do what was shown")
+
+
+class ConversationOut(BaseModel):
+    id: str
+    busy: bool
+    messages: list[AssistantMessageOut]
+    approvals: list[ApprovalOut]
+
+
+class PromptRequest(BaseModel):
+    text: str = Field(min_length=1)
+
+
+class ApprovalRequest(BaseModel):
+    approve: bool
+
+
+class AckOut(BaseModel):
+    ok: bool = True
+

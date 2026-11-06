@@ -11,7 +11,7 @@ from controlm_chain_admin.core.errors import InvalidChange, ModelError, UnknownE
 from controlm_chain_admin.core.lookup import describe_node, find_condition, find_nodes
 from controlm_chain_admin.core.ops import import_xml
 from controlm_chain_admin.core.overrides import Override, write_overrides
-from controlm_chain_admin.core.repo import ChainRepo, init_repo, load_repo
+from controlm_chain_admin.core.repo import ChainRepo, init_repo, load_repo, read_json, write_json
 from tests.support.anomalies import ANOMALY_EXPORT
 from tests.support.samples import SAMPLE_EXPORT
 
@@ -138,3 +138,12 @@ def test_a_condition_by_its_name(repo: ChainRepo) -> None:
 def test_an_unknown_condition_is_refused(repo: ChainRepo) -> None:
     with pytest.raises(ModelError, match="no condition is called P77_NOPE"):
         find_condition(repo, "P77_NOPE")
+
+
+def test_a_variable_without_a_value_is_described_as_such(repo: ChainRepo) -> None:
+    path = repo.job_file("P77_CHAIN", "P77_B")
+    write_json(path, {**read_json(path), "VARIABLE": [{"NAME": "%%BARE"}]})
+
+    job = describe_node(repo, "P77_CHAIN/P77_B")
+
+    assert job["variables"] == {"%%BARE": None}

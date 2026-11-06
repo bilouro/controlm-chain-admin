@@ -6,13 +6,19 @@ from pathlib import Path
 
 import pytest
 
-from controlm_chain_admin.core.capabilities import changes_of, load_catalogue, plan, render_menu
+from controlm_chain_admin.core.capabilities import (
+    changes_of,
+    load_catalogue,
+    plan,
+    preview_steps,
+    render_menu,
+)
 from controlm_chain_admin.core.constants import Selector, define_constant
 from controlm_chain_admin.core.errors import InvalidChange
 from controlm_chain_admin.core.ops import import_xml
 from controlm_chain_admin.core.overrides import Override, write_overrides
-from controlm_chain_admin.core.refactor import OPERATIONS, apply, set_variable
-from controlm_chain_admin.core.repo import ChainRepo, init_repo, load_repo, read_json
+from controlm_chain_admin.core.refactor import OPERATIONS, apply, fingerprint, set_variable
+from controlm_chain_admin.core.repo import ChainRepo, init_repo, load_repo, read_json, write_json
 from tests.support.anomalies import ANOMALY_EXPORT
 from tests.support.samples import SAMPLE_EXPORT
 
@@ -184,3 +190,43 @@ def test_the_changes_of_a_change_set_say_where_which_field_before_and_after(
     assert created in rows
     incond = next(r for r in rows if r["where"] == load and r["field"] == "INCOND")
     assert "P77_INGEST_CHECK" in incond["after"]
+
+
+def test_a_preview_of_steps_has_the_id_apply_checks_and_what_changes(
+    repo: ChainRepo,
+) -> None:
+    steps = [{"do": "change-fields",
+              "params": {"nodes": ["P77_CHAIN/P77_B"], "changes": {"MAXWAIT": "3"}}}]  # fmt: skip
+
+    preview = preview_steps(repo, steps, diff_lines=3)
+    change = plan(repo, steps)
+
+    assert preview["preview_id"] == fingerprint(change)[:12]
+    assert preview["summary"] == "set MAXWAIT on P77_CHAIN/P77_B" and preview["warnings"] == []
+    assert preview["changes"] == changes_of(change)
+    assert preview["files"] == ["folders/P77_CHAIN/jobs/P77_B.json"]
+    assert preview["diff"].splitlines()[-1].startswith("... ")
+
+
+def test_a_preview_of_steps_that_change_nothing_has_no_id(repo: ChainRepo) -> None:
+    current = read_json(repo.job_file("P77_CHAIN", "P77_B"))["TASKTYPE"]
+    params = {"nodes": ["P77_CHAIN/P77_B"], "changes": {"TASKTYPE": current}}
+    steps = [{"do": "change-fields", "params": params}]
+
+    preview = preview_steps(repo, steps)
+
+    assert preview["preview_id"] is None and preview["summary"].endswith(": nothing to change")
+
+
+def test_set_variable_keeps_a_variable_without_a_value_as_it_is(repo: ChainRepo) -> None:
+    path = repo.job_file("P77_CHAIN", "P77_B")
+    write_json(path, {**read_json(path), "VARIABLE": [{"NAME": "%%BARE"}]})
+
+    change = set_variable(repo, "P77_CHAIN/P77_B", "%%RETRIES", "3")
+    rows = changes_of(change)
+    apply(repo, change)
+
+    assert read_json(path)["VARIABLE"] == [{"NAME": "%%BARE"}, {"NAME": "%%RETRIES", "VALUE": "3"}]
+    assert [row for row in rows if row["where"] == "P77_CHAIN/P77_B"] == [
+        {"where": "P77_CHAIN/P77_B", "field": "%%RETRIES", "before": None, "after": "3"}
+    ]

@@ -1040,7 +1040,8 @@ def set_attributes(repo: ChainRepo, node: str, changes: Mapping[str, str | None]
 
 
 def set_variables(repo: ChainRepo, node: str, variables: Sequence[Mapping[str, Any]]) -> ChangeSet:
-    """Replace the VARIABLE elements of a job or a folder (an empty list removes them)."""
+    """Replace the VARIABLE elements of a job or a folder (an empty list removes them); one
+    without a VALUE, as Control-M allows, stays without one."""
     repo = load_repo(repo.root)
     ref = _require_node(repo, node)
     clean: list[dict[str, str]] = []
@@ -1048,11 +1049,11 @@ def set_variables(repo: ChainRepo, node: str, variables: Sequence[Mapping[str, A
         name, value = variable.get("NAME"), variable.get("VALUE")
         if not isinstance(name, str) or not name.startswith("%%"):
             raise InvalidChange(f"Control-M variable names start with %%, got {name!r}")
-        if not isinstance(value, str):
+        if "VALUE" in variable and not isinstance(value, str):
             raise InvalidChange(f"{name}: the value must be text")
         if any(existing["NAME"] == name for existing in clean):
             raise InvalidChange(f"{name} is defined twice")
-        clean.append({"NAME": name, "VALUE": value})
+        clean.append({"NAME": name} if value is None else {"NAME": name, "VALUE": value})
     original = _tracked(repo.root)
     with _sandbox(original) as box:
         _write_node(box, ref, dict(read_json(_node_file(box, ref))), {"VARIABLE": clean})

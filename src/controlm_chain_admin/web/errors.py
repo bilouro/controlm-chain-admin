@@ -8,6 +8,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from controlm_chain_admin.core.errors import (
+    AssistantUnavailable,
     ChainError,
     ChangeConflict,
     DuplicateName,
@@ -43,6 +44,7 @@ _STATUS: tuple[tuple[type[ChainError], int], ...] = (
     (ModelError, 404),
     (UnknownEnvironment, 404),
     (NotAChainRepo, 503),
+    (AssistantUnavailable, 503),
     (DuplicateName, 409),
     (UnsafeName, 422),
     (EnvironmentRequired, 422),

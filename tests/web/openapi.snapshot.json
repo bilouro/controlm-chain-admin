@@ -1,6 +1,17 @@
 {
   "components": {
     "schemas": {
+      "AckOut": {
+        "properties": {
+          "ok": {
+            "default": true,
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "title": "AckOut",
+        "type": "object"
+      },
       "ActionOut": {
         "properties": {
           "message": {
@@ -60,6 +71,220 @@
           "fingerprint"
         ],
         "title": "ApplyRequest",
+        "type": "object"
+      },
+      "ApprovalOut": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "preview": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StepsPreviewOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "this repository's preview of an apply's steps"
+          },
+          "problem": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "why the apply would not do what was shown",
+            "title": "Problem"
+          },
+          "tool": {
+            "title": "Tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tool"
+        ],
+        "title": "ApprovalOut",
+        "type": "object"
+      },
+      "ApprovalRequest": {
+        "properties": {
+          "approve": {
+            "title": "Approve",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "approve"
+        ],
+        "title": "ApprovalRequest",
+        "type": "object"
+      },
+      "AssistantMessageOut": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "parts": {
+            "items": {
+              "$ref": "#/components/schemas/AssistantPartOut"
+            },
+            "title": "Parts",
+            "type": "array"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "role",
+          "parts"
+        ],
+        "title": "AssistantMessageOut",
+        "type": "object"
+      },
+      "AssistantOut": {
+        "properties": {
+          "agent": {
+            "title": "Agent",
+            "type": "string"
+          },
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "directory": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the Kilo project the conversations run in",
+            "title": "Directory"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "provider/model; null: the one Kilo is set to",
+            "title": "Model"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "why there is no assistant, and how to start one",
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "available",
+          "agent"
+        ],
+        "title": "AssistantOut",
+        "type": "object"
+      },
+      "AssistantPartOut": {
+        "properties": {
+          "input": {
+            "title": "Input"
+          },
+          "kind": {
+            "description": "text, tool or error",
+            "title": "Kind",
+            "type": "string"
+          },
+          "output": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "what the tool gave back (cut when long)",
+            "title": "Output"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "of a tool: pending, running, completed, error",
+            "title": "Status"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          },
+          "tool": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "a ctmchain tool: find, show, preview, apply...",
+            "title": "Tool"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "AssistantPartOut",
+        "type": "object"
+      },
+      "AssistantSessionOut": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "AssistantSessionOut",
         "type": "object"
       },
       "ChangePreview": {
@@ -435,6 +660,40 @@
           "nodes"
         ],
         "title": "ConstantOut",
+        "type": "object"
+      },
+      "ConversationOut": {
+        "properties": {
+          "approvals": {
+            "items": {
+              "$ref": "#/components/schemas/ApprovalOut"
+            },
+            "title": "Approvals",
+            "type": "array"
+          },
+          "busy": {
+            "title": "Busy",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/AssistantMessageOut"
+            },
+            "title": "Messages",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "busy",
+          "messages",
+          "approvals"
+        ],
+        "title": "ConversationOut",
         "type": "object"
       },
       "DecisionOut": {
@@ -860,6 +1119,55 @@
           "variables"
         ],
         "title": "ExceptionOut",
+        "type": "object"
+      },
+      "FieldChangeOut": {
+        "properties": {
+          "after": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "After"
+          },
+          "before": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Before"
+          },
+          "field": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field"
+          },
+          "where": {
+            "title": "Where",
+            "type": "string"
+          }
+        },
+        "required": [
+          "where",
+          "field",
+          "before",
+          "after"
+        ],
+        "title": "FieldChangeOut",
         "type": "object"
       },
       "FindingOut": {
@@ -2127,6 +2435,20 @@
         "title": "PopRequest",
         "type": "object"
       },
+      "PromptRequest": {
+        "properties": {
+          "text": {
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "PromptRequest",
+        "type": "object"
+      },
       "RefOut": {
         "properties": {
           "date": {
@@ -2479,6 +2801,60 @@
           "message"
         ],
         "title": "StashOut",
+        "type": "object"
+      },
+      "StepsPreviewOut": {
+        "properties": {
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/FieldChangeOut"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "diff": {
+            "title": "Diff",
+            "type": "string"
+          },
+          "files": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "preview_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preview Id"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "preview_id",
+          "summary",
+          "warnings",
+          "changes",
+          "files",
+          "diff"
+        ],
+        "title": "StepsPreviewOut",
         "type": "object"
       },
       "SwitchRequest": {
@@ -2929,6 +3305,360 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/assistant": {
+      "get": {
+        "operationId": "status_api_assistant_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssistantOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Is there an assistant, and which",
+        "tags": [
+          "assistant"
+        ]
+      }
+    },
+    "/api/assistant/sessions": {
+      "post": {
+        "operationId": "start_api_assistant_sessions_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssistantSessionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or wrong session token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unknown conversation"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "No assistant, or it does not answer"
+          }
+        },
+        "summary": "Start a conversation",
+        "tags": [
+          "assistant"
+        ]
+      }
+    },
+    "/api/assistant/sessions/{session}": {
+      "get": {
+        "operationId": "read_api_assistant_sessions__session__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session",
+            "required": true,
+            "schema": {
+              "title": "Session",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or wrong session token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unknown conversation"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "No assistant, or it does not answer"
+          }
+        },
+        "summary": "A conversation: its messages and what waits for approval",
+        "tags": [
+          "assistant"
+        ]
+      }
+    },
+    "/api/assistant/sessions/{session}/approvals/{approval}": {
+      "post": {
+        "operationId": "answer_api_assistant_sessions__session__approvals__approval__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session",
+            "required": true,
+            "schema": {
+              "title": "Session",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "approval",
+            "required": true,
+            "schema": {
+              "title": "Approval",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApprovalRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AckOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or wrong session token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unknown conversation"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "No assistant, or it does not answer"
+          }
+        },
+        "summary": "Allow or refuse what the assistant waits to do",
+        "tags": [
+          "assistant"
+        ]
+      }
+    },
+    "/api/assistant/sessions/{session}/messages": {
+      "post": {
+        "operationId": "ask_api_assistant_sessions__session__messages_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session",
+            "required": true,
+            "schema": {
+              "title": "Session",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PromptRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AckOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or wrong session token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unknown conversation"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "No assistant, or it does not answer"
+          }
+        },
+        "summary": "Ask the assistant",
+        "tags": [
+          "assistant"
+        ]
+      }
+    },
+    "/api/assistant/sessions/{session}/stop": {
+      "post": {
+        "operationId": "stop_api_assistant_sessions__session__stop_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session",
+            "required": true,
+            "schema": {
+              "title": "Session",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AckOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or wrong session token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unknown conversation"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "No assistant, or it does not answer"
+          }
+        },
+        "summary": "Interrupt the assistant",
+        "tags": [
+          "assistant"
+        ]
+      }
+    },
     "/api/changes/apply": {
       "post": {
         "operationId": "apply_change_api_changes_apply_post",
@@ -4800,6 +5530,10 @@
     {
       "description": "Where edits go: releases from the trunk, installations, stash, push.",
       "name": "workspace"
+    },
+    {
+      "description": "Conversations with the assistant (kilo serve) that asks before it writes.",
+      "name": "assistant"
     }
   ]
 }

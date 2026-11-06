@@ -18,7 +18,7 @@ from importlib import resources
 from typing import Any
 
 from controlm_chain_admin.core.errors import InvalidChange
-from controlm_chain_admin.core.refactor import ChangeSet, run_operation
+from controlm_chain_admin.core.refactor import ChangeSet, fingerprint, run_operation
 from controlm_chain_admin.core.repo import ChainRepo
 
 _TYPE_WORDS = {"string": "text", "boolean": "true or false", "null": "null"}
@@ -154,6 +154,35 @@ def plan(repo: ChainRepo, steps: Sequence[Mapping[str, Any]]) -> ChangeSet:
     return run_operation(repo, "batch", {"changes": operations})
 
 
+def preview_steps(
+    repo: ChainRepo, steps: Sequence[Mapping[str, Any]], *, diff_lines: int = 400
+) -> dict[str, Any]:
+    """What the steps would change, for the user to agree to: the id an apply checks (none
+    when nothing changes), each field before -> after, the warnings and the diff."""
+    change = plan(repo, steps)
+    return {
+        "preview_id": preview_id(change) if change.edits else None,
+        "summary": change.summary if change.edits else f"{change.summary}: nothing to change",
+        "warnings": list(change.warnings),
+        "changes": changes_of(change),
+        "files": [edit.path for edit in change.edits],
+        "diff": cut_lines(change.diff(), diff_lines, "diff_lines shows more"),
+    }
+
+
+def preview_id(change: ChangeSet) -> str:
+    """The short fingerprint that names a previewed change."""
+    return fingerprint(change)[:12]
+
+
+def cut_lines(text: str, lines: int, hint: str) -> str:
+    """The first ``lines`` lines of ``text``, then how many more and how to see them."""
+    rows = text.splitlines()
+    if len(rows) <= lines:
+        return text
+    return "\n".join([*rows[:lines], f"... {len(rows) - lines} more lines ({hint})"])
+
+
 def changes_of(change: ChangeSet) -> list[dict[str, Any]]:
     """Each field a change set changes, where: what to tell the user before applying."""
     rows: list[dict[str, Any]] = []
@@ -178,8 +207,8 @@ def _fields(before: Mapping[str, Any], after: Mapping[str, Any]) -> list[dict[st
         if old == new:
             continue
         if key == "VARIABLE":
-            olds = {v["NAME"]: v["VALUE"] for v in old or []}
-            news = {v["NAME"]: v["VALUE"] for v in new or []}
+            olds = {v["NAME"]: v.get("VALUE") for v in old or []}
+            news = {v["NAME"]: v.get("VALUE") for v in new or []}
             rows += [
                 {"field": name, "before": olds.get(name), "after": news.get(name)}
                 for name in [*olds, *(n for n in news if n not in olds)]

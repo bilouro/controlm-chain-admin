@@ -22,6 +22,19 @@ All notable changes to this project are documented here. The format follows
   ctmchain tools only (`ctmchain_apply` asks first), the skill, and `vocabulary.md` for the
   team's words, never overwritten.
 - `set-variable`: add, change or remove one variable of a job or folder.
+- The *Assistant* panel of the web UI: *Assistant* in the header opens a conversation beside
+  the page, kept across pages and reloads of the tab. It shows the assistant's text and every
+  tool it called, and what it waits to be allowed to do: an apply comes with this
+  repository's own preview of its steps (each field before -> after, the warnings, the diff),
+  *Apply* or *Reject*; one the repository moved away from cannot be applied. *Stop*
+  interrupts it; the pages read the chains again after a change. `ctmchain serve --assistant
+  [--assistant-model provider/model]` starts Kilo (`kilo serve`, on 127.0.0.1 with a password
+  of its own, in the Kilo project; `.kilo/` written when missing) and stops it with the
+  server; `CTMCHAIN_ASSISTANT_URL` (and `_PASSWORD`) uses one already running. `/api/assistant`
+  (status, sessions, messages, approvals, stop; the posts need the session token).
+- `npm run test:e2e` in `web/`: Playwright against the built UI served on a synthetic
+  repository; `CTMCHAIN_E2E_ASSISTANT=1` adds a real conversation with Kilo and a model (a
+  question, a change approved, a change rejected).
 - The web UI shows one environment: *View* in the header switches the chain table, the folder
   pages and the job pages to the folders and jobs that environment has, with its values (its
   exceptions applied, its constants resolved; a constant without a value there stays
@@ -112,6 +125,10 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- `ctmchain serve` stopped by SIGTERM or SIGHUP (a closed terminal) cleans up like Ctrl+C: the
+  Kilo of `--assistant` stops with it instead of running on.
+- `set-variables` keeps a variable without a value (Control-M allows it) instead of refusing
+  the change.
 - Receiving an export of an environment no longer drops from the base the jobs that
   environment does not have (`"envs"` without it): they stay as they are. A second full
   export of uat used to remove them.

@@ -4,6 +4,108 @@
  */
 
 export interface paths {
+  "/api/assistant": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Is there an assistant, and which */
+    get: operations["status_api_assistant_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/assistant/sessions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Start a conversation */
+    post: operations["start_api_assistant_sessions_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/assistant/sessions/{session}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** A conversation: its messages and what waits for approval */
+    get: operations["read_api_assistant_sessions__session__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/assistant/sessions/{session}/approvals/{approval}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Allow or refuse what the assistant waits to do */
+    post: operations["answer_api_assistant_sessions__session__approvals__approval__post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/assistant/sessions/{session}/messages": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Ask the assistant */
+    post: operations["ask_api_assistant_sessions__session__messages_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/assistant/sessions/{session}/stop": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Interrupt the assistant */
+    post: operations["stop_api_assistant_sessions__session__stop_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/changes/apply": {
     parameters: {
       query?: never;
@@ -501,6 +603,14 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /** AckOut */
+    AckOut: {
+      /**
+       * Ok
+       * @default true
+       */
+      ok: boolean;
+    };
     /** ActionOut */
     ActionOut: {
       /** Message */
@@ -533,6 +643,90 @@ export interface components {
       params: {
         [key: string]: unknown;
       };
+    };
+    /** ApprovalOut */
+    ApprovalOut: {
+      /** Id */
+      id: string;
+      /** Input */
+      input?: unknown;
+      /** @description this repository's preview of an apply's steps */
+      preview?: components["schemas"]["StepsPreviewOut"] | null;
+      /**
+       * Problem
+       * @description why the apply would not do what was shown
+       */
+      problem?: string | null;
+      /** Tool */
+      tool: string;
+    };
+    /** ApprovalRequest */
+    ApprovalRequest: {
+      /** Approve */
+      approve: boolean;
+    };
+    /** AssistantMessageOut */
+    AssistantMessageOut: {
+      /** Id */
+      id: string;
+      /** Parts */
+      parts: components["schemas"]["AssistantPartOut"][];
+      /** Role */
+      role: string;
+    };
+    /** AssistantOut */
+    AssistantOut: {
+      /** Agent */
+      agent: string;
+      /** Available */
+      available: boolean;
+      /**
+       * Directory
+       * @description the Kilo project the conversations run in
+       */
+      directory?: string | null;
+      /**
+       * Model
+       * @description provider/model; null: the one Kilo is set to
+       */
+      model?: string | null;
+      /**
+       * Reason
+       * @description why there is no assistant, and how to start one
+       */
+      reason?: string | null;
+    };
+    /** AssistantPartOut */
+    AssistantPartOut: {
+      /** Input */
+      input?: unknown;
+      /**
+       * Kind
+       * @description text, tool or error
+       */
+      kind: string;
+      /**
+       * Output
+       * @description what the tool gave back (cut when long)
+       */
+      output?: string | null;
+      /**
+       * Status
+       * @description of a tool: pending, running, completed, error
+       */
+      status?: string | null;
+      /** Text */
+      text?: string | null;
+      /**
+       * Tool
+       * @description a ctmchain tool: find, show, preview, apply...
+       */
+      tool?: string | null;
+    };
+    /** AssistantSessionOut */
+    AssistantSessionOut: {
+      /** Id */
+      id: string;
     };
     /** ChangePreview */
     ChangePreview: {
@@ -684,6 +878,17 @@ export interface components {
       values: {
         [key: string]: string | null;
       };
+    };
+    /** ConversationOut */
+    ConversationOut: {
+      /** Approvals */
+      approvals: components["schemas"]["ApprovalOut"][];
+      /** Busy */
+      busy: boolean;
+      /** Id */
+      id: string;
+      /** Messages */
+      messages: components["schemas"]["AssistantMessageOut"][];
     };
     /** DecisionOut */
     DecisionOut: {
@@ -868,6 +1073,17 @@ export interface components {
       variables: {
         [key: string]: string | null;
       };
+    };
+    /** FieldChangeOut */
+    FieldChangeOut: {
+      /** After */
+      after: string | null;
+      /** Before */
+      before: string | null;
+      /** Field */
+      field: string | null;
+      /** Where */
+      where: string;
     };
     /** FindingOut */
     FindingOut: {
@@ -1396,6 +1612,11 @@ export interface components {
        */
       ref: string;
     };
+    /** PromptRequest */
+    PromptRequest: {
+      /** Text */
+      text: string;
+    };
     /** RefOut */
     RefOut: {
       /** Date */
@@ -1549,6 +1770,21 @@ export interface components {
       message: string;
       /** Ref */
       ref: string;
+    };
+    /** StepsPreviewOut */
+    StepsPreviewOut: {
+      /** Changes */
+      changes: components["schemas"]["FieldChangeOut"][];
+      /** Diff */
+      diff: string;
+      /** Files */
+      files: string[];
+      /** Preview Id */
+      preview_id: string | null;
+      /** Summary */
+      summary: string;
+      /** Warnings */
+      warnings: string[];
     };
     /** SwitchRequest */
     SwitchRequest: {
@@ -1707,6 +1943,304 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  status_api_assistant_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AssistantOut"];
+        };
+      };
+    };
+  };
+  start_api_assistant_sessions_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AssistantSessionOut"];
+        };
+      };
+      /** @description Missing or wrong session token */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Unknown conversation */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description No assistant, or it does not answer */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+    };
+  };
+  read_api_assistant_sessions__session__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        session: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ConversationOut"];
+        };
+      };
+      /** @description Missing or wrong session token */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Unknown conversation */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+      /** @description No assistant, or it does not answer */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+    };
+  };
+  answer_api_assistant_sessions__session__approvals__approval__post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        session: string;
+        approval: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ApprovalRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AckOut"];
+        };
+      };
+      /** @description Missing or wrong session token */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Unknown conversation */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+      /** @description No assistant, or it does not answer */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+    };
+  };
+  ask_api_assistant_sessions__session__messages_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        session: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PromptRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AckOut"];
+        };
+      };
+      /** @description Missing or wrong session token */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Unknown conversation */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+      /** @description No assistant, or it does not answer */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+    };
+  };
+  stop_api_assistant_sessions__session__stop_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        session: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AckOut"];
+        };
+      };
+      /** @description Missing or wrong session token */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Unknown conversation */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+      /** @description No assistant, or it does not answer */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+    };
+  };
   apply_change_api_changes_apply_post: {
     parameters: {
       query?: never;

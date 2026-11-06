@@ -423,6 +423,7 @@ def build_parser() -> argparse.ArgumentParser:
     srv.add_argument(
         "--check", action="store_true", help="build the app and print the URL, do not listen"
     )
+    cli_assistant.serve_options(srv)
     srv.set_defaults(func=cmd_serve)
     return parser
 
@@ -958,9 +959,19 @@ def cmd_serve(args: argparse.Namespace) -> int:
     folders = len(folder_names(repo))
     print(f"Serving {repo.config.application} ({_plural(folders, 'folder')}) at {settings.url}")
     print(f"Editing enabled at {settings.editor_url(settings.token)}")
-    if args.check:
-        return EXIT_OK
-    run(settings)  # pragma: no cover - blocks until interrupted
+    kilo = cli_assistant.start_assistant(repo, args.assistant_model) if args.assistant else None
+    try:
+        if kilo is not None:
+            settings = settings.model_copy(update={
+                "assistant_url": kilo.url, "assistant_password": kilo.password,
+                "assistant_model": args.assistant_model or settings.assistant_model,
+            })  # fmt: skip
+        if args.check:
+            return EXIT_OK
+        run(settings)  # pragma: no cover - blocks until interrupted
+    finally:
+        if kilo is not None:
+            kilo.stop()
     return EXIT_OK  # pragma: no cover
 
 

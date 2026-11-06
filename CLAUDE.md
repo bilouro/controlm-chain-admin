@@ -41,5 +41,6 @@ pytest                           # fixture tests (CI)
 CTMCHAIN_DATA_REPO=~/dev/controlm-chain-data pytest -m realdata   # local only
 ruff check . && ruff format --check . && mypy src
 cd web && npm ci && npm run lint && npm run typecheck && npm test && npm run build
+cd web && npm run test:e2e       # Playwright on a synthetic repo; CTMCHAIN_E2E_ASSISTANT=1: Kilo too
 .claude/skills/verify/verify.sh  # the whole gate, PASS/FAIL
 ```

@@ -62,7 +62,7 @@ def describe_node(repo: ChainRepo, node: str, env: str | None = None) -> dict[st
         "kind": "job" if ref.job is not None else "folder",
         **({"env": env} if env else {}),
         "attributes": {k: v for k, v in data.items() if isinstance(v, str)},
-        "variables": {v["NAME"]: v["VALUE"] for v in data.get("VARIABLE", [])},
+        "variables": {v["NAME"]: v.get("VALUE") for v in data.get("VARIABLE", [])},
         "waits_for": [
             {"condition": link.name, "from": [str(p) for p in link.all_producers]}
             for link in links

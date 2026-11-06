@@ -21,6 +21,16 @@ class Settings(BaseSettings):
     token: str | None = None
     #: Host headers accepted (protects the local server from DNS rebinding).
     allowed_hosts: list[str] = ["127.0.0.1", "localhost"]
+    #: The assistant the UI talks to: a ``kilo serve`` (``ctmchain serve --assistant`` starts
+    #: one); ``None``: no assistant. Its password, when it has one (HTTP Basic, user ``kilo``).
+    assistant_url: str | None = None
+    assistant_password: str | None = None
+    #: The agent of the conversations, and their model as ``provider/model`` (``None``: the one
+    #: Kilo is set to use).
+    assistant_agent: str = "controlm"
+    assistant_model: str | None = None
+    #: Where Kilo works (its project, with ``.kilo/``); default: the top of the git repository.
+    assistant_dir: Path | None = None
 
     @property
     def url(self) -> str:
