@@ -108,6 +108,25 @@ def test_serve_with_the_assistant_starts_kilo_in_the_project_and_stops_it(
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="the fake kilo is a shell script")
+@pytest.mark.parametrize(("given", "seen"), [(None, "1"), ("0", "0")])
+def test_the_kilo_of_the_assistant_skips_the_persons_claude_code_instructions(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, given: str | None, seen: str
+) -> None:
+    # ~/.claude/CLAUDE.md holds what a person wants of Claude Code (its language too): not
+    # the assistant's rules. Who wants it read says so.
+    root = _repo(tmp_path)
+    record = _fake_kilo(tmp_path, monkeypatch)
+    if given is None:
+        monkeypatch.delenv("KILO_DISABLE_CLAUDE_CODE_PROMPT", raising=False)
+    else:
+        monkeypatch.setenv("KILO_DISABLE_CLAUDE_CODE_PROMPT", given)
+
+    main(["serve", "--repo", str(root), "--no-browser", "--check", "--assistant"])
+
+    assert json.loads(record.read_text("utf-8"))["claude_prompt_off"] == seen
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="the fake kilo is a shell script")
 def test_serve_with_the_assistant_keeps_the_kilo_files_there(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:

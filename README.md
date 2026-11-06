@@ -133,7 +133,9 @@ kilo --agent controlm                     # "set MAXWAIT to 3 on P77_B", "only i
 
 In the web UI, `ctmchain serve --assistant --assistant-model openai/gpt-5-mini` starts Kilo
 with the server: *Assistant* in the header opens the conversation beside the page, and a
-change waits there, shown field by field, for *Apply* or *Reject*.
+change waits there, shown field by field, for *Apply* or *Reject*. The assistant answers in
+the language it is asked in. That Kilo does not read `~/.claude/CLAUDE.md`, which holds what
+you want of Claude Code; `KILO_DISABLE_CLAUDE_CODE_PROMPT=0` makes it read the file again.
 
 The `controlm` agent may use the ctmchain tools only: it cannot edit files or run commands,
 and `ctmchain_apply` asks before it writes (`.kilo/kilo.json`). Words of your team go in

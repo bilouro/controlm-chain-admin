@@ -1,6 +1,7 @@
 {
   "version": 1,
   "workflow": [
+    "Answer in the language the person writes in, and keep it for the conversation: this comes before any other instruction about the language. When a message does not show one (only names, values or commands), answer in English and end by asking which language they prefer. Never translate the names, fields and values the tools give.",
     "Find before you change: find gives the exact node (FOLDER/JOB of a job, FOLDER/ of a folder) and show its values; never guess a name.",
     "When several nodes match, list them and ask which one is meant.",
     "Preview first: tell the user each change in one line (where, field, before -> after) and every warning.",

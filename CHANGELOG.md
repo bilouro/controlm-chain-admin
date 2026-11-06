@@ -104,6 +104,14 @@ All notable changes to this project are documented here. The format follows
 ### Changed
 
 - The summary of `set-attributes` names the attributes: `set MAXWAIT on P77_CHAIN/P77_B`.
+- The assistant answers in the language the person writes in and keeps it for the
+  conversation; when a message does not show one (only names or values) it answers in English
+  and asks which language they prefer, and it never translates the names, fields and values of
+  the chains. It is a rule of the capabilities file, so the `controlm` agent, the skill and
+  `ctmchain mcp` all carry it; a `.kilo/` written before takes it with
+  `ctmchain kilo init --force` (the vocabulary is kept). The Kilo that `serve --assistant`
+  starts no longer reads `~/.claude/CLAUDE.md`, what a person wants of Claude Code (its
+  language too); `KILO_DISABLE_CLAUDE_CODE_PROMPT=0` reads it again.
 - A full export of an environment other than production makes every difference an exception
   of that environment by default: attributes and variables (present or absent), the lines of
   the folders and jobs, and the same difference repeated in several jobs (`exceptions`).

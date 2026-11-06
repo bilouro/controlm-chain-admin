@@ -169,7 +169,13 @@ def start_kilo(directory: Path, *, timeout: float = 60) -> KiloProcess:
         process = subprocess.Popen(
             [executable, "serve", "--port", str(port), "--hostname", "127.0.0.1"],
             cwd=directory,
-            env={**os.environ, "KILO_SERVER_PASSWORD": password},
+            # ~/.claude/CLAUDE.md is what a person wants of Claude Code (a language, say), not
+            # the rules of this assistant; KILO_DISABLE_CLAUDE_CODE_PROMPT=0 reads it again
+            env={
+                "KILO_DISABLE_CLAUDE_CODE_PROMPT": "1",
+                **os.environ,
+                "KILO_SERVER_PASSWORD": password,
+            },
             stdin=subprocess.DEVNULL,
             stdout=out,
             stderr=subprocess.STDOUT,

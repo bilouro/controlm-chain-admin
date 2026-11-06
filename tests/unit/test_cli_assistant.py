@@ -99,6 +99,26 @@ def test_kilo_init_writes_the_server_the_agent_and_the_skill(
     assert "wrote .kilo/kilo.json" in out and "kilo --agent controlm" in out
 
 
+def test_the_agent_and_the_skill_answer_in_the_language_of_the_person_or_ask_it(
+    tmp_path: Path,
+) -> None:
+    repo = chain_git_repo(tmp_path)
+
+    main(["kilo", "init", "--repo", str(repo.root)])
+
+    kilo = repo.root / ".kilo"
+    agent = (kilo / "agents" / "controlm.md").read_text("utf-8")
+    skill = (kilo / "skills" / "ctmchain" / "SKILL.md").read_text("utf-8")
+    rule = (
+        "- Answer in the language the person writes in, and keep it for the conversation: this "
+        "comes before any other instruction about the language. When a message does not show "
+        "one (only names, values or commands), answer in English and end by asking which "
+        "language they prefer. Never translate the names, fields and values the tools give."
+    )
+    assert rule in agent and rule in skill
+    assert agent.count("language") == rule.count("language")
+
+
 def test_kilo_init_goes_to_the_top_of_the_git_repository(tmp_path: Path) -> None:
     top = tmp_path / "data"
     top.mkdir()

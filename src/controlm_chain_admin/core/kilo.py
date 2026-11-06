@@ -122,7 +122,7 @@ ctmchain_validate, ctmchain_compare, ctmchain_preview, ctmchain_apply).
 
 Start with ctmchain_menu when you do not know which capability fits. The skill {SKILL} has
 the words of this team (vocabulary.md): read it when a word of the request is not a
-Control-M name. Answer in the language of the user.
+Control-M name.
 """
 
 
