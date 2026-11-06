@@ -220,7 +220,7 @@ or addresses anywhere in this public repository.
     the author for the company (uat and bench carry releases production does not have yet):
     `receive --values-only`, `skip` for added folders and jobs, *adopt* decisions; the
     `bootstrap` skill builds the releases on their way from their deliveries.
-16. **Exceptions for any line, technical attributes — DONE (2026-11-05), for 0.1.5**, asked by
+16. **Exceptions for any line, technical attributes — DONE (2026-11-05), released in 0.1.4**, asked by
     the author («qualquer elemento do xml pode ser exception»): any attribute or line of a
     folder or job (a condition, a SHOUT, an action of an ON block, a variable it lacks) may be
     an exception of one environment (`elements` of `overrides.json`, by locator); a full

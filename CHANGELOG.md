@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-11-06
+
 ### Added
 
 - Ask in plain words. `ctmchain mcp` serves the repository to an assistant (Kilo, Claude, any
@@ -100,6 +102,8 @@ All notable changes to this project are documented here. The format follows
   Markdown* (`real=1` in the address) and `--real-only` leave them out, the counts and the
   Markdown follow (`real_only=true` on `/api/compare/markdown`). What is packaged does not
   change.
+- *On Windows, from scratch (with Kilo)* in the README: the tool in a venv from PyPI, the data
+  repository from the exports, the assistant; the `bootstrap` skill has the PowerShell lines.
 
 ### Changed
 
@@ -403,7 +407,8 @@ First release on PyPI.
 - On Windows, unknown `/api/...` paths and missing assets were answered with the app instead of
   404 (the static files handler sees `\` separators there).
 
-[Unreleased]: https://github.com/bilouro/controlm-chain-admin/compare/v0.1.3...HEAD
+[Unreleased]: https://github.com/bilouro/controlm-chain-admin/compare/v0.1.4...HEAD
+[0.1.4]: https://github.com/bilouro/controlm-chain-admin/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/bilouro/controlm-chain-admin/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/bilouro/controlm-chain-admin/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/bilouro/controlm-chain-admin/compare/v0.1.0...v0.1.1

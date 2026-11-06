@@ -142,6 +142,54 @@ and `ctmchain_apply` asks before it writes (`.kilo/kilo.json`). Words of your te
 `.kilo/skills/ctmchain/vocabulary.md`. Any other MCP client runs
 `python -m controlm_chain_admin mcp --repo ./my-chains`.
 
+## On Windows, from scratch (with Kilo)
+
+In PowerShell, with Python 3.11 or newer, git, and the Kilo CLI (`kilo --version`; signed in
+with the model your company allows) on the PATH. Only PyPI needs to be reachable.
+
+```powershell
+# 1. The tool, in a virtual environment of its own (an older one: the same pip line in it)
+py -m venv $HOME\ctmchain-venv
+& $HOME\ctmchain-venv\Scripts\Activate.ps1   # blocked? Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+python -m pip install --upgrade pip
+python -m pip install --upgrade "controlm-chain-admin[web,mcp]"
+ctmchain --version
+
+# 2. The data repository, outside the code: the full exports in exports\<env>\, the chains
+#    in chains\; production first, it is the trunk
+mkdir $HOME\dev\my-data\chains; cd $HOME\dev\my-data\chains
+git init -b main
+ctmchain init --application P77_RISK_ENGINE --envs test=T,uat=U,bench=B,prod=P `
+    --prefixes P77,RQ_,RC_ --leading-only RQ_,RC_
+ctmchain import ..\exports\prod\prod.xml --env prod --dedupe-jobnames
+ctmchain check ..\exports\prod\prod.xml --env prod      # "the same byte for byte"
+git add -A; git commit -m "chore: production baseline"
+
+# 3. The other environments, in one release: their machines, users and mails become
+#    constants, everything else they have becomes their exceptions; production stays
+ctmchain release start environments
+ctmchain receive ..\exports\uat\uat.xml                 # the decisions (or the Import page of serve)
+ctmchain receive ..\exports\uat\uat.xml --apply
+ctmchain check ..\exports\uat\uat.xml --env uat         # what the repository still differs in
+git add -A; git commit -m "chore: uat"                  # the same for bench and test, then:
+ctmchain release installed prod; ctmchain release close
+
+# 4. The assistant
+ctmchain kilo init --repo .
+Add-Content .gitignore ".kilo/kilo.json"                # it holds the paths of this machine
+ctmchain serve --assistant                              # Assistant in the header; Kilo's model
+```
+
+`ctmchain serve --assistant` starts `kilo serve` itself, with the model Kilo is set to
+(`--assistant-model provider/model` for another one, `kilo models` lists them) and stops it with
+the server. A `kilo` that is not on the PATH: `$env:CTMCHAIN_KILO = "C:\path\to\kilo.cmd"`.
+Kilo in a terminal works too: `kilo --agent controlm` in the chains directory.
+
+The step by step of the data repository (the decisions of each environment, the conventions
+for constants and exceptions, the releases already on their way) is the `bootstrap` skill of
+the source distribution: `pip download controlm-chain-admin --no-deps --no-binary :all:`, then
+`.claude/skills/bootstrap/SKILL.md` in the archive.
+
 ## Development
 
 ```bash

@@ -31,6 +31,20 @@ files) and number every question so they can answer «1 sim, 2 não».
    .venv/bin/pip install -e ".[dev,web,mcp]"      # Windows: .venv\Scripts\pip ...
    ```
 
+   In PowerShell on Windows (`tar` ships with Windows 10 and later):
+
+   ```powershell
+   py -m pip download controlm-chain-admin==<version> --no-deps --no-binary :all:
+   tar -xzf controlm_chain_admin-<version>.tar.gz
+   cd controlm_chain_admin-<version>
+   git init -b main; git add -A; git commit -m "chore: controlm-chain-admin <version>"
+   py -m venv .venv
+   .venv\Scripts\python -m pip install -e ".[dev,web,mcp]"
+   ```
+
+   Only to use the tool, without adjusting it: `pip install "controlm-chain-admin[web,mcp]"`
+   in a venv of its own (the README, *On Windows, from scratch*).
+
 3. Create `.claude/no-real-data.patterns` (git-ignored, one regular expression per line) with
    the names that must never enter this code: the company, its domains, the application
    code, machine and user prefixes. Ask the person for them. The gate scans for them.
@@ -191,7 +205,9 @@ there:
    <job> wait for?»), then a change on a release branch: it previews field by field and asks
    before `ctmchain_apply`. Nothing is committed by the agent.
 5. In the web UI: `ctmchain serve --assistant` (optionally `--assistant-model
-   provider/model`; default: Kilo's own) starts Kilo with the server; *Assistant* in the
-   header opens the conversation, and every change waits there for *Apply* or *Reject*.
+   provider/model`; default: Kilo's own, the model the company set) starts Kilo with the
+   server; *Assistant* in the header opens the conversation, and every change waits there for
+   *Apply* or *Reject*. On Windows it starts `kilo.cmd` from the PATH; a Kilo elsewhere:
+   `$env:CTMCHAIN_KILO = "C:\path\to\kilo.cmd"`.
 6. `kilo mcp list` shows `ctmchain connected`; if not, run the command of `kilo.json` by hand
    (`<python> -m controlm_chain_admin mcp --repo <chains>`): it waits on stdin when it works.
