@@ -167,9 +167,9 @@ def test_serve_with_the_assistant_without_kilo_says_how_to_install_it(
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="POSIX signals")
-@pytest.mark.parametrize("stop", [signal.SIGTERM, signal.SIGHUP])
+@pytest.mark.parametrize("stop", ["SIGTERM", "SIGHUP"])  # by name: Windows has neither
 def test_a_server_stopped_by_a_signal_stops_its_kilo_too(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, stop: signal.Signals
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, stop: str
 ) -> None:
     root = _repo(tmp_path)
     _fake_kilo(tmp_path, monkeypatch)
@@ -193,7 +193,7 @@ def test_a_server_stopped_by_a_signal_stops_its_kilo_too(
             time.sleep(0.1)
         assert _answers(kilo)
 
-        server.send_signal(stop)
+        server.send_signal(getattr(signal, stop))
         server.wait(timeout=30)
 
         assert not _answers(kilo)
