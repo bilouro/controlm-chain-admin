@@ -254,3 +254,33 @@ def test_an_assistant_with_a_password(repo_root: Path) -> None:
 
     assert right["available"] is True
     assert wrong["available"] is False and "refused" in wrong["reason"]
+
+
+@pytest.mark.parametrize(
+    ("platform", "on_path", "chosen"),
+    [
+        # npm puts kilo (a shell script), kilo.cmd and kilo.ps1 side by side on Windows
+        ("win32", {"kilo": "C:/npm/kilo", "kilo.cmd": "C:/npm/kilo.cmd"}, "C:/npm/kilo.cmd"),
+        ("win32", {"kilo": "C:/npm/kilo", "kilo.exe": "C:/kilo/kilo.exe"}, "C:/kilo/kilo.exe"),
+        ("darwin", {"kilo": "/usr/local/bin/kilo", "kilo.cmd": "x"}, "/usr/local/bin/kilo"),
+        ("win32", {}, None),
+    ],
+)
+def test_the_kilo_started_is_one_the_system_can_run(
+    monkeypatch: pytest.MonkeyPatch, platform: str, on_path: dict[str, str], chosen: str | None
+) -> None:
+    from controlm_chain_admin.web import assistant
+
+    monkeypatch.delenv("CTMCHAIN_KILO", raising=False)
+    monkeypatch.setattr(assistant.sys, "platform", platform)
+    monkeypatch.setattr(assistant.shutil, "which", on_path.get)
+
+    assert assistant.kilo_executable() == chosen
+
+
+def test_ctmchain_kilo_names_the_kilo_to_start(monkeypatch: pytest.MonkeyPatch) -> None:
+    from controlm_chain_admin.web import assistant
+
+    monkeypatch.setenv("CTMCHAIN_KILO", "D:/tools/kilo.cmd")
+
+    assert assistant.kilo_executable() == "D:/tools/kilo.cmd"

@@ -155,10 +155,18 @@ class KiloProcess:
             self.process.wait()
 
 
+def kilo_executable() -> str | None:
+    """The ``kilo`` to start: ``CTMCHAIN_KILO``, else the one on the PATH. On Windows npm puts
+    a shell script ``kilo`` beside ``kilo.cmd``, and only the ``.cmd`` (or an ``.exe``) runs."""
+    names = ("kilo.cmd", "kilo.exe", "kilo") if sys.platform == "win32" else ("kilo",)
+    found = (shutil.which(name) for name in names)
+    return os.environ.get("CTMCHAIN_KILO") or next((path for path in found if path), None)
+
+
 def start_kilo(directory: Path, *, timeout: float = 60) -> KiloProcess:
     """Start ``kilo serve`` in the Kilo project ``directory``, on a free port of 127.0.0.1 with
     a password of its own, and wait until it answers."""
-    executable = os.environ.get("CTMCHAIN_KILO") or shutil.which("kilo")
+    executable = kilo_executable()
     if not executable:
         raise AssistantUnavailable(
             "kilo is not installed: npm install -g @kilocode/cli (or set CTMCHAIN_KILO to it)"
