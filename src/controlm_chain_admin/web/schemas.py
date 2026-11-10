@@ -449,6 +449,13 @@ class ReleaseOut(BaseModel):
     closable: bool = Field(description="last commit installed in production, trunk merged")
 
 
+class EnvBranchOut(BaseModel):
+    env: str
+    branch: str
+    local: bool
+    remote: bool = Field(description="the branch is on the remote too")
+
+
 class StashOut(BaseModel):
     ref: str
     branch: str | None = Field(None, description="where the stash was made")
@@ -472,6 +479,9 @@ class WorkspaceOut(BaseModel):
     upstream: str | None = None
     ahead: int = Field(description="commits not pushed to the upstream")
     behind: int = Field(description="commits of the upstream not pulled (as of the last fetch)")
+    env_branches: list[EnvBranchOut] = Field(
+        description="the branch of every environment but production's, where it exists"
+    )
 
 
 class ActionOut(BaseModel):

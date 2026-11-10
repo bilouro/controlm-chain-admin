@@ -455,6 +455,32 @@ def test_pushing_the_trunk_after_closing_removes_the_remote_release(
     assert git(origin, "rev-parse", "main") == git(repo.root, "rev-parse", "main")
 
 
+def test_the_workspace_lists_the_branches_of_the_other_environments(
+    repo: ChainRepo, tmp_path: Path
+) -> None:
+    assert ws.workspace(repo).env_branches == ()
+
+    git(repo.root, "branch", "env/uat")
+    git(repo.root, "branch", "env/elsewhere")
+    here = ws.workspace(repo)
+
+    assert here.env_branches == (ws.EnvBranch("uat", "env/uat", True, False),)
+    assert here.to_json()["env_branches"] == [
+        {"env": "uat", "branch": "env/uat", "local": True, "remote": False}
+    ]
+
+    origin = add_remote(repo, tmp_path)
+    git(repo.root, "push", "-q", "origin", "env/uat")
+    assert ws.workspace(repo).env_branches == (ws.EnvBranch("uat", "env/uat", True, True),)
+    teammate = clone(origin, tmp_path)
+    assert ws.workspace(teammate).env_branches == (ws.EnvBranch("uat", "env/uat", False, True),)
+
+    assert ws.switch(teammate, "env/uat") == "Switched to env/uat"
+    there = ws.workspace(teammate)
+    assert (there.branch, there.editable) == ("env/uat", True)
+    assert there.env_branches == (ws.EnvBranch("uat", "env/uat", True, True),)
+
+
 def test_workspace_as_json(repo: ChainRepo) -> None:
     sha = release_with_commit(repo, "march")
     ws.mark_installed(repo, "uat")

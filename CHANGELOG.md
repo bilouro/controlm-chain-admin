@@ -6,6 +6,13 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- The branch dialog of the web UI lists the branch of every environment (`env/<name>`), on
+  the remote only too, with *Switch*: it listed the trunk and the release branches alone, so
+  the chains of another environment could not be opened from the page. `GET /api/workspace`
+  gives them in `env_branches`.
+
 ## [0.3.0] - 2026-11-10
 
 ### Added

@@ -1100,6 +1100,35 @@
         "title": "EffectOut",
         "type": "object"
       },
+      "EnvBranchOut": {
+        "properties": {
+          "branch": {
+            "title": "Branch",
+            "type": "string"
+          },
+          "env": {
+            "title": "Env",
+            "type": "string"
+          },
+          "local": {
+            "title": "Local",
+            "type": "boolean"
+          },
+          "remote": {
+            "description": "the branch is on the remote too",
+            "title": "Remote",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "env",
+          "branch",
+          "local",
+          "remote"
+        ],
+        "title": "EnvBranchOut",
+        "type": "object"
+      },
       "EnvMapOut": {
         "properties": {
           "branch": {
@@ -3792,6 +3821,14 @@
             "title": "Editable",
             "type": "boolean"
           },
+          "env_branches": {
+            "description": "the branch of every environment but production's, where it exists",
+            "items": {
+              "$ref": "#/components/schemas/EnvBranchOut"
+            },
+            "title": "Env Branches",
+            "type": "array"
+          },
           "environments": {
             "items": {
               "type": "string"
@@ -3890,7 +3927,8 @@
           "environments",
           "production",
           "ahead",
-          "behind"
+          "behind",
+          "env_branches"
         ],
         "title": "WorkspaceOut",
         "type": "object"

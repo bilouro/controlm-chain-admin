@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Any
 
 from controlm_chain_admin.core.commit import pending, restore
+from controlm_chain_admin.core.environments import branch_of_env
 from controlm_chain_admin.core.errors import (
     GitError,
     MergeConflict,
@@ -32,7 +33,7 @@ from controlm_chain_admin.core.errors import (
     UnknownEnvironment,
 )
 from controlm_chain_admin.core.history import _git, chain_changes, full_sha
-from controlm_chain_admin.core.repo import ChainRepo, GitRules
+from controlm_chain_admin.core.repo import ChainConfig, ChainRepo, GitRules
 
 _PATHS = ("chain.json", "folders", "meta", "envs")
 _NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
@@ -81,6 +82,19 @@ class Release:
 
 
 @dataclass(frozen=True)
+class EnvBranch:
+    """The branch that holds an environment other than production."""
+
+    env: str
+    branch: str
+    local: bool
+    remote: bool
+
+    def to_json(self) -> dict[str, Any]:
+        return {"env": self.env, "branch": self.branch, "local": self.local, "remote": self.remote}
+
+
+@dataclass(frozen=True)
 class Stash:
     ref: str  # stash@{n}
     branch: str | None  # where it was made
@@ -110,6 +124,7 @@ class Workspace:
     upstream: str | None
     ahead: int  # commits not pushed to the upstream
     behind: int  # commits of the upstream not here (as of the last fetch)
+    env_branches: tuple[EnvBranch, ...] = ()  # in the order of the environments
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -129,6 +144,7 @@ class Workspace:
             "upstream": self.upstream,
             "ahead": self.ahead,
             "behind": self.behind,
+            "env_branches": [b.to_json() for b in self.env_branches],
         }
 
 
@@ -300,11 +316,17 @@ def workspace(repo: ChainRepo) -> Workspace:
     tags = _tags(root, rules)
     local: dict[str, str] = {}
     remote_only: dict[str, str] = {}
+    here: set[str] = set()
+    there: set[str] = set()
     fmt = f"%(refname){_SEP}%(objectname)"
     listing = _out(root, "for-each-ref", f"--format={fmt}", "refs/heads", "refs/remotes")
     heads, remotes = "refs/heads/" + rules.release_prefix, f"refs/remotes/{remote}/"
     for line in listing.splitlines():
         ref, _, sha = line.partition(_SEP)
+        if ref.startswith("refs/heads/"):
+            here.add(ref[len("refs/heads/") :])
+        elif remote and ref.startswith(remotes):
+            there.add(ref[len(remotes) :])
         if ref.startswith(heads):
             local[ref[len("refs/heads/") :]] = sha
         elif remote and ref.startswith(remotes + rules.release_prefix):
@@ -338,7 +360,18 @@ def workspace(repo: ChainRepo) -> Workspace:
         branch, head, rules.trunk, rules.release_prefix, reason is None, reason,
         _current_release(rules, branch), chain_changes(root), tuple(releases), _stashes(root),
         envs, rules.production, remote, upstream, ahead, behind,
+        _env_branches(repo.config, here, there),
     )  # fmt: skip
+
+
+def _env_branches(config: ChainConfig, here: set[str], there: set[str]) -> tuple[EnvBranch, ...]:
+    """The branch of every environment but production's, when it exists here or on the remote."""
+    named = ((env, branch_of_env(config, env)) for env in config.environments)
+    return tuple(
+        EnvBranch(env, branch, branch in here, branch in there)
+        for env, branch in named
+        if branch != config.git_rules.trunk and (branch in here or branch in there)
+    )
 
 
 def ensure_editable(repo: ChainRepo) -> None:

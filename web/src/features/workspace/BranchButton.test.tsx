@@ -6,6 +6,7 @@ import { renderAt } from "@/test/render";
 import { calls, server } from "@/test/server";
 import pending from "@/test/fixtures/pending.json";
 import workspace from "@/test/fixtures/workspace.json";
+import workspaceEnvs from "@/test/fixtures/workspace-envs.json";
 import workspaceMain from "@/test/fixtures/workspace-main.json";
 import { BranchButton } from "./BranchButton";
 import { ProtectedBanner } from "./ProtectedBanner";
@@ -132,6 +133,47 @@ describe("BranchButton", () => {
     const dialog = await screen.findByRole("dialog", { name: "Releases" });
     expect(dialog).toHaveTextContent("main is protected");
     expect(within(dialog).queryByRole("button", { name: "Close release" })).not.toBeInTheDocument();
+  });
+
+  it("lists the branch of every environment and switches to one", async () => {
+    server.use(
+      http.get("/api/workspace", () =>
+        HttpResponse.json({
+          ...workspaceEnvs,
+          env_branches: workspaceEnvs.env_branches.map((b) =>
+            b.env === "egma" ? { ...b, local: false, remote: true } : b,
+          ),
+        }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderAt(<BranchButton />);
+    await user.click(await screen.findByRole("button", { name: /env\/bench/ }));
+    const dialog = await screen.findByRole("dialog", { name: "Releases" });
+
+    expect(dialog).toHaveTextContent("switch to it to see its chains");
+    const branches = within(dialog).getByRole("table", { name: "Releases" });
+    const uat = within(branches).getByRole("row", { name: /env\/uat/ });
+    expect(uat).toHaveTextContent("environment uat");
+    expect(within(branches).getByRole("row", { name: /env\/egma/ })).toHaveTextContent(
+      "environment egma · on the remote only",
+    );
+    expect(within(branches).getByRole("row", { name: /env\/bench/ })).toHaveTextContent(
+      "checked out",
+    );
+    await user.click(within(uat).getByRole("button", { name: "Switch to env/uat" }));
+
+    expect(await within(dialog).findByRole("status")).toHaveTextContent("Switched to env/uat");
+    expect(calls.workspace).toEqual([
+      { action: "switch", body: { branch: "env/uat", stash: false } },
+    ]);
+  });
+
+  it("without environment branches the dialog does not speak of them", async () => {
+    const { dialog } = await openDialog();
+
+    expect(dialog).not.toHaveTextContent("to see its chains");
+    expect(within(dialog).queryByRole("row", { name: /environment/ })).not.toBeInTheDocument();
   });
 
   it("pushes and pulls when there is a remote", async () => {

@@ -810,6 +810,9 @@ stop; `run` turns it into `SystemExit` so the cleanup runs).
   packaged from any checkout: *Package N items for <env>* is `GET /api/package?…&take=<id>`
   (the file holds what the base has plus those items; no branch is changed). *Generate XML*
   is the package of every folder that differs.
+  The dialog of the branch button lists, after the trunk, the branch of every other
+  environment that exists here or on the remote (`env_branches` of `GET /api/workspace`),
+  each with *Switch*: the checked-out branch is the environment the chain pages show.
 
 ## 12. CLI reference (`ctmchain`)
 

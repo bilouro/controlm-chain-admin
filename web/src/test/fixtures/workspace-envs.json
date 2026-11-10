@@ -9,15 +9,30 @@
   "changes": 0,
   "releases": [],
   "stashes": [],
-  "environments": [
-    "prod",
-    "uat",
-    "egma",
-    "bench"
-  ],
+  "environments": ["prod", "uat", "egma", "bench"],
   "production": "prod",
   "remote": null,
   "upstream": null,
   "ahead": 0,
-  "behind": 0
+  "behind": 0,
+  "env_branches": [
+    {
+      "env": "uat",
+      "branch": "env/uat",
+      "local": true,
+      "remote": false
+    },
+    {
+      "env": "egma",
+      "branch": "env/egma",
+      "local": true,
+      "remote": false
+    },
+    {
+      "env": "bench",
+      "branch": "env/bench",
+      "local": true,
+      "remote": false
+    }
+  ]
 }

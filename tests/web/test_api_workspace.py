@@ -60,6 +60,22 @@ def test_the_trunk_cannot_be_edited(client: TestClient) -> None:
     assert refused.status_code == 409 and refused.json()["error"] == "ProtectedBranch"
 
 
+def test_the_branches_of_the_other_environments_are_listed_and_switched_to(
+    client: TestClient, root: Path
+) -> None:
+    assert client.get("/api/workspace").json()["env_branches"] == []
+    git(root, "branch", "env/uat")
+
+    state = client.get("/api/workspace").json()
+    assert state["env_branches"] == [
+        {"env": "uat", "branch": "env/uat", "local": True, "remote": False}
+    ]
+
+    body = post(client, "switch", {"branch": "env/uat"})
+    assert body["message"] == "Switched to env/uat"
+    assert body["workspace"]["branch"] == "env/uat" and body["workspace"]["editable"] is True
+
+
 def test_start_a_release_then_edit_it(client: TestClient) -> None:
     assert client.post("/api/workspace/release", json={"name": "march"}).status_code == 401
 

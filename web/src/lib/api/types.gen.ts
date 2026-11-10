@@ -1207,6 +1207,20 @@ export interface components {
       /** Node */
       node: string;
     };
+    /** EnvBranchOut */
+    EnvBranchOut: {
+      /** Branch */
+      branch: string;
+      /** Env */
+      env: string;
+      /** Local */
+      local: boolean;
+      /**
+       * Remote
+       * @description the branch is on the remote too
+       */
+      remote: boolean;
+    };
     /** EnvMapOut */
     EnvMapOut: {
       /**
@@ -2351,6 +2365,11 @@ export interface components {
       changes: number;
       /** Editable */
       editable: boolean;
+      /**
+       * Env Branches
+       * @description the branch of every environment but production's, where it exists
+       */
+      env_branches: components["schemas"]["EnvBranchOut"][];
       /** Environments */
       environments: string[];
       /** Head */

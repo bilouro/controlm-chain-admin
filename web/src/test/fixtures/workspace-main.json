@@ -14,5 +14,6 @@
   "remote": null,
   "upstream": null,
   "ahead": 0,
-  "behind": 0
+  "behind": 0,
+  "env_branches": []
 }

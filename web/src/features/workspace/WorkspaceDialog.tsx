@@ -107,6 +107,12 @@ export function WorkspaceDialog({ onClose }: { onClose: () => void }) {
             it from {data?.trunk ?? "main"}, commit, generate the XML (Compare), import it, mark the
             release as installed in each environment here, then close it.
           </p>
+          {data && data.env_branches.length > 0 && (
+            <p className="text-xs text-muted">
+              Every other environment has a branch that holds what it has: switch to it to see its
+              chains.
+            </p>
+          )}
         </div>
         {workspace.isPending && <Loading what="releases" />}
         {workspace.isError && <ErrorBox error={workspace.error} />}
@@ -246,6 +252,19 @@ export function WorkspaceDialog({ onClose }: { onClose: () => void }) {
                   <td />
                   <td className="py-1.5 text-right">{switchButton(data.trunk)}</td>
                 </tr>
+                {data.env_branches.map((env) => (
+                  <tr key={env.branch} className="hover:bg-surface-2">
+                    <td className="py-1.5">
+                      <span className="font-mono">{env.branch}</span>{" "}
+                      <span className="text-xs text-muted">
+                        environment {env.env}
+                        {!env.local && " · on the remote only"}
+                      </span>
+                    </td>
+                    <td />
+                    <td className="py-1.5 text-right">{switchButton(env.branch)}</td>
+                  </tr>
+                ))}
                 {data.releases.map((release) => (
                   <tr key={release.branch} className="hover:bg-surface-2">
                     <td className="py-1.5 align-top">
