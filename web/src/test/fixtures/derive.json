@@ -1,0 +1,61 @@
+{
+  "environments": [
+    "prod",
+    "uat",
+    "egma",
+    "bench"
+  ],
+  "entries": [
+    {
+      "name": "nodeid.1",
+      "key": "NODEID",
+      "values": {
+        "prod": "srvp-bat1",
+        "uat": "srvu-bat1",
+        "egma": "srve-bat1",
+        "bench": "srvb-bat1"
+      },
+      "inline": false,
+      "nodes": 7
+    },
+    {
+      "name": "run_as.1",
+      "key": "RUN_AS",
+      "values": {
+        "prod": "app77proc",
+        "uat": "aup77proc",
+        "egma": "aep77proc",
+        "bench": "abp77proc"
+      },
+      "inline": false,
+      "nodes": 10
+    },
+    {
+      "name": "datacenter.1",
+      "key": "DATACENTER",
+      "values": {
+        "prod": "CTMPROD",
+        "uat": "CTMUAT",
+        "egma": "CTMEGMA",
+        "bench": "CTMBENCH"
+      },
+      "inline": false,
+      "nodes": 2
+    }
+  ],
+  "known": [],
+  "left_out": [
+    {
+      "key": "RUN_AS",
+      "values": {
+        "prod": "app77proc",
+        "uat": "aup77proc",
+        "egma": "aep77proc",
+        "bench": "abp77adm"
+      },
+      "nodes": 1,
+      "inline": false
+    }
+  ],
+  "applied": false
+}

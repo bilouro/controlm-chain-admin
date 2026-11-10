@@ -1,0 +1,17 @@
+{
+  "branch": "map",
+  "letters": {
+    "prod": "P",
+    "uat": "U",
+    "egma": "E",
+    "bench": "B"
+  },
+  "branches": {
+    "prod": "main",
+    "uat": "env/uat",
+    "egma": "env/egma",
+    "bench": "env/bench"
+  },
+  "version": 1,
+  "entries": []
+}

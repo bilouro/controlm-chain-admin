@@ -1,0 +1,39 @@
+{
+  "base": {
+    "name": "env/bench",
+    "kind": "branch",
+    "sha": "649c2a6fa44d199fe640e4acf4543de79505d667",
+    "subject": "refresh(bench): bench.xml",
+    "date": "2026-11-10T08:48:16Z"
+  },
+  "head": {
+    "name": "env/uat",
+    "kind": "branch",
+    "sha": "741f238edb2407958cc1b2427a0674f9545f4cdc",
+    "subject": "refresh(uat): uat.xml",
+    "date": "2026-11-10T08:48:15Z"
+  },
+  "merge_base": null,
+  "env": "bench",
+  "commits": [],
+  "selected": null,
+  "folders": [
+    {
+      "name": "P77_CHAIN",
+      "jobs": 8,
+      "reasons": [
+        "job P77_NEW added"
+      ]
+    }
+  ],
+  "warnings": [
+    "RUN_AS aup77proc of uat is abp77proc (run_as.1) or abp77adm (run_as.2) in bench: kept as it is (P77_CHAIN/P77_NEW); prefer one of the entries to settle it"
+  ],
+  "findings": [],
+  "filename": "deploy_bench_env-uat_1-item_2026-11-10.xml",
+  "size": 3810,
+  "taken": [
+    "job:P77_CHAIN/P77_NEW"
+  ],
+  "source": "uat"
+}

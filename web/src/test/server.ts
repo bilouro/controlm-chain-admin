@@ -16,6 +16,10 @@ import pendingChanges from "./fixtures/pending.json";
 import workspace from "./fixtures/workspace.json";
 import intake from "./fixtures/intake.json";
 import environments from "./fixtures/environments.json";
+import envmap from "./fixtures/envmap.json";
+import derived from "./fixtures/derive.json";
+import suggestions from "./fixtures/suggest.json";
+import refreshPreview from "./fixtures/refresh.json";
 import type { FolderDetail, JobDetail } from "@/lib/api/client";
 
 // Fixtures are dumped from the real API running on the synthetic repository (web/scripts/dump_fixtures.py).
@@ -41,6 +45,11 @@ export const calls: {
   intake: unknown[];
   /** The `env` each chain page asked for (null: the neutral base). */
   env: (string | null)[];
+  /** The writes on the map: derive, entries added, renamed and removed. */
+  envmap: { method: string; path: string; body: unknown }[];
+  derive: URLSearchParams[];
+  /** The exports sent to be refreshed: preview or apply, the query and the bytes as text. */
+  refresh: { action: string; params: URLSearchParams; type: string | null; body: string }[];
 } = {
   preview: [],
   apply: [],
@@ -50,6 +59,9 @@ export const calls: {
   workspace: [],
   intake: [],
   env: [],
+  envmap: [],
+  derive: [],
+  refresh: [],
 };
 
 function viewedEnv(request: Request): void {
@@ -72,7 +84,53 @@ function unauthorized(request: Request) {
     : HttpResponse.json({ detail: "editing needs the session token" }, { status: 401 });
 }
 
+async function mapWrite(request: Request, path: string) {
+  const denied = unauthorized(request);
+  if (denied) return denied;
+  const text = await request.text();
+  calls.envmap.push({ method: request.method, path, body: text ? JSON.parse(text) : null });
+  return null;
+}
+
 export const handlers = [
+  http.get("/api/envmap", () => HttpResponse.json(envmap)),
+  http.get("/api/envmap/derive", ({ request }) => {
+    calls.derive.push(new URL(request.url).searchParams);
+    return HttpResponse.json(derived);
+  }),
+  http.post("/api/envmap/derive", async ({ request }) => {
+    const denied = await mapWrite(request, "derive");
+    return denied ?? HttpResponse.json({ ...derived, applied: true });
+  }),
+  http.get("/api/envmap/suggest", () => HttpResponse.json(suggestions)),
+  http.post("/api/envmap/entries", async ({ request }) => {
+    const denied = await mapWrite(request, "entries");
+    return denied ?? HttpResponse.json(envmap);
+  }),
+  http.patch("/api/envmap/entries/:name", async ({ request, params }) => {
+    const denied = await mapWrite(request, `entries/${String(params.name)}`);
+    return denied ?? HttpResponse.json(envmap);
+  }),
+  http.delete("/api/envmap/entries/:name", async ({ request, params }) => {
+    const denied = await mapWrite(request, `entries/${String(params.name)}`);
+    return denied ?? HttpResponse.json(envmap);
+  }),
+  http.post("/api/refresh/:action", async ({ request, params }) => {
+    const denied = unauthorized(request);
+    if (denied) return denied;
+    const action = String(params.action);
+    calls.refresh.push({
+      action,
+      params: new URL(request.url).searchParams,
+      type: request.headers.get("Content-Type"),
+      body: await request.text(),
+    });
+    return HttpResponse.json(
+      action === "apply"
+        ? { ...refreshPreview, applied: true, commit: "1234567890abcdef1234567890abcdef12345678" }
+        : refreshPreview,
+    );
+  }),
   http.get("/api/assistant", () =>
     HttpResponse.json({
       available: false,

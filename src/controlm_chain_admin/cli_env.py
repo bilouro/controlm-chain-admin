@@ -181,9 +181,7 @@ def cmd_envmap_derive(args: argparse.Namespace) -> int:
 
 
 def cmd_envmap_suggest(args: argparse.Namespace) -> int:
-    repo = load_repo(args.repo)
-    known = envmap_mod.read_map(repo.root, repo.config)
-    found = envmap_mod.suggest(repo.root, repo.config, known)
+    found = envmap_mod.suggest_map(load_repo(args.repo))
     if args.format == "json":
         _dump({"suggestions": [item.to_json() for item in found]})
         return EXIT_OK

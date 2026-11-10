@@ -26,7 +26,8 @@ sub-application, and get the import file already written for the environment tha
 
 > Status: alpha, used on a real application of a few hundred folders and well over a thousand
 > jobs in four environments. The command line carries everything below; the web UI browses,
-> edits and compares, and has no page yet for `refresh` and the map. Design:
+> edits, compares, refreshes an environment, keeps the map and takes or packages between
+> environments. Design:
 > [`DESIGN.md`](DESIGN.md); the needs it answers: [`NEEDS.md`](NEEDS.md).
 
 ## The problem
@@ -269,7 +270,10 @@ agent: the gate, then a data repository from the exports.
   `move-job`, `insert-job` (between two jobs of a chain), `extract-variable`,
   `set-variable`. Each prints the change and writes only with `--apply`.
 - **A local web UI** (`ctmchain serve`): the folders, the graph of a chain, a job with its
-  attributes grouped, findings, comparison of two branches, an editing form with preview.
+  attributes grouped, findings, an editing form with preview. Between environments: *Refresh*
+  (the export of an environment, what differs, then the overwrite), *Map* (what varies per
+  environment, derived from the branches and edited), and *Compare* of two environments with
+  a box per item to take it or to package it for the other environment.
 - **Ask in plain words.** `ctmchain mcp` gives an assistant (Kilo, Claude, any MCP client)
   the repository as tools: it answers questions and proposes changes, previewed field by
   field, and writes one only when you agree. Between environments too: "what does uat have

@@ -6,7 +6,7 @@ import { useWorkspaceAction } from "@/features/workspace/use-workspace-action";
 import { Badge, Button, Card, Empty, ErrorBox, Loading } from "@/components/ui";
 
 type Props = {
-  /** Query string of the comparison plus `env`. */
+  /** Query string of the comparison plus `env`; between two environments it is the base's. */
   params: URLSearchParams;
   /** The release compared as head, when it is one: its installations decide what to ask. */
   release: ReleaseOut | null;
@@ -45,8 +45,8 @@ function Finding({ finding }: { finding: FindingOut }) {
  * marked as installed there (a tag).
  */
 export function PackagePanel({ params, release, isSelection, onClose }: Props) {
-  const env = params.get("env") ?? "";
-  const installed = (!isSelection && release?.installed.find((i) => i.env === env)) || null;
+  const asked = params.get("env") ?? "";
+  const installed = (!isSelection && release?.installed.find((i) => i.env === asked)) || null;
   const mustAsk = installed !== null && installed.behind > 0;
   const [answer, setAnswer] = useState<Scope>("since");
   const [scope, setScope] = useState<Scope | null>(null);
@@ -58,6 +58,7 @@ export function PackagePanel({ params, release, isSelection, onClose }: Props) {
   const pkg = usePackage(effective, !mustAsk || scope !== null);
   const mark = useWorkspaceAction();
   const data = pkg.data;
+  const env = data?.env ?? asked;
   const canMark =
     release !== null && !isSelection && data?.head.kind !== "worktree" && Boolean(data?.head.sha);
   const needsToken = mark.error instanceof ApiError && mark.error.status === 401;
@@ -73,7 +74,7 @@ export function PackagePanel({ params, release, isSelection, onClose }: Props) {
     <Card className="p-4">
       <section aria-label="Import package" className="space-y-3">
         <header className="flex flex-wrap items-center gap-2">
-          <h2 className="text-base font-semibold">Import package for {env}</h2>
+          <h2 className="text-base font-semibold">Import package{env ? ` for ${env}` : ""}</h2>
           {data && data.folders.length > 0 && (
             <span className="text-xs text-muted">
               {plural(data.folders.length, "folder")} · {size(data.size)} ·{" "}
@@ -131,6 +132,12 @@ export function PackagePanel({ params, release, isSelection, onClose }: Props) {
         {scope === "since" && installed && (
           <p className="text-xs text-muted">
             Only the folders changed since {installed.tag}, the installation in {env}.
+          </p>
+        )}
+        {data?.taken && (
+          <p className="text-xs text-muted">
+            {plural(data.taken.length, "chosen item")} of {data.source ?? data.head.name} on what{" "}
+            {data.base.name} holds: no branch is changed.
           </p>
         )}
         {pkg.isPending && pkg.fetchStatus !== "idle" && <Loading what="import package" />}

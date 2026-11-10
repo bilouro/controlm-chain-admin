@@ -785,6 +785,31 @@ stop; `run` turns it into `SystemExit` so the cleanup runs).
   (2026-11-03, asked by the author: the whole path in one window). `GET /api/workspace` and
   `POST /api/workspace/{release,switch,stash,pop,discard,installed,update,close,push,pull}`
   (session token), each answering a message and the new state.
+- **One branch per environment (implemented 2026-11-10; §14).**
+  *Refresh* (`/refresh`): the full export of one environment is chosen, sent as the body of
+  `POST /api/refresh/preview?source=<file name>[&env=]` and answered with the environment and
+  the evidence for it, what was read and left out, whether the branch is new, and the
+  comparison of the branch with the export, browsed like any comparison. *Overwrite <branch>…*
+  asks first (it checks the branch out; a checkbox says whether the result is committed), then
+  `POST /api/refresh/apply?…&commit=`. Uncommitted changes refuse it (409).
+  *Map* (`/map`): `GET /api/envmap` gives the letters, the branch of each environment and the
+  entries. *Look at the branches* is `GET /api/envmap/derive?min_nodes=&key=&text=` (a
+  preview: the new entries with how many nodes show each, and how many sets of values were
+  left out), then `POST /api/envmap/derive` with the same options; *Show what else varies* is
+  `GET /api/envmap/suggest`, each key with a *Derive* button; `POST /api/envmap/entries`,
+  `PATCH` and `DELETE /api/envmap/entries/{name}` add, rename and remove one entry. A key
+  that cannot be read is 422 (`InvalidSpec`).
+  *Compare* with the branches of two environments as base and head: the page says what was
+  read in the terms of the base (`translation` of `GET /api/compare`: values and texts of the
+  map, names with the letter, conditions), lists the warnings of a value the map gives two
+  answers for with a *Prefer <entry>* button each (`prefer=` in the URL and the API), and has a
+  checkbox for the branches as they are stored (`raw=1`: to look at, nothing is taken or
+  packaged). The commit picker, the merge-base option and the environment picker do not apply
+  and are hidden: the environment of the package is the base's. The chosen items are taken
+  into the base when it is checked out and editable (the `take` change with `prefer`), or
+  packaged from any checkout: *Package N items for <env>* is `GET /api/package?…&take=<id>`
+  (the file holds what the base has plus those items; no branch is changed). *Generate XML*
+  is the package of every folder that differs.
 
 ## 12. CLI reference (`ctmchain`)
 
@@ -1020,8 +1045,7 @@ environment that has them.
 - Releases (`release start|installed|close`), `receive` and `check` belong to the model of §5.
   They still work on a repository of that model and are not part of this one: a release is
   what travels from one environment's branch to another (`take`, `package --take`).
-- The web UI browses, edits and compares any branch, two environments included (the API takes
-  `raw` and `prefer`), and has no page for `refresh`, the map or the items of a
-  cross-environment take yet. The MCP tools compare two environments and do not refresh, take
-  or package.
+- The assistant (the MCP tools) previews a refresh and never applies one, and does not edit
+  the map; it never switches a branch or commits. The command line and the web UI do
+  (§11, *One branch per environment*).
 - A three-way view (what UAT has that neither bench nor production has) is two comparisons.

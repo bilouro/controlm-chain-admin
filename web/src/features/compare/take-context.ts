@@ -1,8 +1,11 @@
 import { createContext, useContext } from "react";
 
-/** Items of the comparison chosen to be taken into the checked-out branch. */
+/** Items of the comparison chosen to be taken into the checked-out branch, or packaged. */
 export type TakeApi = {
-  /** Base is the checked-out branch and head another one: items can be taken. */
+  /**
+   * Items can be chosen: base is the checked-out branch and head another one (they can be
+   * taken), or the two are branches of two environments (they can be packaged).
+   */
   isEnabled: boolean;
   chosen: string[];
   toggle: (item: string) => void;

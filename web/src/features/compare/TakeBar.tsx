@@ -97,11 +97,17 @@ function ConflictsPanel({
  */
 export function TakeBar({
   into,
+  packageFor = null,
   request,
+  onPackage,
   onDone,
 }: {
-  into: string;
+  /** The branch checked out, when the items can be taken into it. */
+  into: string | null;
+  /** Between two environments: the one the chosen items can be packaged for. */
+  packageFor?: string | null;
   request: (items: string[], theirs: string[]) => ChangeRequest;
+  onPackage?: (items: string[]) => void;
   onDone: () => void;
 }) {
   const take = useTake();
@@ -159,11 +165,23 @@ export function TakeBar({
         <Button size="sm" variant="ghost" onClick={onDone}>
           Clear
         </Button>
-        <Button size="sm" disabled={check.isPending} onClick={handleTake}>
-          {check.isPending
-            ? "Checking…"
-            : `Take ${count} change${count === 1 ? "" : "s"} into ${into}`}
-        </Button>
+        {packageFor && onPackage && (
+          <Button
+            size="sm"
+            variant={into ? "ghost" : "primary"}
+            title="The import file of what the base holds with these items on it; no branch is changed"
+            onClick={() => onPackage(take.chosen)}
+          >
+            Package {count} item{count === 1 ? "" : "s"} for {packageFor}
+          </Button>
+        )}
+        {into && (
+          <Button size="sm" disabled={check.isPending} onClick={handleTake}>
+            {check.isPending
+              ? "Checking…"
+              : `Take ${count} change${count === 1 ? "" : "s"} into ${into}`}
+          </Button>
+        )}
       </div>
     </div>
   );

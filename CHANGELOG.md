@@ -26,6 +26,28 @@ All notable changes to this project are documented here. The format follows
   without its kind, with how an id looks.
 - `ctmchain envmap show --format json` also gives `branches`: the branch of each environment
   that has one.
+- The web UI has the model of one branch per environment:
+  - *Refresh*: choose the full export of one environment; the page says which environment it
+    is and why, what was read and what was left out, and what differs on the branch, node by
+    node. *Overwrite …* asks first, then checks the branch out, overwrites it and commits
+    (or not: a checkbox).
+  - *Map*: the environments with their letters and branches, and the entries of the map.
+    *Look at the branches* previews the entries the branches show and adds them; *Show what
+    else varies* lists the other keys with a *Derive* button each; an entry is added by hand,
+    renamed or removed (confirmed).
+  - *Compare* between the branches of two environments says what was read in the terms of
+    the base (values, texts, names, conditions), shows each warning of a value the map gives
+    two answers for with a *Prefer* button per entry, and can show the branches as they are
+    stored (to look at: nothing is taken or packaged from there). The chosen items are taken
+    into the base when it is checked out, or go to *Package N items for <environment>*: the
+    import file of that environment with only those items, no branch changed, from any
+    checkout. *Generate XML* gives the file with every folder that differs.
+- API: `GET /api/envmap`, `GET|POST /api/envmap/derive`, `GET /api/envmap/suggest`,
+  `POST /api/envmap/entries`, `PATCH|DELETE /api/envmap/entries/{name}`,
+  `POST /api/refresh/preview` and `POST /api/refresh/apply` (the export is the body of the
+  request). Everything that writes needs the session token.
+- A key that cannot be read (`ctmchain envmap derive --key`, `envmap add`, the API) is
+  answered with what a key looks like (`InvalidSpec`; 422 in the API).
 
 ### Changed
 

@@ -12,11 +12,11 @@ export function RepoBadge() {
   }
   return (
     <div className="flex items-center gap-2 text-xs text-muted" data-testid="repo-badge">
-      <span className="font-medium text-text">{data.application}</span>
-      <span>
+      <span className="whitespace-nowrap font-medium text-text">{data.application}</span>
+      <span className="whitespace-nowrap">
         {data.folders} folders · {data.jobs} jobs
       </span>
-      <span className="hidden sm:inline">{data.environments.join(" · ")}</span>
+      <span className="hidden whitespace-nowrap 2xl:inline">{data.environments.join(" · ")}</span>
     </div>
   );
 }

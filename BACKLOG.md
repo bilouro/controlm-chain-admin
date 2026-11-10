@@ -260,9 +260,14 @@ or addresses anywhere in this public repository.
     take, `init --dedupe-jobnames`, the repository guide rewritten for this model. Unit,
     functional and end-to-end tests on four synthetic environments; tried on the real
     application in four environments, built from its exports alone.
-20. **The branch model in the web UI — next**: a *Refresh* page (drop the export, see the
-    differences, apply), a *Map* page (derive, suggest, edit), and the items of a
-    cross-environment comparison with *Take* and *Package* on the compare page.
+20. **The branch model in the web UI — DONE (2026-11-10)**: a *Refresh* page (the export of
+    one environment, what differs on its branch, then the overwrite, confirmed), a *Map* page
+    (the environments and their branches, the entries, derive with a preview, what else
+    varies, add, rename and remove), and the compare page between the branches of two
+    environments: what was read in the terms of the base, the warnings with *Prefer*, the
+    branches as stored, the chosen items taken into the base when it is checked out or
+    packaged for its environment from any checkout. `/api/envmap*` and `/api/refresh/*`.
+    A Playwright run on four synthetic environments (local, like the other one).
 21. **The branch model for the assistant — DONE (2026-11-10)**: MCP tools `envmap`,
     `takeable`, `package`, `write_package` (the import file, never over another; asked like
     `apply`) and `refresh` (a preview: only the user applies an export); `prefer` and `raw` on

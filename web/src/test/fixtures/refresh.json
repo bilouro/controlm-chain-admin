@@ -1,0 +1,189 @@
+{
+  "env": "uat",
+  "branch": "env/uat",
+  "new_branch": false,
+  "source": "uat_export.xml",
+  "evidence": [
+    "18 folder and job names carry the letter U of uat"
+  ],
+  "files_changed": 2,
+  "unchanged": false,
+  "applied": false,
+  "commit": null,
+  "imported": {
+    "folders": 3,
+    "jobs": 12,
+    "links": 14,
+    "skipped": 1,
+    "literal_marks": 0,
+    "suspicious_values": 0
+  },
+  "comparison": {
+    "base": {
+      "name": "env/uat",
+      "kind": "branch",
+      "sha": "741f238edb2407958cc1b2427a0674f9545f4cdc",
+      "subject": null,
+      "date": null
+    },
+    "head": {
+      "name": "uat_export.xml",
+      "kind": "export",
+      "sha": null,
+      "subject": null,
+      "date": null
+    },
+    "merge_base": null,
+    "summary": {
+      "folders": {
+        "added": 0,
+        "removed": 0,
+        "modified": 0,
+        "renamed": 0
+      },
+      "jobs": {
+        "added": 0,
+        "removed": 0,
+        "modified": 2,
+        "renamed": 0,
+        "moved": 0
+      },
+      "links": {
+        "added": 0,
+        "removed": 0,
+        "renamed": 0
+      },
+      "relations": {
+        "added": 0,
+        "removed": 0,
+        "modified": 0
+      },
+      "constants": 0,
+      "exceptions": 0,
+      "commits": 0,
+      "name_only": 0
+    },
+    "commits": [],
+    "folders": [],
+    "jobs": [
+      {
+        "node": "P77_CHAIN/P77_NEW",
+        "kind": "job",
+        "change": "modified",
+        "previous": null,
+        "attributes": [
+          {
+            "name": "CMDLINE",
+            "before": "/opt/p77/bin/a2.ksh -x",
+            "after": "/opt/p77/bin/a3.ksh"
+          }
+        ],
+        "variables": [],
+        "relations": [],
+        "groups": [],
+        "jobs_added": [],
+        "jobs_removed": [],
+        "before": {
+          "APPLICATION": "P77_RISK_ENGINE",
+          "SUB_APPLICATION": "P77_BATCH",
+          "MEMNAME": "P77_NEW",
+          "JOBNAME": "P77_NEW",
+          "RUN_AS": "aup77proc",
+          "TASKTYPE": "Command",
+          "NODEID": "srvu-bat1",
+          "CMDLINE": "/opt/p77/bin/a2.ksh -x",
+          "PARENT_FOLDER": "P77_CHAIN"
+        },
+        "after": {
+          "APPLICATION": "P77_RISK_ENGINE",
+          "SUB_APPLICATION": "P77_BATCH",
+          "MEMNAME": "P77_NEW",
+          "JOBNAME": "P77_NEW",
+          "RUN_AS": "aup77proc",
+          "TASKTYPE": "Command",
+          "NODEID": "srvu-bat1",
+          "CMDLINE": "/opt/p77/bin/a3.ksh",
+          "PARENT_FOLDER": "P77_CHAIN"
+        },
+        "diff": "--- a/P77_CHAIN/P77_NEW\n+++ b/P77_CHAIN/P77_NEW\n@@ -7,5 +7,5 @@\n   \"TASKTYPE\": \"Command\",\n   \"NODEID\": \"srvu-bat1\",\n-  \"CMDLINE\": \"/opt/p77/bin/a2.ksh -x\",\n+  \"CMDLINE\": \"/opt/p77/bin/a3.ksh\",\n   \"PARENT_FOLDER\": \"P77_CHAIN\"\n }",
+        "commits": [],
+        "name_only": false
+      },
+      {
+        "node": "P77_CHAIN/P77_A",
+        "kind": "job",
+        "change": "modified",
+        "previous": null,
+        "attributes": [
+          {
+            "name": "CMDLINE",
+            "before": "/opt/p77/bin/a2.ksh -x",
+            "after": "/opt/p77/bin/a3.ksh"
+          }
+        ],
+        "variables": [],
+        "relations": [],
+        "groups": [],
+        "jobs_added": [],
+        "jobs_removed": [],
+        "before": {
+          "APPLICATION": "P77_RISK_ENGINE",
+          "SUB_APPLICATION": "P77_BATCH",
+          "MEMNAME": "P77_A",
+          "JOBNAME": "P77_A",
+          "RUN_AS": "aup77proc",
+          "TASKTYPE": "Command",
+          "NODEID": "srvu-bat1",
+          "CMDLINE": "/opt/p77/bin/a2.ksh -x",
+          "PARENT_FOLDER": "P77_CHAIN",
+          "OUTCOND": [
+            {
+              "link": "P77_A-P77_B_OK",
+              "ODATE": "ODAT",
+              "SIGN": "+"
+            },
+            {
+              "link": "P77_A-P77_C_OK",
+              "ODATE": "ODAT",
+              "SIGN": "+"
+            }
+          ]
+        },
+        "after": {
+          "APPLICATION": "P77_RISK_ENGINE",
+          "SUB_APPLICATION": "P77_BATCH",
+          "MEMNAME": "P77_A",
+          "JOBNAME": "P77_A",
+          "RUN_AS": "aup77proc",
+          "TASKTYPE": "Command",
+          "NODEID": "srvu-bat1",
+          "CMDLINE": "/opt/p77/bin/a3.ksh",
+          "PARENT_FOLDER": "P77_CHAIN",
+          "OUTCOND": [
+            {
+              "link": "P77_A-P77_B_OK",
+              "ODATE": "ODAT",
+              "SIGN": "+"
+            },
+            {
+              "link": "P77_A-P77_C_OK",
+              "ODATE": "ODAT",
+              "SIGN": "+"
+            }
+          ]
+        },
+        "diff": "--- a/P77_CHAIN/P77_A\n+++ b/P77_CHAIN/P77_A\n@@ -7,5 +7,5 @@\n   \"TASKTYPE\": \"Command\",\n   \"NODEID\": \"srvu-bat1\",\n-  \"CMDLINE\": \"/opt/p77/bin/a2.ksh -x\",\n+  \"CMDLINE\": \"/opt/p77/bin/a3.ksh\",\n   \"PARENT_FOLDER\": \"P77_CHAIN\",\n   \"OUTCOND\": [\n",
+        "commits": [],
+        "name_only": false
+      }
+    ],
+    "links": [],
+    "constants": [],
+    "rules_changed": false,
+    "metadata_files_changed": 0,
+    "selected": null,
+    "exceptions": [],
+    "environments": null,
+    "translation": null
+  }
+}

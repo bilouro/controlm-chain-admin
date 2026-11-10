@@ -20,7 +20,12 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from typing import Any
 
-from controlm_chain_admin.core.errors import ConstantConflict, ModelError, UnresolvedConstant
+from controlm_chain_admin.core.errors import (
+    ConstantConflict,
+    InvalidSpec,
+    ModelError,
+    UnresolvedConstant,
+)
 from controlm_chain_admin.core.model import XmlComment, XmlDocument, XmlElement
 from controlm_chain_admin.core.repo import ChainRepo, load_repo, read_json, write_json
 
@@ -80,7 +85,9 @@ def parse_spec(spec: str, inline: bool = False) -> Selector:
     """Parse ``ATTR``, ``TAG/@ATTR`` or ``TAG[K=V]/@ATTR``."""
     match = _SPEC.match(spec)
     if not match:
-        raise ModelError(f"invalid attribute spec {spec!r}: use ATTR, TAG/@ATTR or TAG[K=V]/@ATTR")
+        raise InvalidSpec(
+            f"invalid attribute spec {spec!r}: use ATTR, TAG/@ATTR or TAG[K=V]/@ATTR"
+        )
     where = {match["k"]: match["v"]} if match["k"] else {}
     return Selector(match["attr"], match["tag"], where, inline)
 

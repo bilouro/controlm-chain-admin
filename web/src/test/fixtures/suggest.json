@@ -1,0 +1,44 @@
+{
+  "total": 3,
+  "suggestions": [
+    {
+      "key": "CMDLINE",
+      "nodes": 1,
+      "tuples": 1,
+      "words": null,
+      "text": false,
+      "example": {
+        "prod": "/opt/p77/bin/a.ksh",
+        "uat": "/opt/p77/bin/a2.ksh -x",
+        "egma": "/opt/p77/bin/a.ksh",
+        "bench": "/opt/p77/bin/a.ksh"
+      }
+    },
+    {
+      "key": "DOMAIL/@SUBJECT",
+      "nodes": 1,
+      "tuples": 1,
+      "words": 1,
+      "text": true,
+      "example": {
+        "prod": "PROD",
+        "uat": "UAT",
+        "egma": "EGMA",
+        "bench": "BENCH"
+      }
+    },
+    {
+      "key": "VARIABLE[NAME=%%GEIENV]/@VALUE",
+      "nodes": 1,
+      "tuples": 1,
+      "words": null,
+      "text": false,
+      "example": {
+        "prod": "p",
+        "uat": "u",
+        "egma": "e",
+        "bench": "b"
+      }
+    }
+  ]
+}

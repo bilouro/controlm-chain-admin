@@ -10,7 +10,7 @@ src/controlm_chain_admin/
   core/        model, XML reader and serializer, links, operations — standard library only
   cli.py       the `ctmchain` command: a thin adapter over core
   web/         FastAPI server (`[web]` extra), another thin adapter over core
-web/           read-only web UI (Vite + React + TypeScript)
+web/           web UI (Vite + React + TypeScript)
 tests/         pytest suite; `realdata` tests need a private data repository and are skipped in CI
 .claude/       Claude Code rules and skills used to develop this project
 ```

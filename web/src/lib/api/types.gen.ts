@@ -191,6 +191,93 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/envmap": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** The letters, the branches, the map */
+    get: operations["show_api_envmap_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/envmap/derive": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** The entries the environments' branches show and the map lacks (nothing written) */
+    get: operations["derive_preview_api_envmap_derive_get"];
+    put?: never;
+    /** Add the derived entries to the map (a commit on its branch) */
+    post: operations["derive_apply_api_envmap_derive_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/envmap/entries": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Add one entry by hand */
+    post: operations["add_entry_api_envmap_entries_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/envmap/entries/{name}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** Drop one entry */
+    delete: operations["remove_entry_api_envmap_entries__name__delete"];
+    options?: never;
+    head?: never;
+    /** Give an entry a name that says what it is */
+    patch: operations["rename_entry_api_envmap_entries__name__patch"];
+    trace?: never;
+  };
+  "/api/envmap/suggest": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** What else varies between the environments, that the map does not explain */
+    get: operations["suggest_api_envmap_suggest_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/folders": {
     parameters: {
       query?: never;
@@ -355,6 +442,40 @@ export interface paths {
     get: operations["package_xml_api_package_xml_get"];
     put?: never;
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/refresh/apply": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Check the branch of the environment out, overwrite it with the export, commit */
+    post: operations["apply_api_refresh_apply_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/refresh/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** What the export changes on the branch of its environment (nothing written) */
+    post: operations["preview_api_refresh_preview_post"];
     delete?: never;
     options?: never;
     head?: never;
@@ -971,6 +1092,83 @@ export interface components {
         [key: string]: string | null;
       } | null;
     };
+    /** DeriveRequest */
+    DeriveRequest: {
+      /**
+       * Keys
+       * @description more attributes whose whole value varies
+       * @default []
+       */
+      keys: string[];
+      /**
+       * Min Nodes
+       * @description nodes that must show the same values
+       * @default 2
+       */
+      min_nodes: number;
+      /**
+       * Text Keys
+       * @description attributes whose texts differ in one word
+       * @default []
+       */
+      text_keys: string[];
+    };
+    /** DerivedEntryOut */
+    DerivedEntryOut: {
+      /**
+       * Inline
+       * @description a word inside a text, not the whole value
+       * @default false
+       */
+      inline: boolean;
+      /**
+       * Key
+       * @description ATTR, TAG/@ATTR or TAG[K=V]/@ATTR
+       */
+      key: string;
+      /** Name */
+      name: string;
+      /**
+       * Nodes
+       * @description folders and jobs that show these values
+       */
+      nodes: number;
+      /**
+       * Values
+       * @description environment -> what it has there
+       */
+      values: {
+        [key: string]: string;
+      };
+    };
+    /** DerivedOut */
+    DerivedOut: {
+      /**
+       * Applied
+       * @description whether the entries were written on the map's branch
+       */
+      applied: boolean;
+      /**
+       * Entries
+       * @description what the map lacks
+       */
+      entries: components["schemas"]["DerivedEntryOut"][];
+      /**
+       * Environments
+       * @description the environments whose branches were read
+       */
+      environments: string[];
+      /**
+       * Known
+       * @description entries the map has already
+       */
+      known: components["schemas"]["KnownEntryOut"][];
+      /**
+       * Left Out
+       * @description values fewer than min_nodes nodes show
+       */
+      left_out: components["schemas"]["LeftOutOut"][];
+    };
     /** DiscardRequest */
     DiscardRequest: {
       /**
@@ -1008,6 +1206,32 @@ export interface components {
       element: string;
       /** Node */
       node: string;
+    };
+    /** EnvMapOut */
+    EnvMapOut: {
+      /**
+       * Branch
+       * @description the branch the map is kept on
+       */
+      branch: string;
+      /**
+       * Branches
+       * @description environment -> its branch, where there is one
+       */
+      branches: {
+        [key: string]: string;
+      };
+      /** Entries */
+      entries: components["schemas"]["MapEntryOut"][];
+      /**
+       * Letters
+       * @description environment -> the letter of its names
+       */
+      letters: {
+        [key: string]: string;
+      };
+      /** Version */
+      version: number;
     };
     /** EnvironmentOut */
     EnvironmentOut: {
@@ -1266,6 +1490,24 @@ export interface components {
       /** Detail */
       detail?: components["schemas"]["ValidationError"][];
     };
+    /** ImportedOut */
+    ImportedOut: {
+      /** Folders */
+      folders: number;
+      /** Jobs */
+      jobs: number;
+      /** Links */
+      links: number;
+      /** Literal Marks */
+      literal_marks: number;
+      /**
+       * Skipped
+       * @description folders of other applications, left out
+       */
+      skipped: number;
+      /** Suspicious Values */
+      suspicious_values: number;
+    };
     /** InstallationOut */
     InstallationOut: {
       /**
@@ -1406,6 +1648,29 @@ export interface components {
       /** Task Type */
       task_type?: string | null;
     };
+    /** KnownEntryOut */
+    KnownEntryOut: {
+      /** Name */
+      name: string;
+      /** Nodes */
+      nodes: number;
+    };
+    /** LeftOutOut */
+    LeftOutOut: {
+      /**
+       * Inline
+       * @default false
+       */
+      inline: boolean;
+      /** Key */
+      key: string;
+      /** Nodes */
+      nodes: number;
+      /** Values */
+      values: {
+        [key: string]: string;
+      };
+    };
     /** LetterRuleOut */
     LetterRuleOut: {
       /** Attributes */
@@ -1468,6 +1733,55 @@ export interface components {
       name: string;
       /** Node */
       node: string;
+    };
+    /** MapEntryOut */
+    MapEntryOut: {
+      /**
+       * Inline
+       * @description a word inside a text, not the whole value
+       * @default false
+       */
+      inline: boolean;
+      /**
+       * Key
+       * @description ATTR, TAG/@ATTR or TAG[K=V]/@ATTR
+       */
+      key: string;
+      /** Name */
+      name: string;
+      /**
+       * Values
+       * @description environment -> what it has there
+       */
+      values: {
+        [key: string]: string;
+      };
+    };
+    /** MapEntryRequest */
+    MapEntryRequest: {
+      /**
+       * Inline
+       * @description a word inside a text, not the whole value
+       * @default false
+       */
+      inline: boolean;
+      /**
+       * Key
+       * @description ATTR, TAG/@ATTR or TAG[K=V]/@ATTR
+       */
+      key: string;
+      /**
+       * Name
+       * @description the name of the entry; default: key.N
+       */
+      name?: string | null;
+      /**
+       * Values
+       * @description environment -> value; two or more
+       */
+      values: {
+        [key: string]: string;
+      };
     };
     /** Neighbour */
     Neighbour: {
@@ -1640,7 +1954,7 @@ export interface components {
       date?: string | null;
       /**
        * Kind
-       * @description branch | remote | tag | commit | worktree
+       * @description branch | remote | tag | commit | worktree | export
        */
       kind: string;
       /** Name */
@@ -1649,6 +1963,48 @@ export interface components {
       sha?: string | null;
       /** Subject */
       subject?: string | null;
+    };
+    /** RefreshOut */
+    RefreshOut: {
+      /** Applied */
+      applied: boolean;
+      /**
+       * Branch
+       * @description the branch of the environment
+       */
+      branch: string;
+      /**
+       * Commit
+       * @description the commit made by apply
+       */
+      commit?: string | null;
+      /** @description the branch (base) against the export (head) */
+      comparison: components["schemas"]["ComparisonOut"];
+      /** Env */
+      env: string;
+      /**
+       * Evidence
+       * @description how the environment was told
+       */
+      evidence: string[];
+      /** Files Changed */
+      files_changed: number;
+      imported: components["schemas"]["ImportedOut"];
+      /**
+       * New Branch
+       * @description the branch is not there yet: apply creates it
+       */
+      new_branch: boolean;
+      /**
+       * Source
+       * @description the name of the export file
+       */
+      source: string;
+      /**
+       * Unchanged
+       * @description the branch holds this export already
+       */
+      unchanged: boolean;
     };
     /** RelationChangeOut */
     RelationChangeOut: {
@@ -1743,6 +2099,14 @@ export interface components {
        */
       trunk_behind: number;
     };
+    /** RenameEntryRequest */
+    RenameEntryRequest: {
+      /**
+       * Name
+       * @description the new name
+       */
+      name: string;
+    };
     /** RepoInfo */
     RepoInfo: {
       /** Application */
@@ -1802,6 +2166,39 @@ export interface components {
       summary: string;
       /** Warnings */
       warnings: string[];
+    };
+    /** SuggestionOut */
+    SuggestionOut: {
+      /** Example */
+      example: {
+        [key: string]: string;
+      };
+      /** Key */
+      key: string;
+      /** Nodes */
+      nodes: number;
+      /**
+       * Text
+       * @description the values are texts that differ in one word
+       */
+      text: boolean;
+      /**
+       * Tuples
+       * @description distinct sets of whole values
+       */
+      tuples: number;
+      /**
+       * Words
+       * @description distinct sets of the one word that differs; null when more differs
+       */
+      words?: number | null;
+    };
+    /** SuggestionsOut */
+    SuggestionsOut: {
+      /** Suggestions */
+      suggestions: components["schemas"]["SuggestionOut"][];
+      /** Total */
+      total: number;
     };
     /** SwitchRequest */
     SwitchRequest: {
@@ -2519,6 +2916,326 @@ export interface operations {
       };
     };
   };
+  show_api_envmap_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["EnvMapOut"];
+        };
+      };
+      /** @description No such entry, a name taken, an unknown environment */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description A key that cannot be read, or a git error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+    };
+  };
+  derive_preview_api_envmap_derive_get: {
+    parameters: {
+      query?: {
+        /** @description one more attribute whose whole value varies (repeat the parameter) */
+        key?: string[] | null;
+        /** @description an attribute whose texts differ in one word (repeat the parameter) */
+        text?: string[] | null;
+        /** @description nodes that must show the same values */
+        min_nodes?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DerivedOut"];
+        };
+      };
+      /** @description No such entry, a name taken, an unknown environment */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description A key that cannot be read, or a git error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+    };
+  };
+  derive_apply_api_envmap_derive_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DeriveRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DerivedOut"];
+        };
+      };
+      /** @description No such entry, a name taken, an unknown environment */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description Missing or wrong session token */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description A key that cannot be read, or a git error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+    };
+  };
+  add_entry_api_envmap_entries_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MapEntryRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["EnvMapOut"];
+        };
+      };
+      /** @description No such entry, a name taken, an unknown environment */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description Missing or wrong session token */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description A key that cannot be read, or a git error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+    };
+  };
+  remove_entry_api_envmap_entries__name__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        name: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["EnvMapOut"];
+        };
+      };
+      /** @description No such entry, a name taken, an unknown environment */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description Missing or wrong session token */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description A key that cannot be read, or a git error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+    };
+  };
+  rename_entry_api_envmap_entries__name__patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        name: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RenameEntryRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["EnvMapOut"];
+        };
+      };
+      /** @description No such entry, a name taken, an unknown environment */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description Missing or wrong session token */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description A key that cannot be read, or a git error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+    };
+  };
+  suggest_api_envmap_suggest_get: {
+    parameters: {
+      query?: {
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SuggestionsOut"];
+        };
+      };
+      /** @description No such entry, a name taken, an unknown environment */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description A key that cannot be read, or a git error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+    };
+  };
   list_folders_api_folders_get: {
     parameters: {
       query?: {
@@ -2978,6 +3695,152 @@ export interface operations {
         };
       };
       /** @description Unknown ref or commit, a constant without a value, or nothing to package */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+    };
+  };
+  apply_api_refresh_apply_post: {
+    parameters: {
+      query?: {
+        /** @description the name of the file, for the commit message */
+        source?: string;
+        /** @description the environment; default: told by the letter of the names */
+        env?: string | null;
+        /** @description false leaves the result in the working tree */
+        commit?: boolean;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/xml": string;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RefreshOut"];
+        };
+      };
+      /** @description The environment cannot be told, or is another one */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description Missing or wrong session token */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Unknown environment */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description Uncommitted chain changes are in the way */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description Not an export, or a git error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+    };
+  };
+  preview_api_refresh_preview_post: {
+    parameters: {
+      query?: {
+        /** @description the name of the file, for the commit message */
+        source?: string;
+        /** @description the environment; default: told by the letter of the names */
+        env?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/xml": string;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RefreshOut"];
+        };
+      };
+      /** @description The environment cannot be told, or is another one */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description Missing or wrong session token */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Unknown environment */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description Uncommitted chain changes are in the way */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description Not an export, or a git error */
       422: {
         headers: {
           [name: string]: unknown;

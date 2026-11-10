@@ -2,7 +2,7 @@ import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { renderAt } from "@/test/render";
-import { AppShell } from "./App";
+import { AppRoutes, AppShell } from "./App";
 
 describe("AppShell", () => {
   it("opens and closes the assistant beside the page", async () => {
@@ -24,6 +24,23 @@ describe("AppShell", () => {
     await user.click(within(panel).getByRole("button", { name: "Close the assistant" }));
     expect(screen.queryByRole("complementary", { name: "Assistant" })).not.toBeInTheDocument();
     expect(sessionStorage.getItem("ctmchain-assistant-open")).toBe("0");
+  });
+
+  it("leads to the refresh of an environment and to the map", async () => {
+    const user = userEvent.setup();
+    renderAt(
+      <AppShell>
+        <AppRoutes />
+      </AppShell>,
+    );
+    const nav = screen.getByRole("navigation", { name: "Main" });
+
+    await user.click(within(nav).getByRole("link", { name: "Refresh" }));
+    expect(
+      await screen.findByRole("heading", { name: "Refresh an environment" }),
+    ).toBeInTheDocument();
+    await user.click(within(nav).getByRole("link", { name: "Map" }));
+    expect(await screen.findByRole("heading", { name: "Environment map" })).toBeInTheDocument();
   });
 
   it("stays open across a reload of the tab", async () => {

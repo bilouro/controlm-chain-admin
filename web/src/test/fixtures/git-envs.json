@@ -1,0 +1,43 @@
+{
+  "current": "env/bench",
+  "head": "649c2a6fa44d199fe640e4acf4543de79505d667",
+  "dirty": false,
+  "changes": 0,
+  "refs": [
+    {
+      "name": "map",
+      "kind": "branch",
+      "sha": "c2f1944dbf5aadeb58b517481738be6b873cf8df",
+      "subject": "map: 4 entries derived",
+      "date": "2026-11-10T08:48:18Z"
+    },
+    {
+      "name": "env/bench",
+      "kind": "branch",
+      "sha": "649c2a6fa44d199fe640e4acf4543de79505d667",
+      "subject": "refresh(bench): bench.xml",
+      "date": "2026-11-10T08:48:16Z"
+    },
+    {
+      "name": "env/egma",
+      "kind": "branch",
+      "sha": "7125d59e6cab354993457354a46108e045f9de1b",
+      "subject": "refresh(egma): egma.xml",
+      "date": "2026-11-10T08:48:16Z"
+    },
+    {
+      "name": "env/uat",
+      "kind": "branch",
+      "sha": "741f238edb2407958cc1b2427a0674f9545f4cdc",
+      "subject": "refresh(uat): uat.xml",
+      "date": "2026-11-10T08:48:15Z"
+    },
+    {
+      "name": "main",
+      "kind": "branch",
+      "sha": "d6387ed19d452fae4effce16d415b788512a280d",
+      "subject": "refresh(prod): prod.xml",
+      "date": "2026-11-10T08:48:15Z"
+    }
+  ]
+}

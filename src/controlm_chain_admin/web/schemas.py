@@ -255,7 +255,7 @@ class ApplyOut(BaseModel):
 
 class RefOut(BaseModel):
     name: str
-    kind: str = Field(description="branch | remote | tag | commit | worktree")
+    kind: str = Field(description="branch | remote | tag | commit | worktree | export")
     sha: str | None = None
     subject: str | None = None
     date: str | None = None
@@ -660,3 +660,98 @@ class ApprovalRequest(BaseModel):
 class AckOut(BaseModel):
     ok: bool = True
 
+
+
+class MapEntryOut(BaseModel):
+    name: str
+    key: str = Field(description="ATTR, TAG/@ATTR or TAG[K=V]/@ATTR")
+    values: dict[str, str] = Field(description="environment -> what it has there")
+    inline: bool = Field(False, description="a word inside a text, not the whole value")
+
+
+class EnvMapOut(BaseModel):
+    branch: str = Field(description="the branch the map is kept on")
+    letters: dict[str, str] = Field(description="environment -> the letter of its names")
+    branches: dict[str, str] = Field(description="environment -> its branch, where there is one")
+    version: int
+    entries: list[MapEntryOut]
+
+
+class DerivedEntryOut(MapEntryOut):
+    nodes: int = Field(description="folders and jobs that show these values")
+
+
+class KnownEntryOut(BaseModel):
+    name: str
+    nodes: int
+
+
+class LeftOutOut(BaseModel):
+    key: str
+    values: dict[str, str]
+    nodes: int
+    inline: bool = False
+
+
+class DerivedOut(BaseModel):
+    environments: list[str] = Field(description="the environments whose branches were read")
+    entries: list[DerivedEntryOut] = Field(description="what the map lacks")
+    known: list[KnownEntryOut] = Field(description="entries the map has already")
+    left_out: list[LeftOutOut] = Field(description="values fewer than min_nodes nodes show")
+    applied: bool = Field(description="whether the entries were written on the map's branch")
+
+
+class DeriveRequest(BaseModel):
+    keys: list[str] = Field([], description="more attributes whose whole value varies")
+    text_keys: list[str] = Field([], description="attributes whose texts differ in one word")
+    min_nodes: int = Field(2, ge=1, description="nodes that must show the same values")
+
+
+class SuggestionOut(BaseModel):
+    key: str
+    nodes: int
+    tuples: int = Field(description="distinct sets of whole values")
+    words: int | None = Field(
+        None, description="distinct sets of the one word that differs; null when more differs"
+    )
+    text: bool = Field(description="the values are texts that differ in one word")
+    example: dict[str, str]
+
+
+class SuggestionsOut(BaseModel):
+    total: int
+    suggestions: list[SuggestionOut]
+
+
+class MapEntryRequest(BaseModel):
+    key: str = Field(min_length=1, description="ATTR, TAG/@ATTR or TAG[K=V]/@ATTR")
+    values: dict[str, str] = Field(description="environment -> value; two or more")
+    name: str | None = Field(None, description="the name of the entry; default: key.N")
+    inline: bool = Field(False, description="a word inside a text, not the whole value")
+
+
+class RenameEntryRequest(BaseModel):
+    name: str = Field(min_length=1, description="the new name")
+
+
+class ImportedOut(BaseModel):
+    folders: int
+    jobs: int
+    links: int
+    skipped: int = Field(description="folders of other applications, left out")
+    literal_marks: int
+    suspicious_values: int
+
+
+class RefreshOut(BaseModel):
+    env: str
+    branch: str = Field(description="the branch of the environment")
+    new_branch: bool = Field(description="the branch is not there yet: apply creates it")
+    source: str = Field(description="the name of the export file")
+    evidence: list[str] = Field(description="how the environment was told")
+    files_changed: int
+    unchanged: bool = Field(description="the branch holds this export already")
+    applied: bool
+    commit: str | None = Field(None, description="the commit made by apply")
+    imported: ImportedOut
+    comparison: ComparisonOut = Field(description="the branch (base) against the export (head)")

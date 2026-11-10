@@ -549,6 +549,11 @@ def show_map(repo: ChainRepo) -> dict[str, Any]:
     }
 
 
+def suggest_map(repo: ChainRepo) -> tuple[Suggestion, ...]:
+    """What else varies between the branches, that neither the letter nor the map explains."""
+    return suggest(repo.root, repo.config, read_map(repo.root, repo.config))
+
+
 def derive_map(
     repo: ChainRepo,
     *,

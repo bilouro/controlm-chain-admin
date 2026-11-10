@@ -98,7 +98,52 @@ def main() -> int:
     dump_intake_full()
     dump_intake_values()
     dump_environments()
+    dump_branches()
     return 0
+
+
+def dump_branches() -> None:
+    """One branch per environment (uat ahead, bench with two users for one of uat): the map
+    derived from them, an export of uat refreshed, bench compared with uat and packaged."""
+    from tests.support.fourenvs import export_of, four_branches, two_users_in, uat_ahead
+
+    for role in ("AUTHOR", "COMMITTER"):  # refresh and the map commit by themselves
+        os.environ.setdefault(f"GIT_{role}_NAME", "Test")
+        os.environ.setdefault(f"GIT_{role}_EMAIL", "test@example.com")
+    token = {"X-Ctmchain-Token": "t"}
+    newer = uat_ahead("uat", export_of("uat")).replace(b"a2.ksh -x", b"a3.ksh")
+    between = "base=env/bench&head=env/uat"
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = four_branches(Path(tmp), change=two_users_in("bench"))
+        settings = Settings(
+            repo=repo.root, open_browser=False, token="t", allowed_hosts=["testserver"]
+        )
+        with TestClient(create_app(settings)) as client:
+
+            def get(filename: str, path: str) -> None:
+                response = client.get(path)
+                response.raise_for_status()
+                _write(filename, response.json())
+
+            get("envmap-empty.json", "/api/envmap")
+            get("derive.json", "/api/envmap/derive")
+            client.post(
+                "/api/envmap/derive", json={"min_nodes": 1}, headers=token
+            ).raise_for_status()
+            get("envmap.json", "/api/envmap")
+            get("suggest.json", "/api/envmap/suggest")
+            git(repo.root, "switch", "-q", "env/bench")
+            get("git-envs.json", "/api/git")
+            get("workspace-envs.json", "/api/workspace")
+            get("compare-envs.json", f"/api/compare?{between}")
+            get("package-envs.json", f"/api/package?{between}&take=job:P77_CHAIN/P77_NEW")
+            response = client.post(
+                "/api/refresh/preview?source=uat_export.xml",
+                content=newer,
+                headers={**token, "Content-Type": "application/xml"},
+            )
+            response.raise_for_status()
+            _write("refresh.json", response.json())
 
 
 def dump_environments() -> None:

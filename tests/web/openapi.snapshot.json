@@ -890,6 +890,127 @@
         "title": "DecisionOut",
         "type": "object"
       },
+      "DeriveRequest": {
+        "properties": {
+          "keys": {
+            "default": [],
+            "description": "more attributes whose whole value varies",
+            "items": {
+              "type": "string"
+            },
+            "title": "Keys",
+            "type": "array"
+          },
+          "min_nodes": {
+            "default": 2,
+            "description": "nodes that must show the same values",
+            "minimum": 1.0,
+            "title": "Min Nodes",
+            "type": "integer"
+          },
+          "text_keys": {
+            "default": [],
+            "description": "attributes whose texts differ in one word",
+            "items": {
+              "type": "string"
+            },
+            "title": "Text Keys",
+            "type": "array"
+          }
+        },
+        "title": "DeriveRequest",
+        "type": "object"
+      },
+      "DerivedEntryOut": {
+        "properties": {
+          "inline": {
+            "default": false,
+            "description": "a word inside a text, not the whole value",
+            "title": "Inline",
+            "type": "boolean"
+          },
+          "key": {
+            "description": "ATTR, TAG/@ATTR or TAG[K=V]/@ATTR",
+            "title": "Key",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "nodes": {
+            "description": "folders and jobs that show these values",
+            "title": "Nodes",
+            "type": "integer"
+          },
+          "values": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "environment -> what it has there",
+            "title": "Values",
+            "type": "object"
+          }
+        },
+        "required": [
+          "name",
+          "key",
+          "values",
+          "nodes"
+        ],
+        "title": "DerivedEntryOut",
+        "type": "object"
+      },
+      "DerivedOut": {
+        "properties": {
+          "applied": {
+            "description": "whether the entries were written on the map's branch",
+            "title": "Applied",
+            "type": "boolean"
+          },
+          "entries": {
+            "description": "what the map lacks",
+            "items": {
+              "$ref": "#/components/schemas/DerivedEntryOut"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "environments": {
+            "description": "the environments whose branches were read",
+            "items": {
+              "type": "string"
+            },
+            "title": "Environments",
+            "type": "array"
+          },
+          "known": {
+            "description": "entries the map has already",
+            "items": {
+              "$ref": "#/components/schemas/KnownEntryOut"
+            },
+            "title": "Known",
+            "type": "array"
+          },
+          "left_out": {
+            "description": "values fewer than min_nodes nodes show",
+            "items": {
+              "$ref": "#/components/schemas/LeftOutOut"
+            },
+            "title": "Left Out",
+            "type": "array"
+          }
+        },
+        "required": [
+          "environments",
+          "entries",
+          "known",
+          "left_out",
+          "applied"
+        ],
+        "title": "DerivedOut",
+        "type": "object"
+      },
       "DiscardRequest": {
         "properties": {
           "fingerprint": {
@@ -977,6 +1098,51 @@
           "element"
         ],
         "title": "EffectOut",
+        "type": "object"
+      },
+      "EnvMapOut": {
+        "properties": {
+          "branch": {
+            "description": "the branch the map is kept on",
+            "title": "Branch",
+            "type": "string"
+          },
+          "branches": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "environment -> its branch, where there is one",
+            "title": "Branches",
+            "type": "object"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/MapEntryOut"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "letters": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "environment -> the letter of its names",
+            "title": "Letters",
+            "type": "object"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "branch",
+          "letters",
+          "branches",
+          "version",
+          "entries"
+        ],
+        "title": "EnvMapOut",
         "type": "object"
       },
       "EnvironmentOut": {
@@ -1585,6 +1751,45 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "ImportedOut": {
+        "properties": {
+          "folders": {
+            "title": "Folders",
+            "type": "integer"
+          },
+          "jobs": {
+            "title": "Jobs",
+            "type": "integer"
+          },
+          "links": {
+            "title": "Links",
+            "type": "integer"
+          },
+          "literal_marks": {
+            "title": "Literal Marks",
+            "type": "integer"
+          },
+          "skipped": {
+            "description": "folders of other applications, left out",
+            "title": "Skipped",
+            "type": "integer"
+          },
+          "suspicious_values": {
+            "title": "Suspicious Values",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "folders",
+          "jobs",
+          "links",
+          "skipped",
+          "literal_marks",
+          "suspicious_values"
+        ],
+        "title": "ImportedOut",
+        "type": "object"
+      },
       "InstallationOut": {
         "properties": {
           "behind": {
@@ -1884,6 +2089,55 @@
         "title": "JobSummary",
         "type": "object"
       },
+      "KnownEntryOut": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "nodes": {
+            "title": "Nodes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "nodes"
+        ],
+        "title": "KnownEntryOut",
+        "type": "object"
+      },
+      "LeftOutOut": {
+        "properties": {
+          "inline": {
+            "default": false,
+            "title": "Inline",
+            "type": "boolean"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "nodes": {
+            "title": "Nodes",
+            "type": "integer"
+          },
+          "values": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Values",
+            "type": "object"
+          }
+        },
+        "required": [
+          "key",
+          "values",
+          "nodes"
+        ],
+        "title": "LeftOutOut",
+        "type": "object"
+      },
       "LetterRuleOut": {
         "properties": {
           "attributes": {
@@ -2070,6 +2324,82 @@
           "name"
         ],
         "title": "LooseEnd",
+        "type": "object"
+      },
+      "MapEntryOut": {
+        "properties": {
+          "inline": {
+            "default": false,
+            "description": "a word inside a text, not the whole value",
+            "title": "Inline",
+            "type": "boolean"
+          },
+          "key": {
+            "description": "ATTR, TAG/@ATTR or TAG[K=V]/@ATTR",
+            "title": "Key",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "values": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "environment -> what it has there",
+            "title": "Values",
+            "type": "object"
+          }
+        },
+        "required": [
+          "name",
+          "key",
+          "values"
+        ],
+        "title": "MapEntryOut",
+        "type": "object"
+      },
+      "MapEntryRequest": {
+        "properties": {
+          "inline": {
+            "default": false,
+            "description": "a word inside a text, not the whole value",
+            "title": "Inline",
+            "type": "boolean"
+          },
+          "key": {
+            "description": "ATTR, TAG/@ATTR or TAG[K=V]/@ATTR",
+            "minLength": 1,
+            "title": "Key",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the name of the entry; default: key.N",
+            "title": "Name"
+          },
+          "values": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "environment -> value; two or more",
+            "title": "Values",
+            "type": "object"
+          }
+        },
+        "required": [
+          "key",
+          "values"
+        ],
+        "title": "MapEntryRequest",
         "type": "object"
       },
       "Neighbour": {
@@ -2516,7 +2846,7 @@
             "title": "Date"
           },
           "kind": {
-            "description": "branch | remote | tag | commit | worktree",
+            "description": "branch | remote | tag | commit | worktree | export",
             "title": "Kind",
             "type": "string"
           },
@@ -2552,6 +2882,83 @@
           "kind"
         ],
         "title": "RefOut",
+        "type": "object"
+      },
+      "RefreshOut": {
+        "properties": {
+          "applied": {
+            "title": "Applied",
+            "type": "boolean"
+          },
+          "branch": {
+            "description": "the branch of the environment",
+            "title": "Branch",
+            "type": "string"
+          },
+          "commit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the commit made by apply",
+            "title": "Commit"
+          },
+          "comparison": {
+            "$ref": "#/components/schemas/ComparisonOut",
+            "description": "the branch (base) against the export (head)"
+          },
+          "env": {
+            "title": "Env",
+            "type": "string"
+          },
+          "evidence": {
+            "description": "how the environment was told",
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence",
+            "type": "array"
+          },
+          "files_changed": {
+            "title": "Files Changed",
+            "type": "integer"
+          },
+          "imported": {
+            "$ref": "#/components/schemas/ImportedOut"
+          },
+          "new_branch": {
+            "description": "the branch is not there yet: apply creates it",
+            "title": "New Branch",
+            "type": "boolean"
+          },
+          "source": {
+            "description": "the name of the export file",
+            "title": "Source",
+            "type": "string"
+          },
+          "unchanged": {
+            "description": "the branch holds this export already",
+            "title": "Unchanged",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "env",
+          "branch",
+          "new_branch",
+          "source",
+          "evidence",
+          "files_changed",
+          "unchanged",
+          "applied",
+          "imported",
+          "comparison"
+        ],
+        "title": "RefreshOut",
         "type": "object"
       },
       "RelationChangeOut": {
@@ -2758,6 +3165,21 @@
         "title": "ReleaseOut",
         "type": "object"
       },
+      "RenameEntryRequest": {
+        "properties": {
+          "name": {
+            "description": "the new name",
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "RenameEntryRequest",
+        "type": "object"
+      },
       "RepoInfo": {
         "properties": {
           "application": {
@@ -2908,6 +3330,77 @@
           "diff"
         ],
         "title": "StepsPreviewOut",
+        "type": "object"
+      },
+      "SuggestionOut": {
+        "properties": {
+          "example": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Example",
+            "type": "object"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "nodes": {
+            "title": "Nodes",
+            "type": "integer"
+          },
+          "text": {
+            "description": "the values are texts that differ in one word",
+            "title": "Text",
+            "type": "boolean"
+          },
+          "tuples": {
+            "description": "distinct sets of whole values",
+            "title": "Tuples",
+            "type": "integer"
+          },
+          "words": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "distinct sets of the one word that differs; null when more differs",
+            "title": "Words"
+          }
+        },
+        "required": [
+          "key",
+          "nodes",
+          "tuples",
+          "text",
+          "example"
+        ],
+        "title": "SuggestionOut",
+        "type": "object"
+      },
+      "SuggestionsOut": {
+        "properties": {
+          "suggestions": {
+            "items": {
+              "$ref": "#/components/schemas/SuggestionOut"
+            },
+            "title": "Suggestions",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "suggestions"
+        ],
+        "title": "SuggestionsOut",
         "type": "object"
       },
       "SwitchRequest": {
@@ -4165,6 +4658,435 @@
         ]
       }
     },
+    "/api/envmap": {
+      "get": {
+        "operationId": "show_api_envmap_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnvMapOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "No such entry, a name taken, an unknown environment"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "A key that cannot be read, or a git error"
+          }
+        },
+        "summary": "The letters, the branches, the map",
+        "tags": [
+          "envmap"
+        ]
+      }
+    },
+    "/api/envmap/derive": {
+      "get": {
+        "operationId": "derive_preview_api_envmap_derive_get",
+        "parameters": [
+          {
+            "description": "one more attribute whose whole value varies (repeat the parameter)",
+            "in": "query",
+            "name": "key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "one more attribute whose whole value varies (repeat the parameter)",
+              "title": "Key"
+            }
+          },
+          {
+            "description": "an attribute whose texts differ in one word (repeat the parameter)",
+            "in": "query",
+            "name": "text",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "an attribute whose texts differ in one word (repeat the parameter)",
+              "title": "Text"
+            }
+          },
+          {
+            "description": "nodes that must show the same values",
+            "in": "query",
+            "name": "min_nodes",
+            "required": false,
+            "schema": {
+              "default": 2,
+              "description": "nodes that must show the same values",
+              "minimum": 1,
+              "title": "Min Nodes",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DerivedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "No such entry, a name taken, an unknown environment"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "A key that cannot be read, or a git error"
+          }
+        },
+        "summary": "The entries the environments' branches show and the map lacks (nothing written)",
+        "tags": [
+          "envmap"
+        ]
+      },
+      "post": {
+        "operationId": "derive_apply_api_envmap_derive_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeriveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DerivedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "No such entry, a name taken, an unknown environment"
+          },
+          "401": {
+            "description": "Missing or wrong session token"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "A key that cannot be read, or a git error"
+          }
+        },
+        "summary": "Add the derived entries to the map (a commit on its branch)",
+        "tags": [
+          "envmap"
+        ]
+      }
+    },
+    "/api/envmap/entries": {
+      "post": {
+        "operationId": "add_entry_api_envmap_entries_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MapEntryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnvMapOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "No such entry, a name taken, an unknown environment"
+          },
+          "401": {
+            "description": "Missing or wrong session token"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "A key that cannot be read, or a git error"
+          }
+        },
+        "summary": "Add one entry by hand",
+        "tags": [
+          "envmap"
+        ]
+      }
+    },
+    "/api/envmap/entries/{name}": {
+      "delete": {
+        "operationId": "remove_entry_api_envmap_entries__name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnvMapOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "No such entry, a name taken, an unknown environment"
+          },
+          "401": {
+            "description": "Missing or wrong session token"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "A key that cannot be read, or a git error"
+          }
+        },
+        "summary": "Drop one entry",
+        "tags": [
+          "envmap"
+        ]
+      },
+      "patch": {
+        "operationId": "rename_entry_api_envmap_entries__name__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameEntryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnvMapOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "No such entry, a name taken, an unknown environment"
+          },
+          "401": {
+            "description": "Missing or wrong session token"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "A key that cannot be read, or a git error"
+          }
+        },
+        "summary": "Give an entry a name that says what it is",
+        "tags": [
+          "envmap"
+        ]
+      }
+    },
+    "/api/envmap/suggest": {
+      "get": {
+        "operationId": "suggest_api_envmap_suggest_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuggestionsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "No such entry, a name taken, an unknown environment"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "A key that cannot be read, or a git error"
+          }
+        },
+        "summary": "What else varies between the environments, that the map does not explain",
+        "tags": [
+          "envmap"
+        ]
+      }
+    },
     "/api/folders": {
       "get": {
         "operationId": "list_folders_api_folders_get",
@@ -5018,6 +5940,236 @@
         ]
       }
     },
+    "/api/refresh/apply": {
+      "post": {
+        "operationId": "apply_api_refresh_apply_post",
+        "parameters": [
+          {
+            "description": "the name of the file, for the commit message",
+            "in": "query",
+            "name": "source",
+            "required": false,
+            "schema": {
+              "default": "export.xml",
+              "description": "the name of the file, for the commit message",
+              "title": "Source",
+              "type": "string"
+            }
+          },
+          {
+            "description": "the environment; default: told by the letter of the names",
+            "in": "query",
+            "name": "env",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "the environment; default: told by the letter of the names",
+              "title": "Env"
+            }
+          },
+          {
+            "description": "false leaves the result in the working tree",
+            "in": "query",
+            "name": "commit",
+            "required": false,
+            "schema": {
+              "default": true,
+              "description": "false leaves the result in the working tree",
+              "title": "Commit",
+              "type": "boolean"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/xml": {
+              "schema": {
+                "contentMediaType": "application/octet-stream",
+                "description": "the export file, as it is",
+                "title": "Data",
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefreshOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "The environment cannot be told, or is another one"
+          },
+          "401": {
+            "description": "Missing or wrong session token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unknown environment"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Uncommitted chain changes are in the way"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not an export, or a git error"
+          }
+        },
+        "summary": "Check the branch of the environment out, overwrite it with the export, commit",
+        "tags": [
+          "refresh"
+        ]
+      }
+    },
+    "/api/refresh/preview": {
+      "post": {
+        "operationId": "preview_api_refresh_preview_post",
+        "parameters": [
+          {
+            "description": "the name of the file, for the commit message",
+            "in": "query",
+            "name": "source",
+            "required": false,
+            "schema": {
+              "default": "export.xml",
+              "description": "the name of the file, for the commit message",
+              "title": "Source",
+              "type": "string"
+            }
+          },
+          {
+            "description": "the environment; default: told by the letter of the names",
+            "in": "query",
+            "name": "env",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "the environment; default: told by the letter of the names",
+              "title": "Env"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/xml": {
+              "schema": {
+                "contentMediaType": "application/octet-stream",
+                "description": "the export file, as it is",
+                "title": "Data",
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefreshOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "The environment cannot be told, or is another one"
+          },
+          "401": {
+            "description": "Missing or wrong session token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unknown environment"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Uncommitted chain changes are in the way"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not an export, or a git error"
+          }
+        },
+        "summary": "What the export changes on the branch of its environment (nothing written)",
+        "tags": [
+          "refresh"
+        ]
+      }
+    },
     "/api/repo": {
       "get": {
         "operationId": "repo_info_api_repo_get",
@@ -5796,6 +6948,14 @@
     {
       "description": "What an export of one environment brings, before receiving it.",
       "name": "intake"
+    },
+    {
+      "description": "The map of what varies per environment (machines, users...), kept on its own branch: shown, derived from the environments' branches, edited.",
+      "name": "envmap"
+    },
+    {
+      "description": "The full export of one environment over the branch of that environment.",
+      "name": "refresh"
     },
     {
       "description": "Where edits go: releases from the trunk, installations, stash, push.",

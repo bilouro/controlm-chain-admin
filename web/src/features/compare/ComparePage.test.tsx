@@ -2,12 +2,17 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
+import { violations } from "@/test/axe";
 import type { GitStateOut } from "@/lib/api/client";
 import { renderAt } from "@/test/render";
 import { calls, server } from "@/test/server";
 import gitState from "@/test/fixtures/git.json";
 import comparison from "@/test/fixtures/compare.json";
 import packagePreview from "@/test/fixtures/package.json";
+import comparisonEnvs from "@/test/fixtures/compare-envs.json";
+import gitEnvs from "@/test/fixtures/git-envs.json";
+import packageEnvs from "@/test/fixtures/package-envs.json";
+import workspaceEnvs from "@/test/fixtures/workspace-envs.json";
 import { ComparePage } from "./ComparePage";
 import { defaultRefs } from "./refs";
 
@@ -596,5 +601,176 @@ describe("ComparePage, real changes only", () => {
 
     expect(await screen.findByText("Markdown copied")).toBeInTheDocument();
     expect(asked[0]?.get("real_only")).toBe("true");
+  });
+});
+
+describe("ComparePage, between the branches of two environments", () => {
+  const path = "/compare?base=env/bench&head=env/uat";
+  const NEW = "job:P77_CHAIN/P77_NEW";
+
+  /** The repository of the four environments; `current` is the branch that is checked out. */
+  function between(current = "env/bench") {
+    server.use(
+      http.get("/api/git", () => HttpResponse.json({ ...gitEnvs, current })),
+      http.get("/api/workspace", () => HttpResponse.json({ ...workspaceEnvs, branch: current })),
+      http.get("/api/compare", ({ request }) => {
+        const params = new URL(request.url).searchParams;
+        calls.compare.push(params);
+        if (params.get("raw") === "true") {
+          return HttpResponse.json({ ...comparisonEnvs, translation: null });
+        }
+        const settled = params.getAll("prefer").includes("run_as.2");
+        const warnings = settled ? [] : comparisonEnvs.translation.warnings;
+        return HttpResponse.json({
+          ...comparisonEnvs,
+          translation: { ...comparisonEnvs.translation, warnings },
+        });
+      }),
+      http.get("/api/package", ({ request }) => {
+        calls.package.push(new URL(request.url).searchParams);
+        return HttpResponse.json(packageEnvs);
+      }),
+    );
+  }
+
+  async function shown(at = path) {
+    const user = userEvent.setup();
+    // inside <main>, as the application shell has it: a header there is not the page banner
+    const view = renderAt(
+      <main>
+        <ComparePage />
+      </main>,
+      { path: at },
+    );
+    await screen.findByRole("button", { name: /^P77_NEW added/ });
+    return { user, ...view };
+  }
+
+  async function chooseNew(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByRole("button", { name: /^P77_NEW added/ }));
+    await user.click(
+      screen.getByRole("checkbox", { name: "Take the whole job P77_CHAIN/P77_NEW" }),
+    );
+  }
+
+  it("says how the head is read in the terms of the base and what the map cannot settle", async () => {
+    between();
+    const { container } = await shown();
+
+    const panel = screen.getByRole("region", { name: "Between environments" });
+    expect(panel).toHaveTextContent("uat is read in the terms of bench");
+    expect(panel).toHaveTextContent("22 values of the map");
+    expect(panel).toHaveTextContent("4 names with the letter of the environment");
+    const warnings = within(panel).getByRole("list", { name: "Translation warnings" });
+    expect(within(warnings).getByRole("listitem")).toHaveTextContent("kept as it is");
+    // what belongs to a comparison inside one environment is not offered
+    expect(screen.queryByLabelText("Environment")).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: /merge base/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Commits" })).not.toBeInTheDocument();
+    expect(await violations(container)).toEqual([]);
+  });
+
+  it("prefers an entry of the map where it gives two answers, and can go back", async () => {
+    between();
+    const { user } = await shown();
+
+    await user.click(await screen.findByRole("button", { name: "Prefer run_as.2" }));
+
+    await screen.findByRole("button", { name: "Stop preferring run_as.2" });
+    expect(lastCompare()?.getAll("prefer")).toEqual(["run_as.2"]);
+    await waitFor(() =>
+      expect(screen.queryByRole("list", { name: "Translation warnings" })).not.toBeInTheDocument(),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Stop preferring run_as.2" }));
+
+    expect(await screen.findByRole("list", { name: "Translation warnings" })).toBeInTheDocument();
+    expect(lastCompare()?.getAll("prefer")).toEqual([]);
+  });
+
+  it("shows the two branches as they are stored when asked, only to look at", async () => {
+    between();
+    const { user } = await shown();
+
+    await user.click(screen.getByRole("checkbox", { name: /as they are stored/ }));
+
+    await waitFor(() => expect(lastCompare()?.get("raw")).toBe("true"));
+    const panel = await screen.findByRole("region", { name: "Between environments" });
+    await waitFor(() => expect(panel).toHaveTextContent("nothing of uat is read"));
+    await user.click(await screen.findByRole("button", { name: /^P77_NEW added/ }));
+    expect(screen.queryByRole("checkbox", { name: /Take the whole job/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Generate XML" })).toBeDisabled();
+  });
+
+  it("takes an item into the branch checked out with the entry that was preferred", async () => {
+    between();
+    const { user } = await shown(`${path}&prefer=run_as.2`);
+
+    await chooseNew(user);
+    await user.click(screen.getByRole("button", { name: "Take 1 change into env/bench" }));
+
+    await screen.findByRole("dialog", { name: "Review change" });
+    expect(calls.preview.at(-1)).toEqual({
+      op: "take",
+      params: {
+        base: "env/bench",
+        head: "env/uat",
+        items: [NEW],
+        theirs: [],
+        commits: null,
+        merge_base: true,
+        prefer: ["run_as.2"],
+      },
+    });
+  });
+
+  it("packages the chosen items for the environment of the base", async () => {
+    between();
+    const { user } = await shown();
+
+    await chooseNew(user);
+    await user.click(screen.getByRole("button", { name: "Package 1 item for bench" }));
+
+    const panel = await screen.findByRole("region", { name: "Import package" });
+    expect(
+      await within(panel).findByRole("heading", { name: "Import package for bench" }),
+    ).toBeInTheDocument();
+    const sent = calls.package.at(-1);
+    expect(sent?.getAll("take")).toEqual([NEW]);
+    expect(sent?.has("env")).toBe(false);
+    expect(panel).toHaveTextContent("1 chosen item of uat on what env/bench holds");
+    expect(panel).toHaveTextContent("job P77_NEW added");
+    expect(within(panel).getByRole("list", { name: "Warnings" })).toHaveTextContent(
+      "kept as it is",
+    );
+    const href = within(panel)
+      .getByRole("link", { name: /Download/ })
+      .getAttribute("href");
+    expect(new URLSearchParams(href?.split("?")[1]).getAll("take")).toEqual([NEW]);
+  });
+
+  it("packages everything that differs with the entries that were preferred", async () => {
+    between();
+    const { user } = await shown(`${path}&prefer=run_as.2`);
+
+    await user.click(screen.getByRole("button", { name: "Generate XML" }));
+
+    await screen.findByRole("heading", { name: "Import package for bench" });
+    const sent = calls.package.at(-1);
+    expect([sent?.has("env"), sent?.has("take")]).toEqual([false, false]);
+    expect(sent?.getAll("prefer")).toEqual(["run_as.2"]);
+  });
+
+  it("packages chosen items where the base is not checked out, without taking them", async () => {
+    between("main");
+    const { user } = await shown();
+
+    expect(screen.getByText(/check env\/bench out to take/)).toBeInTheDocument();
+    await chooseNew(user);
+
+    expect(screen.queryByRole("button", { name: /^Take 1 change/ })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Package 1 item for bench" }));
+    await screen.findByRole("heading", { name: "Import package for bench" });
+    expect(calls.package.at(-1)?.getAll("take")).toEqual([NEW]);
   });
 });

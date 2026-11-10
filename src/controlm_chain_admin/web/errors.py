@@ -15,6 +15,7 @@ from controlm_chain_admin.core.errors import (
     EnvironmentRequired,
     GitError,
     InvalidChange,
+    InvalidSpec,
     MergeConflict,
     ModelError,
     NotAChainRepo,
@@ -35,6 +36,7 @@ log = logging.getLogger("ctmchain.web")
 _STATUS: tuple[tuple[type[ChainError], int], ...] = (
     (TakeConflict, 409),  # before InvalidChange, its base class
     (InvalidChange, 422),  # before ModelError, its base class
+    (InvalidSpec, 422),  # before ModelError, its base class
     (ChangeConflict, 409),
     (SelectionConflict, 409),  # before GitError, its base class
     (UncommittedChanges, 409),  # before GitError, its base class

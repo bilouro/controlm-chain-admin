@@ -1,0 +1,62 @@
+{
+  "branch": "map",
+  "letters": {
+    "prod": "P",
+    "uat": "U",
+    "egma": "E",
+    "bench": "B"
+  },
+  "branches": {
+    "prod": "main",
+    "uat": "env/uat",
+    "egma": "env/egma",
+    "bench": "env/bench"
+  },
+  "version": 1,
+  "entries": [
+    {
+      "name": "nodeid.1",
+      "key": "NODEID",
+      "values": {
+        "prod": "srvp-bat1",
+        "uat": "srvu-bat1",
+        "egma": "srve-bat1",
+        "bench": "srvb-bat1"
+      },
+      "inline": false
+    },
+    {
+      "name": "run_as.1",
+      "key": "RUN_AS",
+      "values": {
+        "prod": "app77proc",
+        "uat": "aup77proc",
+        "egma": "aep77proc",
+        "bench": "abp77proc"
+      },
+      "inline": false
+    },
+    {
+      "name": "run_as.2",
+      "key": "RUN_AS",
+      "values": {
+        "prod": "app77proc",
+        "uat": "aup77proc",
+        "egma": "aep77proc",
+        "bench": "abp77adm"
+      },
+      "inline": false
+    },
+    {
+      "name": "datacenter.1",
+      "key": "DATACENTER",
+      "values": {
+        "prod": "CTMPROD",
+        "uat": "CTMUAT",
+        "egma": "CTMEGMA",
+        "bench": "CTMBENCH"
+      },
+      "inline": false
+    }
+  ]
+}

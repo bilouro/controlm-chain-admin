@@ -138,8 +138,8 @@ what travels between them.
 
 ## What is open
 
-- The web UI and the assistant's tools do not refresh, edit the map or take between
-  environments yet: the command line does.
+- The assistant previews a refresh and does not apply it, and does not edit the map: the
+  command line and the web UI do.
 - A value of the source that stands for two of the target (two users there for one here) is
   never guessed: it is reported, and `--prefer ENTRY` settles it.
 - A taken folder or job carries the technical attributes of its source until the next refresh

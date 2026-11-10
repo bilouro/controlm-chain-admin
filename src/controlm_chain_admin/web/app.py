@@ -21,11 +21,13 @@ from controlm_chain_admin.web.routers import (
     assistant,
     changes,
     environments,
+    envmap,
     folders,
     history,
     intake,
     jobs,
     package,
+    refresh,
     repo,
     table,
     validate,
@@ -88,6 +90,15 @@ TAGS = [
         "description": "What an export of one environment brings, before receiving it.",
     },
     {
+        "name": "envmap",
+        "description": "The map of what varies per environment (machines, users...), kept on "
+        "its own branch: shown, derived from the environments' branches, edited.",
+    },
+    {
+        "name": "refresh",
+        "description": "The full export of one environment over the branch of that environment.",
+    },
+    {
         "name": "workspace",
         "description": "Where edits go: releases from the trunk, installations, stash, push.",
     },
@@ -126,6 +137,8 @@ def create_app(settings: Settings, *, static_dir: Path = STATIC_DIR) -> FastAPI:
         package.router,
         environments.router,
         intake.router,
+        envmap.router,
+        refresh.router,
         workspace.router,
         assistant.router,
     ):

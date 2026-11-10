@@ -3,6 +3,8 @@ import {
   api,
   encode,
   type ComparisonOut,
+  type DerivedOut,
+  type EnvMapOut,
   type EnvironmentsOut,
   type FolderDetail,
   type GitStateOut,
@@ -10,6 +12,7 @@ import {
   type PackageOut,
   type PendingOut,
   type RepoInfo,
+  type SuggestionsOut,
   type TableOut,
   type ValidateOut,
   type WorkspaceOut,
@@ -23,12 +26,14 @@ export const queryKeys = {
   job: (folder: string, job: string) => ["job", folder, job] as const,
   validate: ["validate"] as const,
   git: ["git"] as const,
-  compare: (base: string, head: string, mergeBase: boolean, commits: string | null) =>
-    ["compare", base, head, mergeBase, commits] as const,
+  compare: (query: string) => ["compare", query] as const,
   package: (query: string) => ["package", query] as const,
   pending: ["git-pending"] as const,
   workspace: ["workspace"] as const,
   environments: ["environments"] as const,
+  envmap: ["envmap"] as const,
+  derive: (query: string) => ["envmap", "derive", query] as const,
+  suggest: ["envmap", "suggest"] as const,
 };
 
 export function useRepo() {
@@ -97,15 +102,21 @@ export function useGit() {
   });
 }
 
+/** How two branches of different environments are read: as stored, or which entries win. */
+export type Between = { raw?: boolean; prefer?: string[] };
+
 /** Query string of a comparison; `commits` null means every commit of head. */
 export function compareParams(
   base: string,
   head: string,
   mergeBase: boolean,
   commits: string[] | null,
+  between: Between = {},
 ): URLSearchParams {
   const params = new URLSearchParams({ base, head, merge_base: String(mergeBase) });
   if (commits !== null) params.set("commits", commits.join(","));
+  if (between.raw) params.set("raw", "true");
+  for (const name of between.prefer ?? []) params.append("prefer", name);
   return params;
 }
 
@@ -114,11 +125,12 @@ export function useCompare(
   head: string,
   mergeBase: boolean,
   commits: string[] | null = null,
+  between: Between = {},
 ) {
-  const params = compareParams(base, head, mergeBase, commits);
+  const query = compareParams(base, head, mergeBase, commits, between).toString();
   return useQuery({
-    queryKey: queryKeys.compare(base, head, mergeBase, commits?.join(",") ?? null),
-    queryFn: () => api<ComparisonOut>(`/api/compare?${params.toString()}`),
+    queryKey: queryKeys.compare(query),
+    queryFn: () => api<ComparisonOut>(`/api/compare?${query}`),
     enabled: Boolean(base && head),
     retry: false,
   });
@@ -161,5 +173,35 @@ export function useEnvironments() {
   return useQuery({
     queryKey: queryKeys.environments,
     queryFn: () => api<EnvironmentsOut>("/api/environments"),
+  });
+}
+
+/** The map of what varies per environment: letters, branches and entries. */
+export function useEnvMap(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.envmap,
+    queryFn: () => api<EnvMapOut>("/api/envmap"),
+    enabled,
+    retry: false,
+  });
+}
+
+/** The entries the branches show and the map lacks (`query` null: not asked yet). */
+export function useDerived(query: string | null) {
+  return useQuery({
+    queryKey: queryKeys.derive(query ?? ""),
+    queryFn: () => api<DerivedOut>(`/api/envmap/derive?${query ?? ""}`),
+    enabled: query !== null,
+    retry: false,
+  });
+}
+
+/** What else varies between the branches and neither the letter nor the map explains. */
+export function useSuggestions(enabled: boolean) {
+  return useQuery({
+    queryKey: queryKeys.suggest,
+    queryFn: () => api<SuggestionsOut>("/api/envmap/suggest"),
+    enabled,
+    retry: false,
   });
 }

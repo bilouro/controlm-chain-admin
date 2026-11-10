@@ -36,6 +36,9 @@ afterEach(() => {
   calls.workspace.length = 0;
   calls.intake.length = 0;
   calls.env.length = 0;
+  calls.envmap.length = 0;
+  calls.derive.length = 0;
+  calls.refresh.length = 0;
   sessionStorage.clear();
 });
 afterAll(() => server.close());

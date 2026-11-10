@@ -57,6 +57,15 @@ export type StepsPreviewOut = Schemas["StepsPreviewOut"];
 export type FieldChangeOut = Schemas["FieldChangeOut"];
 export type ConversationOut = Schemas["ConversationOut"];
 export type AckOut = Schemas["AckOut"];
+export type EnvMapOut = Schemas["EnvMapOut"];
+export type MapEntryOut = Schemas["MapEntryOut"];
+export type MapEntryRequest = Schemas["MapEntryRequest"];
+export type DerivedOut = Schemas["DerivedOut"];
+export type DeriveRequest = Schemas["DeriveRequest"];
+export type SuggestionOut = Schemas["SuggestionOut"];
+export type SuggestionsOut = Schemas["SuggestionsOut"];
+export type RefreshOut = Schemas["RefreshOut"];
+export type TranslationOut = Schemas["TranslationOut"];
 
 export const TOKEN_HEADER = "X-Ctmchain-Token";
 
@@ -107,15 +116,32 @@ export async function apiText(path: string): Promise<string> {
   return response.text();
 }
 
+function withToken(headers: Record<string, string>): Record<string, string> {
+  const token = getToken();
+  return token ? { ...headers, [TOKEN_HEADER]: token } : headers;
+}
+
+/** Send JSON (or nothing) with the session token: the editing endpoints. */
+export async function sendApi<T>(
+  method: "POST" | "PATCH" | "DELETE",
+  path: string,
+  body?: unknown,
+): Promise<T> {
+  const headers = withToken({ Accept: "application/json" });
+  if (body === undefined) return parse<T>(await fetch(path, { method, headers }));
+  headers["Content-Type"] = "application/json";
+  return parse<T>(await fetch(path, { method, headers, body: JSON.stringify(body) }));
+}
+
 /** POST JSON with the session token (editing endpoints). */
 export async function postApi<T>(path: string, body: unknown): Promise<T> {
-  const headers: Record<string, string> = {
-    Accept: "application/json",
-    "Content-Type": "application/json",
-  };
-  const token = getToken();
-  if (token) headers[TOKEN_HEADER] = token;
-  return parse<T>(await fetch(path, { method: "POST", headers, body: JSON.stringify(body) }));
+  return sendApi<T>("POST", path, body);
+}
+
+/** POST an export file as it is, byte for byte, with the session token. */
+export async function postXml<T>(path: string, data: ArrayBuffer): Promise<T> {
+  const headers = withToken({ Accept: "application/json", "Content-Type": "application/xml" });
+  return parse<T>(await fetch(path, { method: "POST", headers, body: data }));
 }
 
 export const encode = encodeURIComponent;

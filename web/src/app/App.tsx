@@ -12,7 +12,9 @@ import { EnvBadge } from "@/features/environments/EnvBadge";
 import { EnvProvider } from "@/features/environments/EnvProvider";
 import { EnvSelect } from "@/features/environments/EnvSelect";
 import { EnvironmentsPage } from "@/features/environments/EnvironmentsPage";
+import { MapPage } from "@/features/envmap/MapPage";
 import { JobPage } from "@/features/job-detail/JobPage";
+import { RefreshPage } from "@/features/refresh/RefreshPage";
 import { ValidatePage } from "@/features/validate/ValidatePage";
 import { RepoBadge } from "@/features/repo/RepoBadge";
 import { BranchButton } from "@/features/workspace/BranchButton";
@@ -68,6 +70,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <NavItem to="/">Chains</NavItem>
           <NavItem to="/validate">Validate</NavItem>
           <NavItem to="/compare">Compare</NavItem>
+          <NavItem to="/refresh">Refresh</NavItem>
+          <NavItem to="/map">Map</NavItem>
           <NavItem to="/import">Import</NavItem>
           <NavItem to="/environments">Environments</NavItem>
         </nav>
@@ -110,6 +114,8 @@ export function AppRoutes() {
       <Route path="/folders/:folder/jobs/:job" element={<JobPage />} />
       <Route path="/validate" element={<ValidatePage />} />
       <Route path="/compare" element={<ComparePage />} />
+      <Route path="/refresh" element={<RefreshPage />} />
+      <Route path="/map" element={<MapPage />} />
       <Route path="/import" element={<ImportPage />} />
       <Route path="/environments" element={<EnvironmentsPage />} />
       <Route path="*" element={<p className="p-6 text-muted">Page not found.</p>} />

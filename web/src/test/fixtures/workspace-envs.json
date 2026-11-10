@@ -1,0 +1,23 @@
+{
+  "branch": "env/bench",
+  "head": "649c2a6fa44d199fe640e4acf4543de79505d667",
+  "trunk": "main",
+  "prefix": "release/",
+  "editable": true,
+  "reason": null,
+  "release": null,
+  "changes": 0,
+  "releases": [],
+  "stashes": [],
+  "environments": [
+    "prod",
+    "uat",
+    "egma",
+    "bench"
+  ],
+  "production": "prod",
+  "remote": null,
+  "upstream": null,
+  "ahead": 0,
+  "behind": 0
+}

@@ -55,6 +55,10 @@ class InvalidChange(ModelError):
     """A requested edit is not allowed or not consistent (bad attribute, duplicate link...)."""
 
 
+class InvalidSpec(ModelError):
+    """An attribute spec that cannot be read (``ATTR``, ``TAG/@ATTR``, ``TAG[K=V]/@ATTR``)."""
+
+
 class GitError(ChainError):
     """A git command failed (not a git repository, unknown ref...)."""
 
