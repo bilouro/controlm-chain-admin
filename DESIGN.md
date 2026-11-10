@@ -813,6 +813,9 @@ stop; `run` turns it into `SystemExit` so the cleanup runs).
   The dialog of the branch button lists, after the trunk, the branch of every other
   environment that exists here or on the remote (`env_branches` of `GET /api/workspace`),
   each with *Switch*: the checked-out branch is the environment the chain pages show.
+- **Theme (2026-11-10).** The page has the day colours unless asked: the *Theme* selector
+  of the header (day, night, as the system) sets `data-theme` on the root element, which the
+  stylesheet reads, and the choice is kept in the browser (`localStorage`).
 
 ## 12. CLI reference (`ctmchain`)
 

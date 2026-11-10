@@ -36,7 +36,12 @@
   }
 }
 
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
 :root[data-theme="dark"] {
+  color-scheme: dark;
   --bg: oklch(17% 0.015 260);
   --surface: oklch(21% 0.015 260);
   --surface-2: oklch(25% 0.015 260);

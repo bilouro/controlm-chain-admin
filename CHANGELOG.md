@@ -6,6 +6,11 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The web UI shows the day colours unless asked: a *Theme* selector in the header (day, night,
+  as the system) replaces following the system alone, and the choice is kept in the browser.
+
 ### Fixed
 
 - The branch dialog of the web UI lists the branch of every environment (`env/<name>`), on

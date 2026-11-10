@@ -17,6 +17,7 @@ import { JobPage } from "@/features/job-detail/JobPage";
 import { RefreshPage } from "@/features/refresh/RefreshPage";
 import { ValidatePage } from "@/features/validate/ValidatePage";
 import { RepoBadge } from "@/features/repo/RepoBadge";
+import { ThemeSelect } from "@/features/theme/ThemeSelect";
 import { BranchButton } from "@/features/workspace/BranchButton";
 import { ProtectedBanner } from "@/features/workspace/ProtectedBanner";
 import { Button } from "@/components/ui";
@@ -81,6 +82,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <BranchButton />
           <CommitButton />
           <RepoBadge />
+          <ThemeSelect />
           <Button
             variant={assistant ? "primary" : "ghost"}
             size="sm"

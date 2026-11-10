@@ -43,6 +43,16 @@ describe("AppShell", () => {
     expect(await screen.findByRole("heading", { name: "Environment map" })).toBeInTheDocument();
   });
 
+  it("lets the colours of the page be chosen", () => {
+    renderAt(
+      <AppShell>
+        <p>the page</p>
+      </AppShell>,
+    );
+
+    expect(screen.getByRole("combobox", { name: "Theme" })).toHaveValue("light");
+  });
+
   it("stays open across a reload of the tab", async () => {
     sessionStorage.setItem("ctmchain-assistant-open", "1");
     renderAt(
