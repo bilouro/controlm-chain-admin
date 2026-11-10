@@ -48,3 +48,15 @@ def test_filter_with_no_match_keeps_header_and_footer_only() -> None:
     raw = split_folders(SAMPLE_EXPORT)
 
     assert filter_applications(SAMPLE_EXPORT, {"NOPE"}) == raw.header + raw.footer
+
+
+def test_an_export_with_windows_line_ends_splits_the_same() -> None:
+    """Control-M on Windows writes CRLF and a byte-order mark."""
+    windows = b"\xef\xbb\xbf" + SAMPLE_EXPORT.replace(b"\n", b"\r\n")
+
+    raw = split_folders(windows)
+
+    assert [f.name for f in raw.folders] == list(SAMPLE_FOLDER_NAMES)
+    body = b"".join(windows[f.start : f.end] for f in raw.folders)
+    assert raw.header + body + raw.footer == windows
+    assert all(windows[f.start : f.end].endswith(b"</SMART_FOLDER>\r\n") for f in raw.folders)

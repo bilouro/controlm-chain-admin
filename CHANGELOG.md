@@ -60,6 +60,12 @@ beside it, from the full exports alone.
   job of the export.
 - README and package description rewritten around the branch model.
 
+### Fixed
+
+- A refresh of the export a branch already holds changes nothing where git converts line
+  endings on checkout (`core.autocrlf`, the default of Git for Windows): the branch is read as
+  it is stored.
+
 ## [0.1.4] - 2026-11-06
 
 ### Added

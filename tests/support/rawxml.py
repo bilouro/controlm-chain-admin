@@ -13,7 +13,7 @@ from dataclasses import dataclass
 # A top-level folder: opening tag at indentation 4 up to its closing tag at indentation 4,
 # followed by the newline. Non-greedy so each folder is matched separately.
 _FOLDER_RE = re.compile(
-    rb"^    <(SMART_FOLDER|FOLDER)\b.*?\n    </\1>\n",
+    rb"^    <(SMART_FOLDER|FOLDER)\b.*?\n    </\1>\r?\n",
     re.DOTALL | re.MULTILINE,
 )
 _FOLDER_NAME_RE = re.compile(rb'\sFOLDER_NAME="([^"]*)"')

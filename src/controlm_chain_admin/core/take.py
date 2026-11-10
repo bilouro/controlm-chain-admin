@@ -400,7 +400,7 @@ class _Take:
         for relative, text in theirs.items():
             path = self.box.root / relative
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(text, encoding="utf-8")
+            path.write_text(text, encoding="utf-8", newline="\n")
         meta_path = self.box.export_meta_file
         if meta_path.is_file():
             meta = dict(read_json(meta_path))

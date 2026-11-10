@@ -15,8 +15,11 @@ def test_export_is_a_deftable_with_top_level_folders(uat_export: Path) -> None:
     data = uat_export.read_bytes()
     raw = split_folders(data)
 
-    assert raw.header.startswith(b'<?xml version="1.0" encoding="utf-8"?>')
-    assert raw.footer == b"</DEFTABLE>\n"
+    # an export written on Windows starts with a byte-order mark and ends its lines with CRLF
+    assert raw.header.removeprefix(b"\xef\xbb\xbf").startswith(
+        b'<?xml version="1.0" encoding="utf-8"?>'
+    )
+    assert raw.footer in (b"</DEFTABLE>\n", b"</DEFTABLE>\r\n")
     assert len(raw.folders) > 0
     assert all(f.application for f in raw.folders), "every folder has an APPLICATION"
 

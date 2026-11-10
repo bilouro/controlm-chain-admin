@@ -899,7 +899,8 @@ branch holds the files of §3 for one environment: `chain.json` and `envs/` (the
 on every branch), `folders/` and `meta/`. Names are stored without the letter (§4.1), so the
 same folder is the same path on every branch; every other value is stored as that environment
 has it (no constants, no exceptions). `ctmchain export --env <env>` on the branch gives the
-export back byte for byte.
+export back byte for byte (with `--jobnames original` where the repository numbers repeated
+JOBNAMEs, §7; `package` writes the original names by default).
 
 The branches share the first commit (the rules) and nothing else: they are never merged. Git
 is the store and the history of each environment (`git log env/uat` is the list of its

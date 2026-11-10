@@ -146,6 +146,20 @@ def test_the_same_export_again_changes_nothing(tmp_path: Path) -> None:
     assert git(repo.root, "rev-parse", "env/uat") == before
 
 
+def test_the_same_export_changes_nothing_where_git_converts_line_ends(tmp_path: Path) -> None:
+    """Git for Windows hands files out with CRLF (core.autocrlf): that is not a difference."""
+    repo = empty_repo(tmp_path)
+    git(repo.root, "config", "core.autocrlf", "true")
+    refresh(repo, export_of("prod"), source="prod.xml", apply=True)
+    refresh(repo, export_of("uat"), source="uat.xml", apply=True)
+    before = git(repo.root, "rev-parse", "env/uat")
+
+    done = refresh(load_repo(repo.root), export_of("uat"), source="uat.xml", apply=True)
+
+    assert (done.files_changed, done.unchanged, done.applied) == (0, True, False)
+    assert git(repo.root, "rev-parse", "env/uat") == before
+
+
 def test_a_refresh_is_refused_over_uncommitted_chain_changes(tmp_path: Path) -> None:
     repo = four_branches(tmp_path)
     (repo.root / "chain.json").write_text(

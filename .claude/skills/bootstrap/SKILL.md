@@ -95,8 +95,9 @@ export and how many folders of other applications it left out: report those coun
 that "does not tell its environment" needs `--env`; one that "looks like" another environment
 is the wrong file.
 
-Check one: `git switch env/uat; ctmchain export --env uat -o ../uat.out.xml` gives the
-application's folders of the export back byte for byte.
+Check one: `git switch env/uat; ctmchain check ../exports/uat.xml --env uat` says "the same
+byte for byte" for the application's folders. An export meant for Control-M from a repository
+that numbers repeated JOBNAMEs takes `--jobnames original` (`package` does it by default).
 
 ### 3. The map
 
@@ -131,7 +132,8 @@ it. Nothing is pushed until the person says where to.
   `--apply`;
 - from one environment to another: on the target's branch, `take <source> --list`,
   `take <source> --item ID... --apply`, `ctmchain commit -m "..."`, `ctmchain export --env
-  <target>`; or, without touching any branch, `package <target> <source> --take ID... -o file`;
+  <target> --jobnames original -o file`; or, without touching any branch, `package <target>
+  <source> --take ID... -o file`;
 - production: only `package main <source> --take ...`; `main` follows by the next refresh
   from production's export.
 

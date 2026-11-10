@@ -87,7 +87,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--dedupe-jobnames",
         action="store_true",
         help="every import and refresh gives a JOBNAME repeated in its folder a numeric suffix "
-        "(X, X2, X3); exports give the original names back",
+        "(X, X2, X3); package, and export --jobnames original, give the original names back",
     )
     init.set_defaults(func=cmd_init)
 

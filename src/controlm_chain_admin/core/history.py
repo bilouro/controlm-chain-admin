@@ -309,7 +309,10 @@ def snapshot(
     tree = f"{info.sha}:{prefix}" if prefix else str(info.sha)
     # run from the top level: inside a subdirectory git archive keeps only that subdirectory
     top = Path(str(_git(root, "rev-parse", "--show-toplevel")).strip())
-    archive: bytes = _git(top, "archive", "--format=tar", tree, binary=True)
+    # the files as stored: Git for Windows would hand them out with CRLF (core.autocrlf)
+    archive: bytes = _git(
+        top, "-c", "core.autocrlf=false", "archive", "--format=tar", tree, binary=True
+    )
     with tempfile.TemporaryDirectory(prefix="ctmchain-ref-") as tmp:
         target = Path(tmp)
         with tarfile.open(fileobj=io.BytesIO(archive)) as tar:
