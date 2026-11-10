@@ -952,7 +952,7 @@ def _print_takeable(
 ) -> None:
     """The items of a comparison that ``take`` accepts, as a list or as JSON."""
     into = result.base.name
-    if result.environments is not None:
+    if into == "HEAD":  # the default base: say which branch that is
         into = environments_mod.current_branch(root) or into
     if fmt == "json":
         envs = None if result.environments is None else list(result.environments)

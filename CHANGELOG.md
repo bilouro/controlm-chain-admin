@@ -65,6 +65,10 @@ beside it, from the full exports alone.
 - A refresh of the export a branch already holds changes nothing where git converts line
   endings on checkout (`core.autocrlf`, the default of Git for Windows): the branch is read as
   it is stored.
+- `take <branch> --list --base <other>` names the base it was given, not the branch checked
+  out.
+- The PowerShell examples quote the lists with commas (`--envs 'prod=P,uat=U'`): PowerShell
+  splits a bare word at its commas.
 
 ## [0.1.4] - 2026-11-06
 

@@ -209,8 +209,9 @@ ctmchain --version
 #    chains\ (a private git repository; the exports stay out of it)
 mkdir $HOME\dev\my-data\chains; cd $HOME\dev\my-data\chains
 git init -b main
-ctmchain init --application P77_RISK_ENGINE --envs prod=P,uat=U,egma=E,bench=B `
-    --prefixes P77,RQ_,RC_ --leading-only RQ_,RC_ --dedupe-jobnames
+# the quotes matter: PowerShell splits a bare word at its commas
+ctmchain init --application P77_RISK_ENGINE --envs 'prod=P,uat=U,egma=E,bench=B' `
+    --prefixes 'P77,RQ_,RC_' --leading-only 'RQ_,RC_' --dedupe-jobnames
 Add-Content .gitignore ".kilo/"
 git add -A; git commit -m "chore: the rules of the repository"
 

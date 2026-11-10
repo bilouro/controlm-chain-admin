@@ -89,7 +89,9 @@ ctmchain refresh ../exports/bench.xml --apply --stat
 git switch main
 ```
 
-In PowerShell: `;` instead of `&&`, `Add-Content .gitignore ".kilo/"` instead of `printf`.
+In PowerShell: `;` instead of `&&`, `Add-Content .gitignore ".kilo/"` instead of `printf`,
+and every list with commas and every item id in single quotes (`--envs 'prod=P,uat=U'`,
+`--item 'var:F/J@%%NAME'`): PowerShell splits a bare word at its commas.
 Each refresh says the environment it read from the letters, the folders and jobs of the
 export and how many folders of other applications it left out: report those counts. An export
 that "does not tell its environment" needs `--env`; one that "looks like" another environment

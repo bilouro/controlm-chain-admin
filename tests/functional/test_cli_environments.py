@@ -85,6 +85,17 @@ def test_compare_in_json_says_what_was_explained(
 # ---------------------------------------------------------------- take
 
 
+def test_the_list_names_the_base_it_was_given_not_the_branch_checked_out(
+    root: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    git(root, "switch", "-q", "main")
+
+    code, out, _ = _run(capsys, "take", UAT, "--list", "--base", BENCH, "--repo", str(root))
+
+    assert code == 0
+    assert "Items env/uat (uat) has that can be taken into env/bench (bench):" in out
+
+
 def test_take_lists_what_can_be_taken_from_the_smallest_to_the_largest(
     root: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
