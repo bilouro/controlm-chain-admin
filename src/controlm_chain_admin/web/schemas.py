@@ -366,6 +366,16 @@ class ExceptionChangeOut(BaseModel):
     after: dict[str, Any] | None = None
 
 
+class TranslationOut(BaseModel):
+    source: str = Field(description="the environment of the head")
+    target: str = Field(description="the environment of the base, whose terms are used")
+    values: int = Field(description="whole values the map knows")
+    texts: int = Field(description="values with a word the map knows")
+    letters: int = Field(description="names with the letter of the environment")
+    links: int = Field(description="conditions called as the target calls them")
+    warnings: list[str] = Field(description="values the map could not turn into one of the base")
+
+
 class ComparisonOut(BaseModel):
     base: RefOut
     head: RefOut
@@ -382,6 +392,16 @@ class ComparisonOut(BaseModel):
         None, description="commits compared, newest first; null when every commit is"
     )
     exceptions: list[ExceptionChangeOut] = []
+    environments: list[str] | None = Field(
+        None,
+        description="[the base's environment, the head's] when the two refs are the branches "
+        "of two environments; null otherwise",
+    )
+    translation: TranslationOut | None = Field(
+        None,
+        description="between two environments: what was read in the base's terms before "
+        "comparing, so it is not a difference; null when compared as stored",
+    )
 
 
 class PackageFolderOut(BaseModel):
@@ -402,6 +422,12 @@ class PackageOut(BaseModel):
     findings: list[FindingOut] = Field(description="validation findings the base side has not")
     filename: str
     size: int = Field(description="bytes of the XML file; 0 when nothing changed")
+    taken: list[str] | None = Field(
+        None, description="the items packaged; null: everything that differs"
+    )
+    source: str | None = Field(
+        None, description="the environment of the head, when it is another one than env"
+    )
 
 
 class InstallationOut(BaseModel):

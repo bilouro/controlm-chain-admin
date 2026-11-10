@@ -476,6 +476,21 @@
             "title": "Constants",
             "type": "array"
           },
+          "environments": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "[the base's environment, the head's] when the two refs are the branches of two environments; null otherwise",
+            "title": "Environments"
+          },
           "exceptions": {
             "default": [],
             "items": {
@@ -546,6 +561,17 @@
             "additionalProperties": true,
             "title": "Summary",
             "type": "object"
+          },
+          "translation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TranslationOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "between two environments: what was read in the base's terms before comparing, so it is not a difference; null when compared as stored"
           }
         },
         "required": [
@@ -2303,6 +2329,33 @@
             "title": "Size",
             "type": "integer"
           },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the environment of the head, when it is another one than env",
+            "title": "Source"
+          },
+          "taken": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the items packaged; null: everything that differs",
+            "title": "Taken"
+          },
           "warnings": {
             "items": {
               "type": "string"
@@ -3049,6 +3102,59 @@
           "folders"
         ],
         "title": "TableOut",
+        "type": "object"
+      },
+      "TranslationOut": {
+        "properties": {
+          "letters": {
+            "description": "names with the letter of the environment",
+            "title": "Letters",
+            "type": "integer"
+          },
+          "links": {
+            "description": "conditions called as the target calls them",
+            "title": "Links",
+            "type": "integer"
+          },
+          "source": {
+            "description": "the environment of the head",
+            "title": "Source",
+            "type": "string"
+          },
+          "target": {
+            "description": "the environment of the base, whose terms are used",
+            "title": "Target",
+            "type": "string"
+          },
+          "texts": {
+            "description": "values with a word the map knows",
+            "title": "Texts",
+            "type": "integer"
+          },
+          "values": {
+            "description": "whole values the map knows",
+            "title": "Values",
+            "type": "integer"
+          },
+          "warnings": {
+            "description": "values the map could not turn into one of the base",
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "source",
+          "target",
+          "values",
+          "texts",
+          "letters",
+          "links",
+          "warnings"
+        ],
+        "title": "TranslationOut",
         "type": "object"
       },
       "ValidateOut": {
@@ -3823,6 +3929,39 @@
               "description": "comma-separated shas of the head commits to compare, applied on the base cherry-pick style; omitted: every commit; empty: none",
               "title": "Commits"
             }
+          },
+          {
+            "description": "two environments' branches as they are stored, instead of the head read in the terms of the base's environment",
+            "in": "query",
+            "name": "raw",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "two environments' branches as they are stored, instead of the head read in the terms of the base's environment",
+              "title": "Raw",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "between two environments: the entries of the map that win where it gives several answers for a value (repeat the parameter)",
+            "in": "query",
+            "name": "prefer",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "between two environments: the entries of the map that win where it gives several answers for a value (repeat the parameter)",
+              "title": "Prefer"
+            }
           }
         ],
         "responses": {
@@ -3930,6 +4069,39 @@
               ],
               "description": "comma-separated shas of the head commits to compare, applied on the base cherry-pick style; omitted: every commit; empty: none",
               "title": "Commits"
+            }
+          },
+          {
+            "description": "two environments' branches as they are stored, instead of the head read in the terms of the base's environment",
+            "in": "query",
+            "name": "raw",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "two environments' branches as they are stored, instead of the head read in the terms of the base's environment",
+              "title": "Raw",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "between two environments: the entries of the map that win where it gives several answers for a value (repeat the parameter)",
+            "in": "query",
+            "name": "prefer",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "between two environments: the entries of the map that win where it gives several answers for a value (repeat the parameter)",
+              "title": "Prefer"
             }
           }
         ],
@@ -4498,14 +4670,63 @@
             }
           },
           {
-            "description": "target environment, e.g. uat",
+            "description": "target environment, e.g. uat; between the branches of two environments it is the base's and may be left out",
             "in": "query",
             "name": "env",
-            "required": true,
+            "required": false,
             "schema": {
-              "description": "target environment, e.g. uat",
-              "title": "Env",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "target environment, e.g. uat; between the branches of two environments it is the base's and may be left out",
+              "title": "Env"
+            }
+          },
+          {
+            "description": "package only these items of the comparison (repeat the parameter): the base with the items on it; no branch is changed",
+            "in": "query",
+            "name": "take",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "package only these items of the comparison (repeat the parameter): the base with the items on it; no branch is changed",
+              "title": "Take"
+            }
+          },
+          {
+            "description": "between two environments: the entries of the map that win where it gives several answers for a value (repeat the parameter)",
+            "in": "query",
+            "name": "prefer",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "between two environments: the entries of the map that win where it gives several answers for a value (repeat the parameter)",
+              "title": "Prefer"
             }
           },
           {
@@ -4582,7 +4803,7 @@
                 }
               }
             },
-            "description": "Unknown environment"
+            "description": "Unknown environment, or an item nobody has"
           },
           "409": {
             "content": {
@@ -4639,14 +4860,63 @@
             }
           },
           {
-            "description": "target environment, e.g. uat",
+            "description": "target environment, e.g. uat; between the branches of two environments it is the base's and may be left out",
             "in": "query",
             "name": "env",
-            "required": true,
+            "required": false,
             "schema": {
-              "description": "target environment, e.g. uat",
-              "title": "Env",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "target environment, e.g. uat; between the branches of two environments it is the base's and may be left out",
+              "title": "Env"
+            }
+          },
+          {
+            "description": "package only these items of the comparison (repeat the parameter): the base with the items on it; no branch is changed",
+            "in": "query",
+            "name": "take",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "package only these items of the comparison (repeat the parameter): the base with the items on it; no branch is changed",
+              "title": "Take"
+            }
+          },
+          {
+            "description": "between two environments: the entries of the map that win where it gives several answers for a value (repeat the parameter)",
+            "in": "query",
+            "name": "prefer",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "between two environments: the entries of the map that win where it gives several answers for a value (repeat the parameter)",
+              "title": "Prefer"
             }
           },
           {
@@ -4719,7 +4989,7 @@
                 }
               }
             },
-            "description": "Unknown environment"
+            "description": "Unknown environment, or an item nobody has"
           },
           "409": {
             "content": {

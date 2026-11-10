@@ -42,15 +42,25 @@ def test_init_takes_the_whole_letter_rule(tmp_path: Path) -> None:
     assert (rule["prefixes"], rule["leading_only"]) == (["P77", "RQ_", "RC_"], ["RQ_", "RC_"])
 
 
+def test_init_sets_the_policy_of_repeated_jobnames(tmp_path: Path) -> None:
+    args = ["init", "--repo", str(tmp_path), "--application", APP, "--envs", "uat,prod"]
+
+    assert main([*args, "--dedupe-jobnames"]) == 0
+
+    assert json.loads((tmp_path / "chain.json").read_text(encoding="utf-8"))["dedupe_jobnames"]
+
+
 def test_init_leaves_a_guide_for_claude_in_the_new_repository(tmp_path: Path) -> None:
     args = ["init", "--repo", str(tmp_path), "--application", APP, "--envs", "uat=U,prod=P"]
     assert main([*args, "--prefixes", "P77"]) == 0
 
     guide = (tmp_path / "CLAUDE.md").read_text(encoding="utf-8")
     assert guide.startswith(f"# {APP} — chain repository")
-    assert "uat (U), prod (P)" in guide and "Production is prod" in guide
-    assert "never edit `main`" in guide and "ctmchain receive" in guide
-    assert "ctmchain check exports/uat/full.xml --env uat" in guide
+    assert "uat (U), prod (P)" in guide
+    assert "`main` holds prod" in guide and "`env/<name>`" in guide and "`map`" in guide
+    assert "ctmchain refresh exports/uat/full.xml" in guide
+    assert "ctmchain take env/uat --list" in guide
+    assert "ctmchain package main env/uat --take" in guide
 
 
 def test_init_keeps_a_guide_that_is_already_there(tmp_path: Path) -> None:

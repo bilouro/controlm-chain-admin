@@ -65,6 +65,8 @@ class GitRules:
     tag_format: str = "{env}/{release}-{n}"  # one tag per installation of a release
     production: str = "prod"  # a release is closed once its last commit is installed here
     remote: str = "origin"
+    env_prefix: str = "env/"  # one branch per environment that is not production
+    map_branch: str = "map"  # what varies per environment; part of no environment
 
     def refusal(self, branch: str | None) -> str | None:
         """Why edits are refused on ``branch`` (None: a detached HEAD); None when they are not."""
@@ -87,6 +89,8 @@ class GitRules:
             "tag_format": self.tag_format,
             "production": self.production,
             "remote": self.remote,
+            "env_prefix": self.env_prefix,
+            "map_branch": self.map_branch,
         }
 
     @classmethod
@@ -304,6 +308,7 @@ def init_repo(
     letters: Mapping[str, str] | None = None,
     prefixes: Sequence[str] = (),
     leading_only: Sequence[str] = (),
+    dedupe_jobnames: bool = False,
 ) -> ChainRepo:
     """Create ``chain.json`` and one ``envs/<env>/env.json`` per environment in ``root``.
 
@@ -311,6 +316,7 @@ def init_repo(
     the environment name (test → T, uat → U, bench → B, prod → P). ``prefixes`` are the bare
     prefixes of the letter rule; without them the rule is disabled. Names starting with one of
     ``leading_only`` carry the letter on their first token only (``URQ_P77_X``).
+    ``dedupe_jobnames``: every import gives a JOBNAME repeated in its folder a numeric suffix.
     """
     root.mkdir(parents=True, exist_ok=True)
     if (root / CHAIN_FILE).exists():
@@ -323,6 +329,7 @@ def init_repo(
         application=application,
         environments=names,
         letter_rule=LetterRule(prefixes=tuple(prefixes), leading_only=tuple(leading_only)),
+        dedupe_jobnames=dedupe_jobnames,
     )
     repo = ChainRepo(root=root, config=config).save_config(config)
     for env in names:

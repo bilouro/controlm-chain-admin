@@ -109,6 +109,16 @@ def _comparison(
     head: str = Query("WORKTREE", description="head ref, or WORKTREE for uncommitted changes"),
     merge_base: bool = Query(True, description="compare from the merge base (pull-request style)"),
     commits: str | None = COMMITS,
+    raw: bool = Query(
+        False,
+        description="two environments' branches as they are stored, instead of the head read "
+        "in the terms of the base's environment",
+    ),
+    prefer: list[str] | None = Query(
+        None,
+        description="between two environments: the entries of the map that win where it gives "
+        "several answers for a value (repeat the parameter)",
+    ),
 ) -> Comparison:
     selection = parse_commits(commits)
     return cached(
@@ -116,8 +126,11 @@ def _comparison(
         "compare_cache",
         repo,
         (base, head),
-        (merge_base, None if selection is None else tuple(selection)),
-        lambda: compare(repo.root, base, head, use_merge_base=merge_base, commits=selection),
+        (merge_base, None if selection is None else tuple(selection), raw, tuple(prefer or ())),
+        lambda: compare(
+            repo.root, base, head, use_merge_base=merge_base, commits=selection,
+            translate=not raw, prefer=tuple(prefer or ()),
+        ),  # fmt: skip
     )
 
 

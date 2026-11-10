@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "controlm-chain-admin"
 dynamic = ["version"]
-description = "Manage BMC Control-M job chains as a git-friendly JSON repository: XML import/export, links between jobs, environment-neutral base, validation and refactorings."
+description = "BMC Control-M environments in git: one branch per environment from its XML export, compared by their real differences, promoted item by item as a ready import file."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
@@ -13,6 +13,7 @@ authors = [{ name = "Victor H. Bilouro" }]
 keywords = [
     "control-m", "controlm", "bmc", "job-scheduler", "workload-automation",
     "xml", "json", "jobs-as-code", "gitops", "devops", "cli",
+    "environments", "promotion", "diff", "compare", "mcp",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",

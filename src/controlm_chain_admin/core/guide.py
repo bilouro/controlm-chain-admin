@@ -9,51 +9,60 @@ GUIDE_FILE = "CLAUDE.md"
 _TEMPLATE = """\
 # {application} — chain repository
 
-The Control-M chains of {application} as neutral JSON, managed with `ctmchain`
+The Control-M chains of {application} as JSON files, managed with `ctmchain`
 (controlm-chain-admin). This repository holds real data: it stays private, and nothing of it
 goes into the controlm-chain-admin source, its tests or its issues.
 
-Environments: {environments}. Production is {production}: `{trunk}` mirrors it.
+Environments: {environments}.
+
+## One branch per environment
+
+- `{trunk}` holds {production}; `{prefix}<name>` holds each other environment ({branches}).
+  A branch is what the last full export of its environment said, plus what was taken into it
+  since then.
+- `{map}` holds `map.json`, the map of what is expected to differ from one environment to
+  another: the letter of the names, machines, users, a word of a mail subject. It belongs to
+  no environment and is read from its branch, never checked out.
 
 ## Rules
 
-1. **never edit `{trunk}`**: it mirrors production. Work on a release
-   (`ctmchain release start <name>`); the web UI and `--apply` refuse `{trunk}`.
-2. A release is installed environment by environment (`ctmchain release installed <env>` tags
-   it) and closed into `{trunk}` once {production} has it (`ctmchain release close`).
-3. Exports come in through `ctmchain receive <xml>` or the *Import* page: preview, decide,
-   `--apply`, commit. A full export of an environment other than {production} leaves
-   {production} alone by default: every difference, attribute or line, is that environment's
-   exception; a delivery (some folders) changes the release. A release an environment carries
-   whole is promoted on its release branch: *Already exceptions of <env>* in the *Import* page,
-   *All N: Change the base*.
-4. Never hand-edit `index.json` (derived) or `meta/` (volatile attributes, export header);
+1. `{trunk}` changes only by a refresh from a full export of {production}. `ctmchain take
+   --apply` refuses it: {production} gets an import file
+   (`ctmchain package {trunk} {prefix}{other} --take ...`), and its next export brings the
+   change back to `{trunk}`.
+2. A full export comes in through `ctmchain refresh <xml>`: it lists what the export differs in
+   from the branch of its environment and writes nothing. `--apply` overwrites the branch with
+   the export and commits; folders and jobs the export no longer has go.
+3. Two environments are compared by their real differences: what the map explains (the
+   letter, a machine, a user, a condition name that links the same jobs) is not one. `--raw`
+   shows the two branches as they are stored.
+4. Never hand-edit `index.json` (derived) or `meta/` (technical attributes, export header);
    edit through `ctmchain` or the web UI, which preview every change.
 5. Exports are big: read them with scripts and counts, never whole.
 6. Commit messages say what changed and why (`feat: ...`, `fix: ...`, `chore: ...`).
 
 ## Layout
 
-- `chain.json`: application, environments, letter rule, constants (what differs per
-  environment), git rules.
-- `envs/<env>/env.json`: letter, display name and the value of each constant there;
-  `envs/<env>/overrides.json`: exceptions of single jobs there.
+- `chain.json`: application, environments, letter rule, git rules.
+- `envs/<env>/env.json`: the letter and the display name of each environment.
 - `folders/<FOLDER>/`: `folder.json`, `jobs/<JOB>.json`, `links.json` (condition names) and
-  `index.json` (derived). `"envs": [...]` on a folder or job: it exists there only.
-- `meta/`: what makes exports byte for byte identical.
+  `index.json` (derived). Names are stored without the letter of the environment.
+- `meta/`: what makes the export of the branch byte for byte the one that came in.
 
 ## Everyday commands
 
 ```bash
-ctmchain release status                        # branch, releases, what may be edited
-ctmchain receive exports/uat/delivery.xml      # preview the decisions of an export
-ctmchain receive exports/uat/delivery.xml --apply
-ctmchain receive exports/uat/full.xml          # all of uat: its constants and exceptions
-ctmchain technical                             # the attributes never compared (add, remove)
-ctmchain check exports/uat/full.xml --env uat  # what the repository's uat export still lacks
-ctmchain take release/<other> --list           # what another release changed, item by item
+ctmchain refresh exports/{other}/full.xml          # what a new export of {other} changes; --apply
+ctmchain envmap show                           # the map: letters and entries
+ctmchain envmap derive                         # what the branches show and the map lacks; --apply
+ctmchain compare {trunk} {prefix}{other}                  # the real differences between the two
+git switch {prefix}{other}                         # take: on the branch that receives
+ctmchain take {prefix}<other> --list               # what can be taken, item by item
+ctmchain take {prefix}<other> --item folder:<FOLDER> --apply
+ctmchain take {prefix}{other} --list --base {trunk}       # what {production} could get of {other}
+ctmchain package {trunk} {prefix}{other} --take job:<FOLDER>/<JOB> -o {production}_import.xml
+ctmchain export --env {other} -o {other}.xml           # the whole branch (on {prefix}{other})
 ctmchain validate                              # broken chains, dirty names, suggested fixes
-ctmchain export --env uat -o uat.xml
 ctmchain serve                                 # the web UI
 ```
 """
@@ -70,12 +79,17 @@ def write_guide(repo: ChainRepo) -> bool:
         f"{env} ({letters[env]})" if letters[env] else env for env in config.environments
     )
     rules = config.git_rules
+    others = [env for env in config.environments if env != rules.production]
     path.write_text(
         _TEMPLATE.format(
             application=config.application,
             environments=environments,
             production=rules.production,
             trunk=rules.trunk,
+            prefix=rules.env_prefix,
+            map=rules.map_branch,
+            branches=", ".join(f"`{rules.env_prefix}{env}`" for env in others) or "none yet",
+            other=others[0] if others else rules.production,
         ),
         encoding="utf-8",
     )

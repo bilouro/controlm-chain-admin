@@ -6,6 +6,60 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-10
+
+One branch per environment. The needs it answers are in `NEEDS.md`, the model in `DESIGN.md`
+section 14. A repository of 0.1 keeps working with the commands of 0.1; the new model is built
+beside it, from the full exports alone.
+
+### Added
+
+- `ctmchain refresh <export.xml> [--env ENV] [--apply] [--no-commit] [--stat] [--format
+  text|json]`: what the full export of one environment changes on its branch (`main` for
+  production, `env/<name>` for the others; the environment is read from the letter of the
+  names). Without `--apply` nothing is written: folders, jobs and conditions added, removed
+  and changed, each attribute before -> after. With it the branch is checked out (created from
+  the rules of the trunk the first time), the export overwrites its chain files and the result
+  is committed as `refresh(<env>): <file>`. The same export again changes nothing; uncommitted
+  chain files and an export of another environment are refused.
+- The map of what is expected to differ between environments, `map.json` on a branch of its
+  own (`map`, an orphan, never checked out): `ctmchain envmap show`, `derive [--key SPEC]
+  [--text SPEC] [--min-nodes N] [--apply]` (reads the environments' branches: machines, users
+  and datacenter by default, any other attribute or a word inside a text on request),
+  `suggest` (what else varies, counted), `add KEY ENV=VALUE... [--text] [--as NAME]`,
+  `remove`, `rename`.
+- Two environments compared by their real differences: `ctmchain compare main env/uat` reads
+  the head in the terms of the base's environment first (the letter of the names, the values
+  and words of the map, conditions that link the same jobs under another name) and says how
+  much it read through; `--raw` compares the branches as stored. The API takes `raw` on
+  `/api/compare`.
+- `ctmchain take <branch>` between environments: `--list` names every item that differs
+  (`subapp:S`, `folder:F`, `job:F/J`, `attr:F/J@NAME`, `var:F/J@%%NAME`, relations, groups),
+  `--item ID... --apply` writes them into the checked-out branch in its own terms;
+  `--list --format json` for scripts.
+- `ctmchain package <target> <source> --take ID... [-o FILE]`: the Control-M import file of
+  the target environment with only the chosen items on it (an attribute, a variable, a job, a
+  folder, several, a sub-application). No branch and no working tree changes. Without `--env`
+  the target is the base's environment.
+- `--prefer ENTRY` on `compare`, `take` and `package` (`prefer` in the API): when one value of
+  the source stands for several of the target (two users there for one here), the entry of the
+  map to use. Without it the value the target has at that place wins, else the value is kept
+  and a warning names the candidates.
+- `ctmchain init --dedupe-jobnames`: the policy for JOBNAMEs repeated in a folder, set when
+  the repository is created.
+- Functional and end-to-end tests of the whole path on four synthetic environments
+  (`tests/functional`, `tests/e2e`).
+
+### Changed
+
+- The `CLAUDE.md` that `init` writes into a new repository describes the branch model: where
+  each environment lives, what may change `main`, the everyday commands.
+- `take --apply` is refused on the trunk: production changes in Control-M, and `main` follows
+  by its next refresh (`package main env/<x> --take ...` builds what production must receive).
+- The first refresh of a branch that holds no folder yet prints counts, not every folder and
+  job of the export.
+- README and package description rewritten around the branch model.
+
 ## [0.1.4] - 2026-11-06
 
 ### Added
@@ -407,7 +461,8 @@ First release on PyPI.
 - On Windows, unknown `/api/...` paths and missing assets were answered with the app instead of
   404 (the static files handler sees `\` separators there).
 
-[Unreleased]: https://github.com/bilouro/controlm-chain-admin/compare/v0.1.4...HEAD
+[Unreleased]: https://github.com/bilouro/controlm-chain-admin/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/bilouro/controlm-chain-admin/compare/v0.1.4...v0.2.0
 [0.1.4]: https://github.com/bilouro/controlm-chain-admin/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/bilouro/controlm-chain-admin/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/bilouro/controlm-chain-admin/compare/v0.1.1...v0.1.2

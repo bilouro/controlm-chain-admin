@@ -322,12 +322,16 @@ def import_xml(
     env: str | None = None,
     *,
     dedupe_jobnames: bool | None = None,
+    replace_all: bool = False,
 ) -> ImportReport:
     """Import a Control-M export: folders of the repository's application become JSON files.
 
     With the letter rule enabled, ``env`` names the environment the export came from and its
     letter is stripped from names; file and directory names are environment-neutral.
     ``dedupe_jobnames`` sets the repository policy (kept in chain.json for later imports).
+    ``replace_all``: the export is everything the repository holds afterwards (folders it
+    lacks go, with the header, the folder order and the condition names of earlier imports),
+    so the result depends on the export and on the rules of chain.json alone.
     """
     repo = load_repo(repo.root)
     letter = _letter(repo, env, "import")
@@ -341,6 +345,10 @@ def import_xml(
     if dedupe_jobnames is not None:
         config = replace(config, dedupe_jobnames=dedupe_jobnames)
     repo = repo.save_config(config)
+    if replace_all:
+        for directory in (repo.folders_dir, repo.export_meta_file.parent):
+            if directory.exists():
+                shutil.rmtree(directory)
     existing_names = read_names(repo)  # names the user may have edited survive a re-import
     ids_by_name: dict[str, str] = {}
     for link_id, name in existing_names.items():

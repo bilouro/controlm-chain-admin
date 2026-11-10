@@ -809,6 +809,11 @@ export interface components {
       /** Constants */
       constants: components["schemas"]["ConstantChangeOut"][];
       /**
+       * Environments
+       * @description [the base's environment, the head's] when the two refs are the branches of two environments; null otherwise
+       */
+      environments?: string[] | null;
+      /**
        * Exceptions
        * @default []
        */
@@ -835,6 +840,8 @@ export interface components {
       summary: {
         [key: string]: unknown;
       };
+      /** @description between two environments: what was read in the base's terms before comparing, so it is not a difference; null when compared as stored */
+      translation?: components["schemas"]["TranslationOut"] | null;
     };
     /** ConstantChangeOut */
     ConstantChangeOut: {
@@ -1559,6 +1566,16 @@ export interface components {
        * @description bytes of the XML file; 0 when nothing changed
        */
       size: number;
+      /**
+       * Source
+       * @description the environment of the head, when it is another one than env
+       */
+      source?: string | null;
+      /**
+       * Taken
+       * @description the items packaged; null: everything that differs
+       */
+      taken?: string[] | null;
       /** Warnings */
       warnings: string[];
     };
@@ -1839,6 +1856,44 @@ export interface components {
     TableOut: {
       /** Folders */
       folders: components["schemas"]["TableFolder"][];
+    };
+    /** TranslationOut */
+    TranslationOut: {
+      /**
+       * Letters
+       * @description names with the letter of the environment
+       */
+      letters: number;
+      /**
+       * Links
+       * @description conditions called as the target calls them
+       */
+      links: number;
+      /**
+       * Source
+       * @description the environment of the head
+       */
+      source: string;
+      /**
+       * Target
+       * @description the environment of the base, whose terms are used
+       */
+      target: string;
+      /**
+       * Texts
+       * @description values with a word the map knows
+       */
+      texts: number;
+      /**
+       * Values
+       * @description whole values the map knows
+       */
+      values: number;
+      /**
+       * Warnings
+       * @description values the map could not turn into one of the base
+       */
+      warnings: string[];
     };
     /** ValidateOut */
     ValidateOut: {
@@ -2350,6 +2405,10 @@ export interface operations {
         merge_base?: boolean;
         /** @description comma-separated shas of the head commits to compare, applied on the base cherry-pick style; omitted: every commit; empty: none */
         commits?: string | null;
+        /** @description two environments' branches as they are stored, instead of the head read in the terms of the base's environment */
+        raw?: boolean;
+        /** @description between two environments: the entries of the map that win where it gives several answers for a value (repeat the parameter) */
+        prefer?: string[] | null;
       };
       header?: never;
       path?: never;
@@ -2399,6 +2458,10 @@ export interface operations {
         merge_base?: boolean;
         /** @description comma-separated shas of the head commits to compare, applied on the base cherry-pick style; omitted: every commit; empty: none */
         commits?: string | null;
+        /** @description two environments' branches as they are stored, instead of the head read in the terms of the base's environment */
+        raw?: boolean;
+        /** @description between two environments: the entries of the map that win where it gives several answers for a value (repeat the parameter) */
+        prefer?: string[] | null;
       };
       header?: never;
       path?: never;
@@ -2800,8 +2863,12 @@ export interface operations {
         base: string;
         /** @description head ref, or WORKTREE for uncommitted changes */
         head?: string;
-        /** @description target environment, e.g. uat */
-        env: string;
+        /** @description target environment, e.g. uat; between the branches of two environments it is the base's and may be left out */
+        env?: string | null;
+        /** @description package only these items of the comparison (repeat the parameter): the base with the items on it; no branch is changed */
+        take?: string[] | null;
+        /** @description between two environments: the entries of the map that win where it gives several answers for a value (repeat the parameter) */
+        prefer?: string[] | null;
         /** @description compare from the merge base (pull-request style) */
         merge_base?: boolean;
         /** @description comma-separated shas of the head commits to compare, applied on the base cherry-pick style; omitted: every commit; empty: none */
@@ -2826,7 +2893,7 @@ export interface operations {
           "application/json": components["schemas"]["PackageOut"];
         };
       };
-      /** @description Unknown environment */
+      /** @description Unknown environment, or an item nobody has */
       404: {
         headers: {
           [name: string]: unknown;
@@ -2862,8 +2929,12 @@ export interface operations {
         base: string;
         /** @description head ref, or WORKTREE for uncommitted changes */
         head?: string;
-        /** @description target environment, e.g. uat */
-        env: string;
+        /** @description target environment, e.g. uat; between the branches of two environments it is the base's and may be left out */
+        env?: string | null;
+        /** @description package only these items of the comparison (repeat the parameter): the base with the items on it; no branch is changed */
+        take?: string[] | null;
+        /** @description between two environments: the entries of the map that win where it gives several answers for a value (repeat the parameter) */
+        prefer?: string[] | null;
         /** @description compare from the merge base (pull-request style) */
         merge_base?: boolean;
         /** @description comma-separated shas of the head commits to compare, applied on the base cherry-pick style; omitted: every commit; empty: none */
@@ -2888,7 +2959,7 @@ export interface operations {
           "application/xml": unknown;
         };
       };
-      /** @description Unknown environment */
+      /** @description Unknown environment, or an item nobody has */
       404: {
         headers: {
           [name: string]: unknown;

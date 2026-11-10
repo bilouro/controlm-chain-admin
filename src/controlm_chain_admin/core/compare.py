@@ -16,7 +16,7 @@ import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from controlm_chain_admin.core.history import CommitInfo, RefInfo
 from controlm_chain_admin.core.links import LINK_KEY, folder_names, load_links
@@ -24,6 +24,9 @@ from controlm_chain_admin.core.overrides import load_overrides
 from controlm_chain_admin.core.relations import NodeRelations, Relation, all_relations
 from controlm_chain_admin.core.repo import CHAIN_FILE, EnvConfig, load_repo, read_json
 from controlm_chain_admin.core.selection import Sides, open_sides
+
+if TYPE_CHECKING:
+    from controlm_chain_admin.core.crossenv import Translation
 
 _NAME_KEYS = ("JOBNAME", "MEMNAME", "PARENT_FOLDER", "FOLDER_NAME")
 _RELATION_GROUPS = ("INCOND", "OUTCOND")
@@ -165,6 +168,10 @@ class Comparison:
     metadata_files_changed: int
     selected: tuple[str, ...] | None = None  # commits compared when not all of them
     exceptions: tuple[ExceptionChange, ...] = ()
+    #: across two environments: what was read in the base's terms before comparing
+    translation: Translation | None = None
+    #: (the base's environment, the head's) when the two sides are two environments
+    environments: tuple[str, str] | None = None
 
     def summary(self) -> dict[str, Any]:
         def count(
@@ -213,6 +220,8 @@ class Comparison:
             "metadata_files_changed": self.metadata_files_changed,
             "selected": None if self.selected is None else list(self.selected),
             "exceptions": [e.to_json() for e in self.exceptions],
+            "translation": None if self.translation is None else self.translation.to_json(),
+            "environments": None if self.environments is None else list(self.environments),
         }
 
 
@@ -743,13 +752,23 @@ def compare(
     *,
     use_merge_base: bool = True,
     commits: Sequence[str] | None = None,
+    translate: bool = True,
+    prefer: Sequence[str] = (),
 ) -> Comparison:
     """Compare the chain repository at ``base`` and ``head`` (refs, shas or ``WORKTREE``).
 
     ``commits`` limits the head side to those commits of the branch (any subset, any order),
     applied on the base side; every commit of the branch is still listed, to choose from.
+
+    Two branches that hold different environments are compared whole, the head read in the
+    terms of the base's environment (see :mod:`controlm_chain_admin.core.crossenv`), so that
+    only the real differences show; ``translate=False`` compares them as they are, and
+    ``prefer`` names the entries of the map that win where it gives several answers.
     """
-    with open_sides(root, base, head, use_merge_base=use_merge_base, commits=commits) as sides:
+    with open_sides(
+        root, base, head, use_merge_base=use_merge_base, commits=commits, translate=translate,
+        prefer=prefer,
+    ) as sides:  # fmt: skip
         return comparison(sides)
 
 
@@ -761,7 +780,8 @@ def comparison(sides: Sides) -> Comparison:
     return Comparison(
         sides.base, sides.head, sides.merge_base, sides.commits,
         _attribute(folders, sides), _attribute(jobs, sides),
-        links, constants, rules, meta, sides.selected, exceptions,
+        links, constants, rules, meta, sides.selected, exceptions, sides.translation,
+        sides.environments,
     )  # fmt: skip
 
 
@@ -826,15 +846,43 @@ def _commits_label(result: Comparison) -> str:
     return f"{len(result.selected)} of {total} commits"
 
 
-def _headline(result: Comparison) -> str:
-    line = f"Compare {result.base.name}..{result.head.name}: {_commits_label(result)}"
-    if result.merge_base:
-        line += f" (from merge base {result.merge_base[:7]})"
-    return line
+def _plural(count: int, noun: str) -> str:
+    return f"{count} {noun}" + ("" if count == 1 else "s")
+
+
+def _explained(translation: Translation) -> str:
+    """What two environments are expected to differ in, and so is not listed."""
+    return (
+        f"{_plural(translation.values, 'value')} and {_plural(translation.texts, 'text')} of "
+        f"the map, {_plural(translation.letters, 'name')} with the letter, "
+        f"{_plural(translation.links, 'condition')} called another name"
+    )
+
+
+def _headline(result: Comparison) -> list[str]:
+    across = result.translation
+    if across is None and result.environments is not None:
+        target, source = result.environments
+        return [
+            f"Compare {result.base.name} ({target}) with {result.head.name} ({source}): as stored",
+            f"  nothing was read in the terms of {target}: the names, users and machines of "
+            "each environment show as differences",
+        ]
+    if across is None:
+        line = f"Compare {result.base.name}..{result.head.name}: {_commits_label(result)}"
+        if result.merge_base:
+            line += f" (from merge base {result.merge_base[:7]})"
+        return [line]
+    return [
+        f"Compare {result.base.name} ({across.target}) with {result.head.name} "
+        f"({across.source}): real differences only",
+        f"  expected between {across.target} and {across.source}, not shown: {_explained(across)}",
+        *(f"  warning: {warning}" for warning in across.warnings),
+    ]
 
 
 def render_text(result: Comparison) -> str:
-    lines = [_headline(result)]
+    lines = _headline(result)
     left_out = set() if result.selected is None else {c.sha for c in result.commits}
     left_out -= set(result.selected or ())
     lines += [
@@ -843,7 +891,8 @@ def render_text(result: Comparison) -> str:
     ]
     nodes = (*result.folders, *result.jobs)
     if not (nodes or result.links or result.constants or result.exceptions):
-        lines.append(f"No changes between {result.base.name} and {result.head.name}.")
+        nothing = "No changes" if result.translation is None else "No real difference"
+        lines.append(f"{nothing} between {result.base.name} and {result.head.name}.")
         return "\n".join(lines) + "\n"
     lines.append("")
     name_only = result.summary()["name_only"]
@@ -891,9 +940,29 @@ def _cell(text: str) -> str:
 
 def render_markdown(result: Comparison) -> str:
     """A summary suitable for a pull request description."""
-    lines = [f"## Chain changes: {result.base.name}..{result.head.name}", ""]
-    origin = f" · from merge base `{result.merge_base[:7]}`" if result.merge_base else ""
-    lines += [f"{_commits_label(result)}{origin}", ""]
+    across = result.translation
+    if across is None and result.environments is not None:
+        target, source = result.environments
+        lines = [
+            f"## Chains as stored: {result.base.name} ({target}) and {result.head.name} "
+            f"({source})",
+            "",
+        ]
+    elif across is None:
+        lines = [f"## Chain changes: {result.base.name}..{result.head.name}", ""]
+        origin = f" · from merge base `{result.merge_base[:7]}`" if result.merge_base else ""
+        lines += [f"{_commits_label(result)}{origin}", ""]
+    else:
+        lines = [
+            f"## Chain differences: {result.base.name} ({across.target}) and "
+            f"{result.head.name} ({across.source})",
+            "",
+            f"Expected between {across.target} and {across.source}, not shown: "
+            f"{_explained(across)}.",
+            "",
+        ]
+        if across.warnings:
+            lines += [*(f"- warning: {_cell(warning)}" for warning in across.warnings), ""]
     nodes = (*result.folders, *result.jobs)
     if nodes:
         lines += ["| change | kind | node | details |", "|---|---|---|---|"]

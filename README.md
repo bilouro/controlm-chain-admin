@@ -5,147 +5,196 @@
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](pyproject.toml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**Manage BMC Control-M job chains as a git-friendly JSON repository.** Import the Control-M
-XML export, keep the links between jobs explicit, hold one environment-neutral definition for
-test/uat/bench/prod, validate the chains, refactor safely, and export the XML back for the
-environment you choose.
+**Your BMC Control-M environments in git: one branch per environment, compared by their real
+differences, promoted item by item.** Export an environment from Control-M, refresh its
+branch, see what really differs from another environment, pick a job, a folder or a whole
+sub-application, and get the import file already written for the environment that receives it.
 
-> Status: alpha. Byte-identical import and export, environments (letter rule, constants,
-> exceptions, folders and jobs of some environments) learned from the exports themselves,
-> releases with installations per environment, comparison of branches and taking their
-> changes item by item, validation with fixes, an editing web UI. The design is in
-> [`DESIGN.md`](DESIGN.md) and the plan in [`BACKLOG.md`](BACKLOG.md). Released on PyPI since
-> 0.1.0.
+```text
+   Control-M (full XML export of each environment)
+        |  ctmchain refresh <export.xml>      preview first, --apply overwrites the branch
+        v
+   main        production          \
+   env/uat     UAT                  |   ctmchain compare main env/uat    real differences only
+   env/egma    another test level   |   ctmchain take env/uat --list     what can be taken
+   env/bench   bench               /    ctmchain package main env/uat --take folder:...
+   map         what is expected to differ: the letter of the names, machines, users
+        |
+        v
+   import file for the target environment (its letter, its machines, its users)
+```
 
-## Why
+> Status: alpha, used on a real application of a few hundred folders and well over a thousand
+> jobs in four environments. The command line carries everything below; the web UI browses,
+> edits and compares, and has no page yet for `refresh` and the map. Design:
+> [`DESIGN.md`](DESIGN.md); the needs it answers: [`NEEDS.md`](NEEDS.md).
 
-The Control-M user interface is slow for reviewing or changing whole chains, and its XML
-export (`DEFTABLE`) is hard to diff, review and version. `controlm-chain-admin` turns that
-export into:
+## The problem
 
-- **JSON files in git**, one per folder and per job, with stable ordering, so a plain
-  `git diff` shows what really changed and a pull request can review a chain change.
-- **Links instead of condition names.** `OUTCOND`/`INCOND` pairs become edges between nodes;
-  the original names are kept, and the export can keep them or standardize them.
-- **One base, many environments.** The environment letter in names, hosts, users, mail
-  recipients and other per-environment values become tokens and constants; each environment
-  is a small file. Exporting for another environment is one flag.
-- **Environments learned from their exports.** Start from the production export; the export
-  of each other environment is grouped into a few decisions (a machine, a user, a mail, the
-  environment's name in a subject becomes a constant with a value per environment; what only
-  one environment has or lacks is noted), and production stays byte for byte as it was.
-  `ctmchain check` then counts, field by field, what the repository's export of each
-  environment still differs in.
-- **Releases and comparison.** The trunk mirrors production; a release is installed
-  environment by environment; two branches compare in Control-M terms, and any change of the
-  other branch (one attribute, one job without its folder, one condition) can be taken into
-  yours, conflicts shown value by value.
-- **Validation and refactorings** that the Control-M UI does not offer: dangling or stale
-  conditions, chains broken by renames, condition names that differ only by a copy's suffix
-  or by case (numbered as the fix), renaming a sub-application across a folder, moving a job,
-  inserting a job in a chain.
-- **Byte-identical export.** Untouched definitions export exactly as they were imported.
+The same chains live in several Control-M environments, and no two are the same: every name
+carries the letter of its environment, jobs run on other machines as other users, and each
+environment is some changes ahead of or behind the others. The Control-M interface does not
+compare environments, and two XML exports differ on almost every line, so a plain `diff` says
+nothing. Moving a change from UAT to production means retyping it, or editing XML by hand.
+
+`controlm-chain-admin` (the `ctmchain` command) answers three questions with one git
+repository of small JSON files:
+
+1. **What does each environment have right now?** One branch each, refreshed from its export.
+2. **What is really different between two of them?** Not the letter, the machine or the user.
+3. **How do I move this job, this folder, this sub-application over there?** An import file
+   in the terms of the target, ready for Control-M.
+
+## What it does
+
+| You want to | Command |
+|---|---|
+| Keep production on `main` and every other environment on a branch of its own | `ctmchain refresh prod.xml --apply`, `ctmchain refresh uat.xml --apply`, ... |
+| Export an environment again and see what changed before accepting it | `ctmchain refresh uat.xml` (nothing is written), then `--apply` |
+| Know what is expected to differ between environments, without it belonging to any of them | `ctmchain envmap derive --apply`, `ctmchain envmap show` (kept on the branch `map`) |
+| Compare two environments by their real differences | `ctmchain compare main env/uat` (`--raw`: as stored) |
+| Take one attribute, one variable, one job, one folder or a sub-application into another environment's branch | `ctmchain take env/uat --list`, `ctmchain take env/uat --item job:F/J --apply` |
+| Get the import file of what was chosen, adapted to the target, without changing any branch | `ctmchain package main env/uat --take folder:F -o prod_import.xml` |
+| Export a whole environment as it stands on its branch | `ctmchain export --env bench -o bench.xml` |
+
+What "adapted to the target" means: the letter of every name (folders, jobs, conditions,
+resources, calendars), the machine, the user, the datacenter and any other value of the map
+are written as the target environment has them. What the map cannot settle is never guessed:
+the value is kept, a warning names it, and `--prefer` settles it.
+
+## A session
+
+All examples use the fictional application `P77`; this repository never contains real
+exports.
+
+```bash
+# once: the rules of the repository, then one branch per environment from its full export
+git init -b main my-chains && cd my-chains
+ctmchain init --application P77_RISK_ENGINE --envs prod=P,uat=U,egma=E,bench=B \
+    --prefixes P77,RQ_,RC_ --leading-only RQ_,RC_
+git add -A && git commit -m "chore: the rules of the repository"
+ctmchain refresh ../exports/prod.xml --apply     # main
+ctmchain refresh ../exports/uat.xml --apply      # env/uat, created from the rules of main
+ctmchain refresh ../exports/egma.xml --apply     # env/egma
+ctmchain refresh ../exports/bench.xml --apply    # env/bench
+```
+
+Every branch now gives its export back byte for byte (`ctmchain export`). The map comes from
+the branches themselves:
+
+```console
+$ ctmchain envmap derive --apply
+3 new entries from main (prod), env/uat (uat), env/egma (egma), env/bench (bench)
+  nodeid.1  NODEID  7 nodes
+      prod=srvp-bat1  uat=srvu-bat1  egma=srve-bat1  bench=srvb-bat1
+  run_as.1  RUN_AS  11 nodes
+      prod=app77proc  uat=aup77proc  egma=aep77proc  bench=abp77proc
+  datacenter.1  DATACENTER  2 nodes
+      prod=CTMPROD  uat=CTMUAT  egma=CTMEGMA  bench=CTMBENCH
+Written on map: 3 entries added
+```
+
+`ctmchain envmap suggest` lists what else varies, with the command that adds it: here a
+variable that holds the environment's code and a word of a mail subject, two more entries.
+`envmap add`, `remove` and `rename` edit the map by hand.
+
+Now the comparison says what matters. As stored, production and UAT differ everywhere; read
+through the map, a handful of real differences is left:
+
+```console
+$ ctmchain compare main env/uat
+Compare main (prod) with env/uat (uat): real differences only
+  expected between prod and uat, not shown: 28 values and 2 texts of the map, 4 names with the letter, 0 conditions called another name
+
+modified folder P77_INGEST_DAILY/
+    variable %%RETRY: (none) -> 3
+added    folder P77_WEEKLY_DAILY/
+    jobs added: P77_WEEKLY_DAILY/P77_WEEKLY_INIT, P77_WEEKLY_DAILY/P77_WEEKLY_LOAD
+added    job P77_CHAIN/P77_NEW
+modified job P77_CHAIN/P77_A
+    CMDLINE: /opt/p77/bin/a.ksh -> /opt/p77/bin/a2.ksh -x
+...
+```
+
+An `INCOND`/`OUTCOND` pair whose name carries another letter, or is simply called something
+else, but links the same jobs with the same sign, is not a difference either.
+
+Take what you choose, at the size you choose, into the branch that is checked out:
+
+```console
+$ git switch env/bench
+$ ctmchain take env/uat --list
+Items env/uat (uat) has that can be taken into env/bench (bench):
+  subapp:P77_BATCH  3 folders that differ
+  folder:P77_INGEST_DAILY  the whole folder, modified
+  var:P77_INGEST_DAILY/@%%RETRY  (none) -> 3
+  folder:P77_CHAIN  the whole folder, modified
+  folder:P77_WEEKLY_DAILY  the whole folder, added
+  job:P77_CHAIN/P77_NEW  the whole job, added
+  job:P77_CHAIN/P77_A  the whole job, modified
+  attr:P77_CHAIN/P77_A@CMDLINE  /opt/p77/bin/a.ksh -> /opt/p77/bin/a2.ksh -x
+  ...
+$ ctmchain take env/uat --item folder:P77_WEEKLY_DAILY --item attr:P77_CHAIN/P77_A@CMDLINE --apply
+$ ctmchain commit                                # a message written from what changed
+$ ctmchain export --env bench -o bench.xml       # bench, with what it took
+```
+
+Or skip the branch and get the import file for the target directly. Production's branch is
+never edited by hand: it gets a file, and its next export brings the change back to `main`.
+
+```console
+$ ctmchain package main env/uat --take folder:P77_WEEKLY_DAILY -o prod_import.xml
+Package env/uat (uat) for prod (main): 1 folder, 1 item taken
+  P77_WEEKLY_DAILY (2 jobs): folder added; job P77_WEEKLY_INIT added; job P77_WEEKLY_LOAD added
+warning: P77_PRICING-P77_WEEKLY_DAILY_OK: a job waits for it but no job emits it here
+Wrote prod_import.xml (2078 bytes)
+```
+
+`prod_import.xml` holds `PP77_WEEKLY_DAILY` with production's machine, user and datacenter,
+although it was read from UAT, and the warning says what the folder will wait for there.
+
+When Control-M is exported again, `ctmchain refresh` shows
+what the export changes on the branch, and nothing is written until `--apply`:
+
+```console
+$ ctmchain refresh ../exports/bench-new.xml
+Refresh env/bench (bench) from bench-new.xml: 2 folders, 9 jobs in the export
+
+  jobs: 1 modified
+
+modified job P77_CHAIN/P77_C
+    CMDLINE: /opt/p77/bin/c.ksh -> /opt/p77/bin/c9.ksh
+
+Nothing written: --apply overwrites env/bench with this export.
+```
+
+## Why git, why JSON
+
+- **One small file per folder and per job**, with stable ordering: `git diff`, `git log` and
+  a pull request work on a chain change.
+- **Byte-identical export.** A branch gives back exactly the export it was refreshed from;
+  what Control-M adds on every upload (dates, versions, user of the change) is kept apart
+  and never compared.
+- **Links instead of condition names.** `OUTCOND`/`INCOND` pairs become edges between jobs;
+  the original names are kept, and an export can keep them or standardise them.
+- **Nothing leaves your machine.** The core and the command line use the Python standard
+  library only; the web UI and the assistant are optional extras and bind `127.0.0.1`.
 
 ## Install
 
 ```bash
 pip install controlm-chain-admin          # core + ctmchain CLI (standard library only)
-pip install "controlm-chain-admin[web]"   # + local read-only web UI
+pip install "controlm-chain-admin[web]"   # + the local web UI (ctmchain serve)
 pip install "controlm-chain-admin[mcp]"   # + the tools for an assistant (Kilo, Claude)
 ```
 
-Requires Python 3.11 or newer.
-
-### Where only PyPI is reachable
-
-The source distribution carries the whole project (rules, skills, tests, the web sources and
-the built UI), so it can be adjusted where GitHub is out of reach:
-
-```bash
-pip download controlm-chain-admin==<version> --no-deps --no-binary :all:
-tar -xzf controlm_chain_admin-<version>.tar.gz && cd controlm_chain_admin-<version>
-git init -b main && git add -A && git commit -m "chore: controlm-chain-admin <version>"
-python -m venv .venv && .venv/bin/pip install -e ".[dev,web]"
-```
-
-The `bootstrap` skill (`.claude/skills/bootstrap/SKILL.md`) takes it from there, for a person
-or Claude Code: the gate, then a new chain repository: production first, the values of the
-other environments from their full exports, then the releases on their way from their
-deliveries.
-
-## Quickstart
-
-```bash
-# a git repository (new or existing) becomes a chain repository
-ctmchain init --repo ./my-chains --application P77_RISK_ENGINE \
-    --envs test=T,uat=U,bench=B,prod=P --prefixes P77,RQ_,RC_ --leading-only RQ_,RC_
-
-ctmchain distinct NODEID RUN_AS DOMAIL/@DEST --xml uat_export.xml   # what varies per environment
-ctmchain import uat_export.xml --env uat --repo ./my-chains         # XML -> JSON, with a report
-ctmchain validate --repo ./my-chains                                # chain findings, exit 1 if any
-ctmchain resolve never-cleaned=add-cleanup --repo ./my-chains       # preview the fixes; --apply
-ctmchain release start 2026-11 --repo ./my-chains                   # edits go to release/2026-11
-ctmchain commit --dry-run --repo ./my-chains                        # the message it would use
-ctmchain graph P77_INGEST_DAILY --repo ./my-chains --format mermaid # the chain of one folder
-ctmchain export --env uat -o uat.xml --repo ./my-chains             # byte-identical to the import
-ctmchain export --env prod -o prod.xml --repo ./my-chains           # same chain, prod letters
-ctmchain serve --repo ./my-chains                                   # local web UI
-ctmchain compare main release/2026-11 --repo ./my-chains            # what the release changed
-ctmchain compare main release/2026-11 --real-only --repo ./my-chains  # without the condition names only
-ctmchain package main release/2026-11 --env uat --repo ./my-chains  # import file, changed folders
-ctmchain release installed uat --repo ./my-chains                   # tag uat/2026-11-1
-ctmchain receive delivery.xml --repo ./my-chains                    # a team's folders, made neutral
-ctmchain receive uat_full.xml --full --repo ./my-chains             # all of uat: constants, its exceptions, what only uat has
-ctmchain technical --add LAST_UPLOAD --repo ./my-chains             # a technical attribute: kept in meta, never compared
-ctmchain check uat_full.xml --env uat --repo ./my-chains            # what our uat export still differs in
-ctmchain take release/2026-10 --list --repo ./my-chains             # what another release changed
-ctmchain take release/2026-10 --item job:P77_CHAIN/P77_D --repo ./my-chains   # one job of it; --apply
-ctmchain release close --repo ./my-chains                           # once installed in prod
-```
-
-Refactorings preview a change set and write only with `--apply`:
-
-```bash
-ctmchain rename-job P77_INGEST_DAILY/P77_INGEST_LOAD P77_INGEST_POSITIONS   # diff only
-ctmchain rename-subapp P77_BATCH P77_CORE --folder P77_INGEST_DAILY --apply
-ctmchain insert-job P77_INGEST_DAILY/P77_CHECK --after P77_INGEST_DAILY/P77_INGEST_INIT \
-    --before P77_INGEST_DAILY/P77_INGEST_LOAD --apply
-```
-
-Also `rename-folder`, `move-job`, `extract-variable`, `map`, `env constants`, `show FOLDER/JOB`,
-`links FOLDER/JOB`, `links --name <condition>`. Every command takes `--format json` where a
-report is produced. All examples use the fictional
-application `P77`; the repository never contains real exports.
-
-## Ask in plain words (Kilo, other assistants)
-
-`ctmchain mcp` gives an assistant the repository as tools: it answers questions and proposes
-changes, previewed field by field, and writes one only when you agree. Nothing is committed.
-What can be asked, and how, is one file (`capabilities.json`): `ctmchain menu` prints it.
-The assistant's model reads what the tools return (the names and fields of your jobs): use
-one your company allows.
-
-```bash
-pip install "controlm-chain-admin[mcp]"
-ctmchain kilo init --repo ./my-chains     # writes .kilo/ at the top of the git repository
-kilo --agent controlm                     # "set MAXWAIT to 3 on P77_B", "only in prod, ..."
-```
-
-In the web UI, `ctmchain serve --assistant --assistant-model openai/gpt-5-mini` starts Kilo
-with the server: *Assistant* in the header opens the conversation beside the page, and a
-change waits there, shown field by field, for *Apply* or *Reject*. The assistant answers in
-the language it is asked in. That Kilo does not read `~/.claude/CLAUDE.md`, which holds what
-you want of Claude Code; `KILO_DISABLE_CLAUDE_CODE_PROMPT=0` makes it read the file again.
-
-The `controlm` agent may use the ctmchain tools only: it cannot edit files or run commands,
-and `ctmchain_apply` asks before it writes (`.kilo/kilo.json`). Words of your team go in
-`.kilo/skills/ctmchain/vocabulary.md`. Any other MCP client runs
-`python -m controlm_chain_admin mcp --repo ./my-chains`.
+Requires Python 3.11 or newer and git.
 
 ## On Windows, from scratch (with Kilo)
 
-In PowerShell, with Python 3.11 or newer, git, and the Kilo CLI (`kilo --version`; signed in
-with the model your company allows) on the PATH. Only PyPI needs to be reachable.
+In PowerShell, with Python 3.11 or newer, git, and optionally the Kilo CLI (`kilo
+--version`, signed in with the model your company allows) on the PATH. Only PyPI needs to be
+reachable.
 
 ```powershell
 # 1. The tool, in a virtual environment of its own (an older one: the same pip line in it)
@@ -155,66 +204,105 @@ python -m pip install --upgrade pip
 python -m pip install --upgrade "controlm-chain-admin[web,mcp]"
 ctmchain --version
 
-# 2. The data repository, outside the code: the full exports in exports\<env>\, the chains
-#    in chains\; production first, it is the trunk
+# 2. The data repository, outside the code: the full exports in exports\, the chains in
+#    chains\ (a private git repository; the exports stay out of it)
 mkdir $HOME\dev\my-data\chains; cd $HOME\dev\my-data\chains
 git init -b main
-ctmchain init --application P77_RISK_ENGINE --envs test=T,uat=U,bench=B,prod=P `
-    --prefixes P77,RQ_,RC_ --leading-only RQ_,RC_
-ctmchain import ..\exports\prod\prod.xml --env prod --dedupe-jobnames
-ctmchain check ..\exports\prod\prod.xml --env prod      # "the same byte for byte"
-git add -A; git commit -m "chore: production baseline"
+ctmchain init --application P77_RISK_ENGINE --envs prod=P,uat=U,egma=E,bench=B `
+    --prefixes P77,RQ_,RC_ --leading-only RQ_,RC_ --dedupe-jobnames
+Add-Content .gitignore ".kilo/"
+git add -A; git commit -m "chore: the rules of the repository"
 
-# 3. The other environments, in one release: their machines, users and mails become
-#    constants, everything else they have becomes their exceptions; production stays
-ctmchain release start environments
-ctmchain receive ..\exports\uat\uat.xml                 # the decisions (or the Import page of serve)
-ctmchain receive ..\exports\uat\uat.xml --apply
-ctmchain check ..\exports\uat\uat.xml --env uat         # what the repository still differs in
-git add -A; git commit -m "chore: uat"                  # the same for bench and test, then:
-ctmchain release installed prod; ctmchain release close
+# 3. One branch per environment, production first (--stat: counts, not every difference)
+ctmchain refresh ..\exports\prod.xml --apply --stat      # main
+ctmchain refresh ..\exports\uat.xml --apply --stat       # env/uat
+ctmchain refresh ..\exports\egma.xml --apply --stat      # env/egma
+ctmchain refresh ..\exports\bench.xml --apply --stat     # env/bench
+git switch main
 
-# 4. The assistant
+# 4. The map of what is expected to differ, read from the four branches
+ctmchain envmap derive                  # what it found; --apply writes it on the branch map
+ctmchain envmap derive --apply
+ctmchain envmap suggest                 # what else varies, with the command for each
+ctmchain envmap show
+
+# 5. Compare, choose, export
+ctmchain compare main env/uat --format md | Out-File -Encoding utf8 uat-vs-prod.md
+ctmchain take env/uat --list --base main
+ctmchain package main env/uat --take 'folder:P77_WEEKLY_DAILY' -o prod_import.xml
+
+# 6. Optional: the assistant and the web UI
 ctmchain kilo init --repo .
-Add-Content .gitignore ".kilo/kilo.json"                # it holds the paths of this machine
-ctmchain serve --assistant                              # Assistant in the header; Kilo's model
+ctmchain serve --assistant              # Assistant in the header; Kilo's model
 ```
 
+`--dedupe-jobnames` is for exports where a folder repeats a `JOBNAME`: the repository gives
+the repeated ones a numeric suffix and every export gives the original names back.
 `ctmchain serve --assistant` starts `kilo serve` itself, with the model Kilo is set to
-(`--assistant-model provider/model` for another one, `kilo models` lists them) and stops it with
-the server. A `kilo` that is not on the PATH: `$env:CTMCHAIN_KILO = "C:\path\to\kilo.cmd"`.
-Kilo in a terminal works too: `kilo --agent controlm` in the chains directory.
+(`--assistant-model provider/model` for another one, `kilo models` lists them) and stops it
+with the server. A `kilo` that is not on the PATH: `$env:CTMCHAIN_KILO = "C:\path\to\kilo.cmd"`.
 
-The step by step of the data repository (the decisions of each environment, the conventions
-for constants and exceptions, the releases already on their way) is the `bootstrap` skill of
-the source distribution: `pip download controlm-chain-admin --no-deps --no-binary :all:`, then
-`.claude/skills/bootstrap/SKILL.md` in the archive.
+### Where only PyPI is reachable
 
-## Development
+The source distribution carries the whole project (rules, skills, tests, the web sources and
+the built UI), so it can be read and adjusted where GitHub is out of reach:
 
 ```bash
-pip install -e ".[dev,web]"
-pytest                                   # synthetic fixtures
-cd web && npm ci && npm run build        # builds the web UI into the package
-.claude/skills/verify/verify.sh          # the whole quality gate
+pip download controlm-chain-admin==<version> --no-deps --no-binary :all:
+tar -xzf controlm_chain_admin-<version>.tar.gz && cd controlm_chain_admin-<version>
+git init -b main && git add -A && git commit -m "chore: controlm-chain-admin <version>"
+python -m venv .venv && .venv/bin/pip install -e ".[dev,web]"
 ```
+
+`.claude/skills/bootstrap/SKILL.md` in the archive is the step by step, for a person or an
+agent: the gate, then a data repository from the exports.
+
+## Also in the box
+
+- **Validation with fixes** the Control-M interface does not offer: conditions nobody emits
+  or nobody cleans, chains broken by a rename, condition names that differ only by a copy's
+  suffix or by case. `ctmchain validate`, `ctmchain resolve <finding>=<fix> --apply`.
+- **Refactorings with a preview**: `rename-job`, `rename-folder`, `rename-subapp`,
+  `move-job`, `insert-job` (between two jobs of a chain), `extract-variable`,
+  `set-variable`. Each prints the change and writes only with `--apply`.
+- **A local web UI** (`ctmchain serve`): the folders, the graph of a chain, a job with its
+  attributes grouped, findings, comparison of two branches, an editing form with preview.
+- **Ask in plain words.** `ctmchain mcp` gives an assistant (Kilo, Claude, any MCP client)
+  the repository as tools: it answers questions and proposes changes, previewed field by
+  field, and writes one only when you agree. `ctmchain kilo init` sets Kilo up with an agent
+  that may use those tools only. The assistant's model reads the names and fields of your
+  jobs: use one your company allows.
+- **`--format json`** wherever a report is printed, for scripts and agents; exit codes 0 (ok),
+  1 (findings), 2 (usage), 3 (error).
+- **Another way to hold the environments**, from the first releases and still there: one
+  branch with a neutral base, a constant per value that differs (`@{name}`) and the
+  exceptions of each environment, with releases installed environment by environment
+  (`receive`, `check`, `release`, `env constants`). See [`DESIGN.md`](DESIGN.md) section 5.
 
 ## Concepts
 
 | Term | Meaning |
 |---|---|
-| Chain repository | A git repository with the environment-neutral **base** plus one small directory per **environment** |
+| Chain repository | A git repository of JSON files: `chain.json` (the rules), `folders/<FOLDER>/folder.json`, `jobs/<JOB>.json`, `links.json` |
+| Environment branch | `main` for production, `env/<name>` for every other environment: what its last full export said, plus what was taken into it |
+| Refresh | A full export overwriting the branch of its environment, after showing what it changes |
+| Map | `map.json` on the branch `map`: the letter of each environment and the values that stand for each other (a machine, a user, a word of a subject) |
+| Real difference | What is left between two environments once the map and the letter are read through |
+| Item | Something of a comparison that can be taken alone: `subapp:S`, `folder:F`, `job:F/J`, `attr:F/J@NAME`, `var:F/J@%%NAME` |
+| Import file | A Control-M XML of the chosen folders, in the terms of the target environment (`ctmchain package`) |
 | Node | A folder or a job, identified as `FOLDER/JOB` without the environment letter |
 | Link | A dependency edge: producer `OUTCOND +` → consumer `INCOND` with the same condition name |
-| Constant | A logical value `@{name}` resolved per environment (hosts, users, recipients) |
-| Exception | A per-job, per-environment whole-value replacement (`envs/<env>/overrides.json`) |
-| Environments of a node | `"envs": [...]` on a folder or job that exists in some environments only |
-| Release | A branch `release/<name>` started from the trunk (production), installed per environment, closed into the trunk |
 
-## Contributing
+## Development
 
-See [`CONTRIBUTING.md`](CONTRIBUTING.md). The project is developed test-first; the quality gate
-is `.claude/skills/verify/verify.sh`.
+```bash
+pip install -e ".[dev,web]"
+pytest                                   # unit, functional and end-to-end, synthetic fixtures
+cd web && npm ci && npm run build        # builds the web UI into the package
+.claude/skills/verify/verify.sh          # the whole quality gate
+```
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md). The project is developed test-first.
 
 ## License
 

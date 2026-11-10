@@ -249,6 +249,26 @@ or addresses anywhere in this public repository.
     change and a prod-only exception written after approval, a rejected one left out. Next:
     `claude init` for Claude Code.
 
+19. **One branch per environment — DONE (2026-11-10), released in 0.2.0**, asked by the author
+    after a day with 0.1 at work ([`NEEDS.md`](NEEDS.md), needs 1 to 10; `DESIGN.md` §14):
+    `refresh` (an environment's branch from its full export: preview, `--apply`, as many times
+    as needed), the map on its own branch (`envmap derive|suggest|show|add|remove|rename`),
+    two environments compared by their real differences (the head read in the base's terms;
+    `--raw`; `--prefer` for a value that stands for two), `take` between environments item by
+    item (attribute, variable, job, folder, sub-application), `package --take` (the import
+    file of the target with only the chosen items, no branch changed), the trunk refusing a
+    take, `init --dedupe-jobnames`, the repository guide rewritten for this model. Unit,
+    functional and end-to-end tests on four synthetic environments; tried on the real
+    application in four environments, built from its exports alone.
+20. **The branch model in the web UI — next**: a *Refresh* page (drop the export, see the
+    differences, apply), a *Map* page (derive, suggest, edit), and the items of a
+    cross-environment comparison with *Take* and *Package* on the compare page.
+21. **The branch model for the assistant — next**: MCP tools for `refresh` (preview),
+    `envmap show`, `take --list` and `package --take`; `prefer` on `compare`.
+22. **The commands of the one-base model — to decide**: `receive`, `check`, `release`,
+    `env constants`, `override` stay for repositories of that model; remove them, or keep
+    them, once nobody uses one.
+
 Later, unordered: second-environment import with learning; `diff` of environments and XML
 files with `xmldiffreport`; mapping editor; upstream graph explorer (paused by the author);
 cycle detection in `validate`; a check for one condition name used by two links; bilingual

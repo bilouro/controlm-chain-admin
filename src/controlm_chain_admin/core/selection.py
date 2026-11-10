@@ -13,8 +13,10 @@ from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from controlm_chain_admin.core.errors import GitError, SelectionConflict
+from controlm_chain_admin.core.environments import env_of_ref
+from controlm_chain_admin.core.errors import ChainError, GitError, SelectionConflict
 from controlm_chain_admin.core.history import (
     CommitInfo,
     FileChange,
@@ -29,6 +31,10 @@ from controlm_chain_admin.core.history import (
     snapshot,
     tree_blobs,
 )
+from controlm_chain_admin.core.repo import load_repo
+
+if TYPE_CHECKING:
+    from controlm_chain_admin.core.crossenv import Translation
 
 
 @dataclass(frozen=True)
@@ -44,6 +50,10 @@ class Sides:
     changes: Mapping[str, tuple[FileChange, ...]]  # files each non-merge commit changed
     base_root: Path
     head_root: Path
+    #: across two environments: what was rewritten on the head side, in the base's terms
+    translation: Translation | None = None
+    #: (the base's environment, the head's) when the two sides are two environments
+    environments: tuple[str, str] | None = None
 
     @property
     def applied(self) -> tuple[str, ...]:
@@ -151,6 +161,50 @@ def overlay(
     return result
 
 
+def environments_of(root: Path, base: str, head: str) -> tuple[str, str] | None:
+    """(the base's environment, the head's) when the two refs hold different environments."""
+    try:
+        config = load_repo(root).config
+    except ChainError:
+        return None
+    target, source = env_of_ref(root, config, base), env_of_ref(root, config, head)
+    if target is None or source is None or target == source:
+        return None
+    return target, source
+
+
+@contextmanager
+def _across(
+    root: Path,
+    base: RefInfo,
+    head: RefInfo,
+    target: str,
+    source: str,
+    translate: bool,
+    prefer: Sequence[str] = (),
+) -> Iterator[Sides]:
+    """Two environments' branches side by side: they share no history to compare along, so each
+    is taken whole, and the head side is rewritten in the base's terms unless asked not to."""
+    from controlm_chain_admin.core.crossenv import translated  # it imports this module
+
+    compared = base.sha or base.name
+    with snapshot(root, base.name) as base_root, snapshot(root, head.name) as head_root:
+        if not translate:
+            yield Sides(
+                base, head, None, compared, (), None, {}, base_root, head_root, None,
+                (target, source),
+            )  # fmt: skip
+            return
+        with translated(root, base_root, head_root, source, target, prefer) as (
+            copy,
+            translation,
+        ):
+            yield Sides(
+                base, head, None, compared, (), None, {}, base_root, copy, translation,
+                (target, source),
+            )  # fmt: skip
+
+
 @contextmanager
 def open_sides(
     root: Path,
@@ -159,9 +213,26 @@ def open_sides(
     *,
     use_merge_base: bool = True,
     commits: Sequence[str] | None = None,
+    translate: bool = True,
+    prefer: Sequence[str] = (),
 ) -> Iterator[Sides]:
-    """Snapshots of the base side and of the head side (only ``commits`` when given)."""
+    """Snapshots of the base side and of the head side (only ``commits`` when given).
+
+    When the two refs hold different environments, the head side is what its environment has,
+    in the terms of the base's (``translate=False``: as it is; ``prefer``: the entries of the
+    map that win where it gives several answers); commits cannot be selected.
+    """
     base_info, head_info = resolve(root, base), resolve(root, head)
+    across = environments_of(root, base, head)
+    if across is not None:
+        if commits is not None:
+            raise GitError(
+                f"{base} and {head} hold different environments ({across[0]} and {across[1]}): "
+                "they are compared whole, commits cannot be selected"
+            )
+        with _across(root, base_info, head_info, *across, translate, prefer) as sides:
+            yield sides
+        return
     if commits is not None and head_info.sha is None:
         raise GitError("the working tree has no commits to select; compare a branch instead")
     head_commit = head_info.sha or resolve(root, "HEAD").sha or "HEAD"

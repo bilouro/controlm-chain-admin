@@ -15,7 +15,7 @@ from controlm_chain_admin.web.schemas import ErrorOut, PackageOut
 
 router = APIRouter(prefix="/api", tags=["package"])
 ERRORS: dict[int | str, dict[str, Any]] = {
-    404: {"model": ErrorOut, "description": "Unknown environment"},
+    404: {"model": ErrorOut, "description": "Unknown environment, or an item nobody has"},
     409: {"model": ErrorOut, "description": "A selected commit needs one that was left out"},
     422: {
         "model": ErrorOut,
@@ -29,14 +29,32 @@ def _package(
     repo: ChainRepo = Depends(get_repo),
     base: str = Query(description="base ref, e.g. develop"),
     head: str = Query("WORKTREE", description="head ref, or WORKTREE for uncommitted changes"),
-    env: str = Query(description="target environment, e.g. uat"),
+    env: str | None = Query(
+        None,
+        description="target environment, e.g. uat; between the branches of two environments "
+        "it is the base's and may be left out",
+    ),
+    take: list[str] | None = Query(
+        None,
+        description="package only these items of the comparison (repeat the parameter): the "
+        "base with the items on it; no branch is changed",
+    ),
+    prefer: list[str] | None = Query(
+        None,
+        description="between two environments: the entries of the map that win where it gives "
+        "several answers for a value (repeat the parameter)",
+    ),
     merge_base: bool = Query(True, description="compare from the merge base (pull-request style)"),
     commits: str | None = COMMITS,
     jobnames: str = Query("original", description="original (as in Control-M) | deduped"),
     names: str = Query("original", description="condition names: original | standard"),
 ) -> Package:
     selection = parse_commits(commits)
-    options = (env, merge_base, None if selection is None else tuple(selection), jobnames, names)
+    chosen = None if take is None else tuple(take)
+    options = (
+        env, merge_base, None if selection is None else tuple(selection), jobnames, names,
+        chosen, tuple(prefer or ()),
+    )  # fmt: skip
     return cached(
         request,
         "package_cache",
@@ -45,7 +63,7 @@ def _package(
         options,
         lambda: build_package(
             repo.root, base, head, env=env, commits=selection, use_merge_base=merge_base,
-            names=names, jobnames=jobnames,
+            names=names, jobnames=jobnames, take=chosen, prefer=tuple(prefer or ()),
         ),
     )  # fmt: skip
 

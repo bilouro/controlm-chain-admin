@@ -4,6 +4,10 @@ Status: draft agreed in the design conversation of 2026-11-01. Everything here i
 unless it is listed under *Open questions*. All examples are synthetic (fictional application
 `P77`, fictional hosts and addresses); no real export data is ever committed to this repository.
 
+Since 0.2.0 the environments are held as **one branch per environment** (§14), which is what
+[`NEEDS.md`](NEEDS.md) asks for. §5 describes the earlier way (one branch with a neutral base,
+constants and exceptions, and releases), which still works; §3, §4 and §6 to §11 apply to both.
+
 ## 1. Purpose and scope
 
 BMC Control-M job chains are hard to manage through the Control-M UI and its XML export
@@ -172,6 +176,9 @@ the long-term goal.
   kept as a raw condition on the node with `"raw": true`, so nothing is lost.
 
 ## 5. Environment model
+
+This section is the model of 0.1: every environment in one branch. The model of 0.2, one branch
+per environment and a map apart, is §14.
 
 `envs/<env>/env.json`:
 
@@ -779,7 +786,7 @@ excepted: they write their target but never touch the other side). Every command
 `--repo <dir>` (default: current directory) and `--format text|md|json` where a report is produced.
 
 Repository lifecycle
-- `init --repo <cloned-git-dir> --application <APP> --envs test=T,uat=U,bench=B,prod=P [--prefixes P77,RQ_,RC_] [--leading-only RQ_,RC_]` — the git repository already exists (cloned by the user); `init` adds `chain.json` (rules, whitelist, policies), one `envs/<env>/` per declared environment and, unless one is there, the repository's `CLAUDE.md` (its rules, layout and everyday commands).
+- `init --repo <cloned-git-dir> --application <APP> --envs test=T,uat=U,bench=B,prod=P [--prefixes P77,RQ_,RC_] [--leading-only RQ_,RC_] [--dedupe-jobnames]` — the git repository already exists (cloned by the user); `init` adds `chain.json` (rules, whitelist, policies), one `envs/<env>/` per declared environment and, unless one is there, the repository's `CLAUDE.md` (its rules, layout and everyday commands).
 - `distinct <ATTR>... [--xml <export.xml>] [--write <mappings.json>]` — distinct values of one or more attributes (e.g. `NODEID RUN_AS DOMAIL/@DEST VARIABLE/@VALUE`), with counts and sample nodes, read from an XML before import or from the repository after. `--write` produces a mapping draft to fill in.
 - `map <ATTR|TAG/@ATTR|TAG[K=V]/@ATTR> <value> --as <name> (--pattern "<tpl>" | --value ENV=VALUE ... | --env <env>) [--inline]` — declare one constant: the base gets `@{name}` wherever `<value>` appears in the selected attribute, each environment gets its value. `--pattern` fills every environment from a template with `{L}` (upper letter) / `{l}` (lower letter), e.g. `"{L}P77_BATCH"`, `"a{l}p77proc"`; `--value` sets one environment explicitly (repeatable); `--env` says which environment `<value>` belongs to. `--inline` binds a token inside free text (e.g. `[UAT]` in `DOMAIL/@SUBJECT`). Unknown values stay `null` until provided; export to such an environment fails unless `--allow-unresolved`. Constants cannot be bound to attributes governed by the letter rule.
 - `override <node> --env <env> <ATTR>=<value>... [--var %%NAME=value]` — per-job exception for one environment (whole values).
@@ -835,10 +842,14 @@ Assistant
 - `serve --assistant [--assistant-model PROVIDER/MODEL]` — implemented: the web UI with its *Assistant* panel; starts and stops Kilo.
 - `kilo init [--repo DIR] [--dir DIR] [--force]` — implemented: `.kilo/` for Kilo (server, `controlm` agent, skill, vocabulary) at the top of the git repository.
 
+Environments as branches (§14)
+- `refresh <export.xml> [--env ENV] [--apply] [--no-commit] [--stat] [--format text|json]` — implemented: what the full export of one environment changes on its branch (`main` for production, `env/<name>` else; the environment is read from the letter of the names). Nothing is written without `--apply`, which checks the branch out (created from the rules of the trunk when missing), overwrites its chain files and commits `refresh(<env>): <file>`.
+- `envmap show|suggest|derive [--key SPEC ...] [--text SPEC ...] [--min-nodes N] [--apply]|add KEY ENV=VALUE... [--text] [--as NAME]|remove NAME|rename OLD NEW` — implemented: the map of what is expected to differ, on the branch `map`. `derive` reads the environments' branches (always `NODEID`, `RUN_AS`, `DATACENTER`; more with `--key` and `--text`), `suggest` counts what else varies.
+
 Comparison
-- `compare <base> [<head>] [--worktree] [--no-merge-base] [--commit <sha>...] [--real-only] [--format text|md|json]` — implemented: semantic comparison of two git refs of the repository (see §8). `head` defaults to `HEAD`; `--worktree` compares `base` with the uncommitted files; `--commit` keeps only those commits of head; `--real-only` leaves out what only calls a condition another name.
-- `take <head> [--base HEAD] [--item ID ...] [--theirs ID ...] [--list] [--commit <sha>...] [--no-merge-base] [--apply] [--stat]` — implemented: changes of another branch taken into the checked-out one, item by item (see §8).
-- `package <base> [<head>] --env <env> [--commit <sha>...] [--worktree] [--no-merge-base] [--jobnames original|deduped] [--names original|standard] [-o <file>] [--dry-run] [--format text|json]` — implemented: the Control-M import file with every changed folder, whole, and why (see §8). Default file name `deploy_<env>_<head>[_<n>-of-<m>]_<date>.xml`.
+- `compare <base> [<head>] [--worktree] [--no-merge-base] [--commit <sha>...] [--real-only] [--raw] [--prefer ENTRY ...] [--format text|md|json]` — implemented: semantic comparison of two git refs of the repository (see §8). `head` defaults to `HEAD`; `--worktree` compares `base` with the uncommitted files; `--commit` keeps only those commits of head; `--real-only` leaves out what only calls a condition another name. Two environments' branches are compared whole, the head read in the terms of the base's environment (§14); `--raw` compares them as stored.
+- `take <head> [--base HEAD] [--item ID ...] [--theirs ID ...] [--prefer ENTRY ...] [--list] [--commit <sha>...] [--no-merge-base] [--apply] [--stat] [--format text|json]` — implemented: changes of another branch taken into the checked-out one, item by item (see §8); from another environment's branch they arrive in the terms of this one (§14). Items: `subapp:S`, `folder:F`, `job:F/J`, `attr:F/J@NAME`, `var:F/J@%%NAME`, `rel:...`, `group:...`. Refused on the trunk.
+- `package <base> [<head>] [--env <env>] [--take ID ...] [--prefer ENTRY ...] [--commit <sha>...] [--worktree] [--no-merge-base] [--jobnames original|deduped] [--names original|standard] [-o <file>] [--dry-run] [--format text|json]` — implemented: the Control-M import file with every changed folder, whole, and why (see §8). Between two environments' branches the target is the base's environment; `--take` packages the base with only those items on it, and changes no branch. Default file name `deploy_<env>_<head>[_<n>-of-<m>]_<date>.xml`.
 - `diff <A> <B>` — planned: A and B may be repo directories, `env:<name>` resolved views or XML files; XML↔XML goes through `xmldiffreport`.
 
 Refactorings
@@ -865,3 +876,144 @@ the fixtures.
    token. Resolved 2026-11-02 with the author: resource prefixes are leading-only (see §4.1).
 5. Values carrying another environment's letter in the UAT export (4): bug or intentional?
 6. The CLI should swallow BrokenPipe when its output is piped into `head`.
+
+## 14. One branch per environment
+
+The model of 0.2, written against [`NEEDS.md`](NEEDS.md) (needs 1 to 10) after the tool was
+used for a day on a real application in four environments. What 0.1 did (§5) made one neutral
+base and expressed each environment as constants and exceptions on top of it. It answered
+"what is the chain" and failed "what does UAT have today": an environment was never stored,
+only derived, a new export had to be *received* decision by decision, and the answer to
+"what differs between UAT and bench" passed through production.
+
+### 14.1 The branches
+
+| Branch | Holds | Changes by |
+|---|---|---|
+| `main` (the trunk) | production | `refresh` from a full export of production, nothing else |
+| `env/<name>` | one other environment | `refresh` from its full export; `take` from another branch; edits |
+| `map` (orphan) | `map.json` | `envmap derive --apply`, `add`, `remove`, `rename` |
+
+`chain.json` (`git.trunk`, `git.production`, `git.env_prefix`, `git.map_branch`) names them. A
+branch holds the files of §3 for one environment: `chain.json` and `envs/` (the rules, the same
+on every branch), `folders/` and `meta/`. Names are stored without the letter (§4.1), so the
+same folder is the same path on every branch; every other value is stored as that environment
+has it (no constants, no exceptions). `ctmchain export --env <env>` on the branch gives the
+export back byte for byte.
+
+The branches share the first commit (the rules) and nothing else: they are never merged. Git
+is the store and the history of each environment (`git log env/uat` is the list of its
+refreshes and takes), not the way changes travel.
+
+### 14.2 Refresh (needs 1 to 6)
+
+`refresh <export.xml>` imports the export into a temporary copy of the rules, compares it with
+the branch of its environment and prints what differs in the terms of §8 (folders, jobs,
+conditions, attributes before -> after), plus how many technical files differ. The environment
+is read from the letter of the names; `--env` says it, and an export that looks like another
+environment is refused.
+
+`--apply` checks the branch out (creating `env/<name>` from the trunk's rules the first time),
+replaces `chain.json`, `folders/` and `meta/` with the import and commits
+`refresh(<env>): <file>`. The export overwrites: folders and jobs it no longer has go, and
+what was taken into the branch and never uploaded to Control-M goes too, which the preview
+shows as removed. The same export again changes nothing. Uncommitted chain files refuse a
+refresh.
+
+### 14.3 The map (need 8)
+
+`map.json` on the branch `map`: a list of entries, each a name, a key (`NODEID`, `TAG/@ATTR`,
+`TAG[K=V]/@ATTR`, as the constants of §5) and one value per environment. An entry with
+`"inline": true` is a word inside a text (`UAT` in a mail subject). The letters are not in the
+map: they are in `envs/<env>/env.json`.
+
+```json
+{"version": 1, "entries": [
+  {"name": "run_as.1", "key": "RUN_AS",
+   "values": {"prod": "app77proc", "uat": "aup77proc", "egma": "aep77proc", "bench": "abp77proc"}}
+]}
+```
+
+The map is on a branch of its own because it belongs to no environment: it is read with
+`git show map:map.json` and written with git plumbing, so no checkout is needed and the
+working tree is never touched. It is versioned and pushed like any branch.
+
+`envmap derive` reads every environment's branch and proposes the entries the map lacks: at
+each place (a job, a folder) present in two environments or more, the values of `NODEID`,
+`RUN_AS` and `DATACENTER` (and of the `--key` selectors) form a tuple; a tuple seen at
+`--min-nodes` places or more (default 2) is the environment's, a tuple of one place is what
+that job has. `--text` does the same for one word of a text. `envmap suggest` counts, for every
+attribute, the places whose values differ and neither the letter nor the map explains: a key
+with few sets of values is the environment's, a key with a set per job is a real difference.
+
+### 14.4 Real differences (need 9)
+
+`compare <base> <head>` between two environments' branches takes each whole (they share no
+history) and first rewrites the head, in a copy, in the terms of the base's environment:
+
+1. a value the base has at the same place is kept;
+2. a value of the map becomes the base's value of that entry;
+3. a word of an inline entry inside a text becomes the base's word;
+4. the head's letter in front of a prefix of the letter rule, inside any value, becomes the
+   base's;
+5. a condition whose name differs only by the letters, or that links the same jobs with the
+   same sign and ODATE under another name, is called as the base calls it.
+
+What still differs is a real difference. The report starts with what was read through
+(`expected between prod and uat, not shown: 28 values and 2 texts of the map, 4 names with the
+letter, 0 conditions called another name`); `--raw` compares the branches as stored.
+
+One value of the head may stand for several of the base (two users in the target for one in
+the source). The value the base has at that place wins; without one, the entries named with
+`--prefer` decide; else the value is kept as it is and a warning names the key, the value, the
+candidate entries and the places. Nothing is guessed.
+
+### 14.5 Take and package (needs 7 and 10)
+
+`take <head> --list`, on the checked-out branch, lists the items of the comparison: `subapp:S`
+(every folder of a sub-application that differs), `folder:F`, `job:F/J`, `attr:F/J@NAME`,
+`var:F/J@%%NAME` (of the folder itself: `attr:F/@NAME`, `var:F/@%%NAME`), relations and groups
+of equal changes. `--item` previews, `--apply` writes
+the working tree, `ctmchain commit` commits. Items come from the rewritten head, so they
+arrive in the terms of the branch that receives them: its letter at export, its machine, its
+user, its condition names. A taken folder or job brings its technical attributes (`meta/`)
+along as the source had them, until the next refresh of the target replaces them.
+
+The trunk refuses `take --apply`: production changes in Control-M, and `main` follows by its
+next refresh. What production must receive is an import file:
+
+`package <base> <head> --take ID...` builds, in a temporary copy, the base with only those
+items on it, and writes the Control-M XML of the folders they touch for the base's
+environment. No branch and no working tree changes. Without `--take` every folder that differs
+is packaged as the head has it. The warnings of §8 apply (a condition nobody emits there), and
+the unsettled values of §14.4 are listed for the nodes the file holds.
+
+### 14.6 From zero, and from a 0.1 repository
+
+A repository is built from the full exports alone, in minutes:
+
+```bash
+git init -b main && ctmchain init --application P77_RISK_ENGINE \
+    --envs prod=P,uat=U,egma=E,bench=B --prefixes P77,RQ_,RC_ --leading-only RQ_,RC_
+git add -A && git commit -m "chore: the rules of the repository"
+ctmchain refresh exports/prod.xml --apply     # main; then uat, egma, bench
+git switch main && ctmchain envmap derive --apply
+```
+
+A 0.1 repository is not converted: its constants and exceptions are derived knowledge, and the
+exports say the same with less. Build the new repository beside it from the last full export
+of each environment, with the same application, letters, prefixes and policies in `init`, and
+keep the old one as an archive. Changes that were in a release branch and not yet in any
+environment are re-done on the environment's branch, or taken from an export of the
+environment that has them.
+
+### 14.7 What is put aside, and what is not built
+
+- Releases (`release start|installed|close`), `receive` and `check` belong to the model of §5.
+  They still work on a repository of that model and are not part of this one: a release is
+  what travels from one environment's branch to another (`take`, `package --take`).
+- The web UI browses, edits and compares any branch, two environments included (the API takes
+  `raw` and `prefer`), and has no page for `refresh`, the map or the items of a
+  cross-environment take yet. The MCP tools compare two environments and do not refresh, take
+  or package.
+- A three-way view (what UAT has that neither bench nor production has) is two comparisons.

@@ -16,11 +16,12 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
-from controlm_chain_admin import __version__, cli_assistant
+from controlm_chain_admin import __version__, cli_assistant, cli_env
 from controlm_chain_admin.core import check as check_mod
 from controlm_chain_admin.core import commit as commit_mod
 from controlm_chain_admin.core import compare as compare_mod
 from controlm_chain_admin.core import constants as constants_mod
+from controlm_chain_admin.core import environments as environments_mod
 from controlm_chain_admin.core import fixes as fixes_mod
 from controlm_chain_admin.core import graph as graph_mod
 from controlm_chain_admin.core import guide as guide_mod
@@ -81,6 +82,12 @@ def build_parser() -> argparse.ArgumentParser:
         default="",
         help="prefixes whose names carry the letter on the first token only, e.g. RQ_,RC_ "
         "(resources such as URQ_P77_X)",
+    )
+    init.add_argument(
+        "--dedupe-jobnames",
+        action="store_true",
+        help="every import and refresh gives a JOBNAME repeated in its folder a numeric suffix "
+        "(X, X2, X3); exports give the original names back",
     )
     init.set_defaults(func=cmd_init)
 
@@ -306,6 +313,20 @@ def build_parser() -> argparse.ArgumentParser:
         "ODATE and signs); by default it is shown, marked [name only]",
     )
     cmp_.add_argument(
+        "--raw",
+        action="store_true",
+        help="two environments' branches as they are stored; by default the head is read in "
+        "the terms of the base's environment (the map), so only real differences show",
+    )
+    cmp_.add_argument(
+        "--prefer",
+        action="append",
+        default=[],
+        metavar="ENTRY",
+        help="between two environments: the entry of the map that wins where the map gives "
+        "several answers for a value (repeatable; ctmchain envmap show lists them)",
+    )
+    cmp_.add_argument(
         "--repo", type=Path, default=Path("."), help="repository directory (default: .)"
     )
     cmp_.add_argument("--format", choices=("text", "md", "json"), default="text")
@@ -321,8 +342,8 @@ def build_parser() -> argparse.ArgumentParser:
         action="append",
         default=[],
         metavar="ID",
-        help="an item of the comparison, e.g. job:F/J or attr:F/J@TIMEFROM (repeatable); "
-        "--list shows them",
+        help="an item of the comparison, e.g. subapp:S, folder:F, job:F/J, var:F/J@%%%%NAME or "
+        "attr:F/J@TIMEFROM (repeatable); --list shows them",
     )
     tk.add_argument(
         "--theirs",
@@ -330,6 +351,14 @@ def build_parser() -> argparse.ArgumentParser:
         default=[],
         metavar="ID",
         help="a conflicting item to take anyway (repeatable)",
+    )
+    tk.add_argument(
+        "--prefer",
+        action="append",
+        default=[],
+        metavar="ENTRY",
+        help="between two environments: the entry of the map that wins where the map gives "
+        "several answers for a value (repeatable; ctmchain envmap show lists them)",
     )
     tk.add_argument("--list", action="store_true", help="list the items that can be taken")
     tk.add_argument(
@@ -347,7 +376,26 @@ def build_parser() -> argparse.ArgumentParser:
     )
     pkg.add_argument("base", help="base ref, e.g. develop")
     pkg.add_argument("head", nargs="?", default="HEAD", help="head ref (default: HEAD)")
-    pkg.add_argument("--env", required=True, help="target environment, e.g. uat")
+    pkg.add_argument(
+        "--env",
+        help="target environment, e.g. uat; not needed between two environments' branches "
+        "(it is the base's)",
+    )
+    pkg.add_argument(
+        "--take",
+        action="append",
+        metavar="ID",
+        help="package only this item of the comparison (repeatable; ctmchain take --list "
+        "shows them): the base with the item on it, no branch is changed",
+    )
+    pkg.add_argument(
+        "--prefer",
+        action="append",
+        default=[],
+        metavar="ENTRY",
+        help="between two environments: the entry of the map that wins where the map gives "
+        "several answers for a value (repeatable; ctmchain envmap show lists them)",
+    )
     pkg.add_argument(
         "--worktree", action="store_true", help="package the uncommitted working tree"
     )
@@ -409,6 +457,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     _add_release(commands)
     _add_refactorings(commands)
+    cli_env.add_commands(commands)
     cli_assistant.add_commands(commands)
 
     srv = commands.add_parser(
@@ -445,7 +494,7 @@ def cmd_init(args: argparse.Namespace) -> int:
     leading = [p.strip() for p in args.leading_only.split(",") if p.strip()]
     repo = init_repo(
         args.repo, args.application, environments, letters=letters, prefixes=prefixes,
-        leading_only=leading,
+        leading_only=leading, dedupe_jobnames=args.dedupe_jobnames,
     )  # fmt: skip
     print(
         f"Initialized chain repository at {repo.root} for application {repo.config.application} "
@@ -847,16 +896,14 @@ def cmd_take(args: argparse.Namespace) -> int:
         result = compare_mod.compare(
             repo.root, args.base, args.head, use_merge_base=merge_base, commits=args.commits
         )
-        print(f"Items {result.head.name} changed that can be taken into {result.base.name}:")
-        for item, label in take_mod.items_of(result):
-            print(f"  {item}  {label}")
+        _print_takeable(repo.root, result, take_mod.items_of(result), args.format)
         return EXIT_OK
     if args.apply:
         workspace_mod.ensure_editable(repo)
     try:
         change = take_mod.take(
             repo, args.base, args.head, args.item, theirs=args.theirs,
-            use_merge_base=merge_base, commits=args.commits,
+            use_merge_base=merge_base, commits=args.commits, prefer=args.prefer,
         )  # fmt: skip
     except TakeConflict as conflict:
         for c in conflict.conflicts:
@@ -879,6 +926,8 @@ def cmd_compare(args: argparse.Namespace) -> int:
         head,
         use_merge_base=not args.no_merge_base,
         commits=args.commits,
+        translate=not args.raw,
+        prefer=args.prefer,
     )
     if args.real_only:
         result = result.real_only()
@@ -898,6 +947,44 @@ def _commit_count(selected: Sequence[str] | None, commits: Sequence[Any]) -> str
     return f"{len(selected)} of {_plural(total, 'commit')}"
 
 
+def _print_takeable(
+    root: Path, result: compare_mod.Comparison, items: Sequence[tuple[str, str]], fmt: str
+) -> None:
+    """The items of a comparison that ``take`` accepts, as a list or as JSON."""
+    into = result.base.name
+    if result.environments is not None:
+        into = environments_mod.current_branch(root) or into
+    if fmt == "json":
+        envs = None if result.environments is None else list(result.environments)
+        rows = [{"id": item, "label": label} for item, label in items]
+        body = {"into": into, "from": result.head.name, "environments": envs, "items": rows}
+        print(json.dumps(body, indent=2, ensure_ascii=False))
+        return
+    if result.environments is None:
+        print(f"Items {result.head.name} changed that can be taken into {into}:")
+    else:
+        target, source = result.environments
+        print(f"Items {result.head.name} ({source}) has that can be taken into {into} ({target}):")
+    for item, label in items:
+        print(f"  {item}  {label}")
+
+
+def _package_headline(package: package_mod.Package) -> str:
+    folders = _plural(len(package.folders), "folder")
+    chosen = None if package.taken is None else f"{_plural(len(package.taken), 'item')} taken"
+    if package.source is not None:
+        return (
+            f"Package {package.head.name} ({package.source}) for {package.env} "
+            f"({package.base.name}): {folders}, {chosen or 'everything that differs'}"
+        )
+    origin = f" (from merge base {package.merge_base[:7]})" if package.merge_base else ""
+    line = (
+        f"Package {package.base.name}..{package.head.name} for {package.env}: {folders}, "
+        f"{_commit_count(package.selected, package.commits)}{origin}"
+    )
+    return line if chosen is None else f"{line}, {chosen}"
+
+
 def cmd_package(args: argparse.Namespace) -> int:
     head = WORKTREE if args.worktree else args.head
     package = package_mod.build_package(
@@ -909,17 +996,14 @@ def cmd_package(args: argparse.Namespace) -> int:
         use_merge_base=not args.no_merge_base,
         names=args.names,
         jobnames=args.jobnames,
+        take=args.take,
+        prefer=args.prefer,
     )
     output = args.output or Path(package.filename)
     if args.format == "json":
         print(json.dumps(package.to_json(), indent=2, ensure_ascii=False))
     else:
-        origin = f" (from merge base {package.merge_base[:7]})" if package.merge_base else ""
-        print(
-            f"Package {package.base.name}..{package.head.name} for {package.env}: "
-            f"{_plural(len(package.folders), 'folder')}, "
-            f"{_commit_count(package.selected, package.commits)}{origin}"
-        )
+        print(_package_headline(package))
         for folder in package.folders:
             print(f"  {folder.name} ({_plural(folder.jobs, 'job')}): {'; '.join(folder.reasons)}")
         for warning in package.warnings:

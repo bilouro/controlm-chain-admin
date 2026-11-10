@@ -6,20 +6,33 @@ own attributes, a condition it uses renamed, or a constant it uses given another
 target environment. A job whose only change is seen from the other end of a relation (its own
 file is the same) does not pull its folder in. The package is the regular export of those
 folders for the environment: letter rule and constants resolved, original JOBNAMEs by default.
+
+When the base and the head hold different environments, the package is for the environment of
+the base: what the head has, written as the base writes it (see
+:mod:`controlm_chain_admin.core.crossenv`). ``take`` narrows it to chosen items: they are put on
+a copy of the base, which is then what is packaged; no branch and no checkout is touched.
 """
 
 from __future__ import annotations
 
 import datetime
 import re
-from collections.abc import Sequence
-from dataclasses import dataclass
+import shutil
+import tempfile
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
 from controlm_chain_admin.core.compare import Comparison, comparison
 from controlm_chain_admin.core.constants import placeholder
-from controlm_chain_admin.core.errors import NothingToPackage
+from controlm_chain_admin.core.crossenv import kept_unsure
+from controlm_chain_admin.core.errors import (
+    EnvironmentRequired,
+    InvalidChange,
+    NothingToPackage,
+)
 from controlm_chain_admin.core.history import (
     CommitInfo,
     RefInfo,
@@ -27,7 +40,14 @@ from controlm_chain_admin.core.history import (
     file_changes,
     resolve,
 )
-from controlm_chain_admin.core.links import folder_names, load_links
+from controlm_chain_admin.core.links import (
+    build_links,
+    collect_conditions,
+    folder_names,
+    load_links,
+    read_names,
+    write_names,
+)
 from controlm_chain_admin.core.ops import export_document
 from controlm_chain_admin.core.overrides import load_overrides
 from controlm_chain_admin.core.repo import CHAIN_FILE, ChainRepo, load_repo, read_json
@@ -60,6 +80,8 @@ class Package:
     findings: tuple[Finding, ...]  # validation findings the head side has and the base has not
     filename: str
     xml: bytes | None  # None when nothing changed
+    taken: tuple[str, ...] | None = None  # the items chosen; None: everything that differs
+    source: str | None = None  # the environment of the head, when it is not the package's
 
     @property
     def size(self) -> int:
@@ -87,6 +109,8 @@ class Package:
             "findings": [f.to_json() for f in self.findings],
             "filename": self.filename,
             "size": self.size,
+            "taken": None if self.taken is None else list(self.taken),
+            "source": self.source,
         }
 
 
@@ -237,6 +261,8 @@ def _warnings(result: Comparison, sides: Sides, root: Path, folders: Sequence[st
             "chain.json changed (letter rule, attributes or constants): folders that are not "
             "in the package may export differently too; consider a full export"
         )
+    if sides.translation is not None:
+        return warnings  # two environments: no history in common, nothing to merge first
     return [*warnings, *_behind(root, sides, folders)]
 
 
@@ -252,7 +278,7 @@ def _new_findings(sides: Sides, head: ChainRepo) -> tuple[Finding, ...]:
     return tuple(f for f in found if key(f) not in known)
 
 
-def _filename(env: str, sides: Sides, today: str) -> str:
+def _filename(env: str, sides: Sides, today: str, taken: Sequence[str] | None = None) -> str:
     if sides.head.kind == "worktree":
         label = "worktree"
     else:
@@ -261,7 +287,46 @@ def _filename(env: str, sides: Sides, today: str) -> str:
     if sides.selected is not None:
         total = sum(1 for c in sides.commits if not c.merge)
         part = f"_{len(sides.selected)}-of-{total}"
+    if taken is not None:
+        part += f"_{len(taken)}-item{'' if len(taken) == 1 else 's'}"
     return f"deploy_{env}_{label}{part}_{today}.xml"
+
+
+def _target(sides: Sides, env: str | None) -> str:
+    """The environment the package is for: the base's when the two sides are two environments
+    (no other makes sense), the one asked for otherwise."""
+    across = sides.translation
+    if across is None:
+        if env is None:
+            raise EnvironmentRequired(
+                f"which environment is the package for? {sides.base.name} and "
+                f"{sides.head.name} do not hold two different environments: name it"
+            )
+        return env
+    if env is not None and env != across.target:
+        raise InvalidChange(
+            f"{sides.base.name} holds {across.target}: what {sides.head.name} has is packaged "
+            f"for {across.target}, not for {env} (compare with the branch of {env} for that)"
+        )
+    return across.target
+
+
+@contextmanager
+def _chosen(sides: Sides, items: Sequence[str] | None) -> Iterator[tuple[Sides, list[str]]]:
+    """The sides to package and what taking the items warned about: with ``items``, the head
+    side becomes the base with those items of the head on it, and nothing else."""
+    if items is None:
+        yield sides, []
+        return
+    from controlm_chain_admin.core.take import take_into  # it imports the comparison too
+
+    with tempfile.TemporaryDirectory(prefix="ctmchain-") as tmp:
+        copy = Path(tmp) / "chosen"
+        shutil.copytree(sides.base_root, copy)
+        work = take_into(load_repo(copy), sides, items)
+        box = work.box
+        write_names(box, build_links(collect_conditions(box), {**read_names(box), **work.names}))
+        yield replace(sides, head_root=copy), list(work.warnings)
 
 
 def build_package(
@@ -269,19 +334,31 @@ def build_package(
     base: str,
     head: str = "HEAD",
     *,
-    env: str,
+    env: str | None = None,
     commits: Sequence[str] | None = None,
     use_merge_base: bool = True,
     names: str = "original",
     jobnames: str = "original",
     today: str | None = None,
+    take: Sequence[str] | None = None,
+    prefer: Sequence[str] = (),
 ) -> Package:
     """The Control-M import file for ``env`` with every folder changed from ``base`` to ``head``.
 
-    ``commits`` packages only those commits of the branch (see :func:`compare`). Unresolved
-    constants in a packaged folder raise :class:`UnresolvedConstant`.
+    ``commits`` packages only those commits of the branch (see :func:`compare`); ``take`` only
+    those items of the comparison (see :mod:`controlm_chain_admin.core.take`). Between two
+    environments ``env`` is the base's and need not be given, and ``prefer`` names the entries
+    of the map that win where it gives several answers for a value. Unresolved constants in a
+    packaged folder raise :class:`UnresolvedConstant`.
     """
-    with open_sides(root, base, head, use_merge_base=use_merge_base, commits=commits) as sides:
+    taken = None if take is None else tuple(dict.fromkeys(take))
+    with (
+        open_sides(
+            root, base, head, use_merge_base=use_merge_base, commits=commits, prefer=prefer
+        ) as opened,
+        _chosen(opened, taken) as (sides, taking),
+    ):
+        env = _target(sides, env)
         result = comparison(sides)
         repo = load_repo(sides.head_root)
         repo.load_env(env)  # an unknown environment fails before anything else
@@ -302,7 +379,9 @@ def build_package(
             )
             for f in packaged
         )
-        warnings = _warnings(result, sides, root, packaged)
+        warnings = [*taking, *_warnings(result, sides, root, packaged)]
+        if taken is None and sides.translation is not None:
+            warnings += kept_unsure(sides.translation, sides.head_root, set(packaged))
         warnings += [
             f"folder {f.name} has no jobs left: the import empties it in Control-M; "
             "delete it there if it is no longer needed"
@@ -311,8 +390,9 @@ def build_package(
         ]
         warnings += [f"folder {f} is not in meta/export.json; it is not packaged" for f in missing]
         findings = _new_findings(sides, repo)
-        filename = _filename(env, sides, today or datetime.date.today().isoformat())
+        filename = _filename(env, sides, today or datetime.date.today().isoformat(), taken)
     return Package(
         sides.base, sides.head, sides.merge_base, env, sides.commits, sides.selected,
-        folders, tuple(warnings), findings, filename, xml,
+        folders, tuple(warnings), findings, filename, xml, taken,
+        None if sides.environments is None else sides.environments[1],
     )  # fmt: skip

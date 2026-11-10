@@ -1,6 +1,6 @@
 ---
 name: bootstrap
-description: Set up controlm-chain-admin where only PyPI is reachable (no GitHub), then build a new chain repository from the full exports of every environment, step by step, with the conventions agreed for environments, constants and exceptions. Use when someone says «instalar na empresa», «set up at work», «criar o repositório de dados», «começar do zero», «bootstrap», or opens this source for the first time on a new machine.
+description: Set up controlm-chain-admin where only PyPI is reachable (no GitHub), then build a new chain repository from the full exports of every environment, step by step: one branch per environment and the map of what differs between them. Use when someone says «instalar na empresa», «set up at work», «criar o repositório de dados», «começar do zero», «bootstrap», or opens this source for the first time on a new machine.
 ---
 
 # bootstrap — the code from PyPI, the data repository from the exports
@@ -54,6 +54,116 @@ files) and number every question so they can answer «1 sim, 2 não».
    in this directory, not even in tests.
 
 ## Part B — the data repository
+
+One branch per environment (`DESIGN.md` §14): `main` holds production, `env/<name>` each
+other environment, `map` what is expected to differ. Everything comes from the full exports;
+there is no decision to take on the way in.
+
+### 1. What the exports do not say
+
+Put the full exports beside the new repository, not inside it (`exports/<env>.xml`; they are
+big: look at them with scripts and counts, never whole). Then ask, numbered:
+
+1. the application (`APPLICATION` of its folders) and the environments with their letters,
+   e.g. `prod=P,uat=U,egma=E,bench=B`; which one is production (default `prod`);
+2. the bare prefixes of the letter rule (the application code, `RQ_`, `RC_`) and which of
+   them carry the letter on their first token only (`--leading-only RQ_,RC_`: resources such
+   as `URQ_P77_AGGREGATION`);
+3. whether a folder may hold two jobs with the same JOBNAME (`--dedupe-jobnames`).
+
+Someone who had a repository of 0.1 finds all three in its `chain.json` (`application`,
+`letter_rule`, `dedupe_jobnames`) and `envs/*/env.json`: use the same.
+
+### 2. The rules, then one refresh per environment
+
+```bash
+mkdir chains && cd chains && git init -b main
+ctmchain init --application <APP> --envs prod=P,uat=U,egma=E,bench=B \
+    --prefixes P77,RQ_,RC_ --leading-only RQ_,RC_ [--dedupe-jobnames]
+printf '.kilo/\n' >> .gitignore                 # Kilo's files hold paths of this machine
+git add -A && git commit -m "chore: the rules of the repository"
+ctmchain refresh ../exports/prod.xml  --apply --stat     # main
+ctmchain refresh ../exports/uat.xml   --apply --stat     # env/uat, created from main's rules
+ctmchain refresh ../exports/egma.xml  --apply --stat
+ctmchain refresh ../exports/bench.xml --apply --stat
+git switch main
+```
+
+In PowerShell: `;` instead of `&&`, `Add-Content .gitignore ".kilo/"` instead of `printf`.
+Each refresh says the environment it read from the letters, the folders and jobs of the
+export and how many folders of other applications it left out: report those counts. An export
+that "does not tell its environment" needs `--env`; one that "looks like" another environment
+is the wrong file.
+
+Check one: `git switch env/uat; ctmchain export --env uat -o ../uat.out.xml` gives the
+application's folders of the export back byte for byte.
+
+### 3. The map
+
+```bash
+ctmchain envmap derive            # preview: machines, users, datacenter
+ctmchain envmap derive --apply
+ctmchain envmap suggest           # what else varies, counted per attribute
+```
+
+Read `suggest` with the person: an attribute whose values differ at many places with few sets
+of values is the environment's (a variable with the environment's code, a path, a mail
+address): `ctmchain envmap derive --key 'VARIABLE[NAME=%%ENVCODE]/@VALUE' --apply`. A word of
+the environment inside a text (`[UAT]` in a mail subject): `--text 'DOMAIL/@SUBJECT'`. An
+attribute with a set of values per job is a real difference: leave it. One value by hand:
+`ctmchain envmap add NODEID prod=srvp-bat9 uat=srvu-bat9 --as node.bat9`.
+
+### 4. Try it
+
+```bash
+ctmchain compare main env/uat                  # the real differences, and what was read through
+git switch env/bench
+ctmchain take env/uat --list                   # what uat has that bench lacks, item by item
+ctmchain package main env/uat --take folder:<FOLDER> -o ../prod_import.xml --dry-run
+```
+
+A warning about a value that "stands for" two entries names them: `--prefer <entry>` settles
+it. Nothing is pushed until the person says where to.
+
+### 5. Every day
+
+- a new export of an environment: `ctmchain refresh <export.xml>` (the differences), then
+  `--apply`;
+- from one environment to another: on the target's branch, `take <source> --list`,
+  `take <source> --item ID... --apply`, `ctmchain commit -m "..."`, `ctmchain export --env
+  <target>`; or, without touching any branch, `package <target> <source> --take ID... -o file`;
+- production: only `package main <source> --take ...`; `main` follows by the next refresh
+  from production's export.
+
+## Part C — asking in plain words (Kilo)
+
+When the person uses Kilo (with the model the company allows), once the data repository is
+there:
+
+1. In the data repository: `ctmchain kilo init --repo chains` (the code's venv active). It
+   writes `.kilo/` at the top of the git repository: `kilo.json` (the server with this
+   machine's Python and repository), the agent `controlm`, the skill `ctmchain` and
+   `vocabulary.md`.
+2. `kilo.json` holds paths of this machine: ask, numbered, whether to keep it out of git
+   (`.kilo/kilo.json` in the data repository's `.gitignore`); the agent, the skill and the
+   vocabulary may be committed for the team.
+3. Fill `vocabulary.md` with the team's words (which attribute «servidor» or «agente» means,
+   the nicknames of folders): it stays in the private data repository.
+4. Open Kilo in the data repository with `kilo --agent controlm`; try a question («what does
+   <job> wait for?»), then a change on an environment's branch (never `main`): it previews field by field and asks
+   before `ctmchain_apply`. Nothing is committed by the agent.
+5. In the web UI: `ctmchain serve --assistant` (optionally `--assistant-model
+   provider/model`; default: Kilo's own, the model the company set) starts Kilo with the
+   server; *Assistant* in the header opens the conversation, and every change waits there for
+   *Apply* or *Reject*. On Windows it starts `kilo.cmd` from the PATH; a Kilo elsewhere:
+   `$env:CTMCHAIN_KILO = "C:\path\to\kilo.cmd"`.
+6. `kilo mcp list` shows `ctmchain connected`; if not, run the command of `kilo.json` by hand
+   (`<python> -m controlm_chain_admin mcp --repo <chains>`): it waits on stdin when it works.
+
+## Part D — the earlier model (one base, releases)
+
+Only for a repository built with 0.1 that the person wants to keep that way: every
+environment in one branch, constants and exceptions, releases (`DESIGN.md` §5).
 
 ### 1. What the exports say
 
@@ -186,28 +296,3 @@ is what differs for another reason (often conditions whose names differ per envi
 Then the everyday flow of the data repository's own `CLAUDE.md` (written by `init`):
 deliveries through `ctmchain receive`, a full prod export now and then to catch up with
 production, releases installed environment by environment.
-
-## Part C — asking in plain words (Kilo)
-
-When the person uses Kilo (with the model the company allows), once the data repository is
-there:
-
-1. In the data repository: `ctmchain kilo init --repo chains` (the code's venv active). It
-   writes `.kilo/` at the top of the git repository: `kilo.json` (the server with this
-   machine's Python and repository), the agent `controlm`, the skill `ctmchain` and
-   `vocabulary.md`.
-2. `kilo.json` holds paths of this machine: ask, numbered, whether to keep it out of git
-   (`.kilo/kilo.json` in the data repository's `.gitignore`); the agent, the skill and the
-   vocabulary may be committed for the team.
-3. Fill `vocabulary.md` with the team's words (which attribute «servidor» or «agente» means,
-   the nicknames of folders): it stays in the private data repository.
-4. Open Kilo in the data repository with `kilo --agent controlm`; try a question («what does
-   <job> wait for?»), then a change on a release branch: it previews field by field and asks
-   before `ctmchain_apply`. Nothing is committed by the agent.
-5. In the web UI: `ctmchain serve --assistant` (optionally `--assistant-model
-   provider/model`; default: Kilo's own, the model the company set) starts Kilo with the
-   server; *Assistant* in the header opens the conversation, and every change waits there for
-   *Apply* or *Reject*. On Windows it starts `kilo.cmd` from the PATH; a Kilo elsewhere:
-   `$env:CTMCHAIN_KILO = "C:\path\to\kilo.cmd"`.
-6. `kilo mcp list` shows `ctmchain connected`; if not, run the command of `kilo.json` by hand
-   (`<python> -m controlm_chain_admin mcp --repo <chains>`): it waits on stdin when it works.

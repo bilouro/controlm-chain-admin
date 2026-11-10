@@ -9,6 +9,7 @@ one, nothing happens; where it has a third value, that is a conflict, taken only
 
 Items:
 
+* ``subapp:S``: every folder of a sub-application that differs, each one whole;
 * ``folder:F``: a whole folder (its jobs, conditions and metadata);
 * ``job:F/J``: a whole job, not its folder;
 * ``attr:NODE@ATTR``, ``var:NODE@%%NAME``: one attribute or variable of a folder (``F/``) or
@@ -22,6 +23,10 @@ Items:
 
 Constants the taken content uses and the checkout does not have come along; neighbour jobs do
 not: a condition nobody emits or waits for any more is a warning.
+
+When the two branches hold different environments, the other branch is read in the terms of the
+checked-out one first (:mod:`controlm_chain_admin.core.crossenv`): what is taken arrives with
+the users, the machines and the condition names of the environment it arrives in.
 """
 
 from __future__ import annotations
@@ -46,12 +51,15 @@ from controlm_chain_admin.core.links import INDEX_FILE, LINK_KEY, collect_condit
 from controlm_chain_admin.core.ops import JOBS_KEY
 from controlm_chain_admin.core.overrides import Override, load_overrides, write_overrides
 from controlm_chain_admin.core.repo import ChainRepo, load_repo, read_json, write_json
-from controlm_chain_admin.core.selection import open_sides
+from controlm_chain_admin.core.selection import Sides, open_sides
 
 if TYPE_CHECKING:
     from controlm_chain_admin.core.refactor import ChangeSet
 
-KINDS = ("folder", "job", "attr", "var", "rel", "group", "link", "const", "exception")
+KINDS = (
+    "subapp", "folder", "job", "attr", "var", "rel", "group", "link", "const", "exception"
+)  # fmt: skip
+_SUBAPP = "SUB_APPLICATION"
 _CONDITIONS = ("INCOND", "OUTCOND")
 _ORDER_KEY = "folder_order"
 
@@ -101,6 +109,27 @@ def _links_of(data: Any) -> set[str]:
         for value in data:
             found |= _links_of(value)
     return found
+
+
+def _subapp_folders(side: _Side, name: str) -> list[str]:
+    """The folders of a sub-application: the folder names it, or one of its jobs does."""
+    found = []
+    for folder, data in side.folders.items():
+        jobs = (side.jobs.get(f"{folder}/{job}") for job in data.get(JOBS_KEY, []))
+        if data.get(_SUBAPP) == name or any((job or {}).get(_SUBAPP) == name for job in jobs):
+            found.append(folder)
+    return found
+
+
+def _place(order: Sequence[str], theirs: Sequence[str], folder: str) -> int:
+    """Where ``folder`` goes in ``order`` to stand as it does in ``theirs``: after the nearest
+    folder before it that both have, else in front of the nearest one after it, else last."""
+    at = theirs.index(folder)
+    earlier = [f for f in theirs[:at] if f in order]
+    if earlier:
+        return order.index(earlier[-1]) + 1
+    later = [f for f in theirs[at + 1 :] if f in order]
+    return order.index(later[0]) if later else len(order)
 
 
 def _folder_files(root: Path, folder: str) -> dict[str, str]:
@@ -293,6 +322,8 @@ class _Take:
         if after_job is None:  # removed by the other branch: listed under its old name
             old, after_job = identity, None
         before_job = self.before.jobs.get(old) if old else None
+        if after_job is None and before_job is None:
+            raise InvalidChange(f"{item}: neither side of the comparison has that job")
         if old and old != identity and after_job is not None:  # renamed or moved
             self._remove_job(item, old, before_job)
             self._add_job(item, identity, None, after_job)
@@ -354,6 +385,8 @@ class _Take:
         old = self.reverse.get(identity, identity)[:-1]
         if folder not in self.after.folders:  # removed by the other branch
             old = folder
+            if folder not in self.before.folders:
+                raise InvalidChange(f"{item}: neither side of the comparison has that folder")
         mine = _folder_files(self.box.root, old)
         before = _folder_files(self.base_root, old)
         theirs = _folder_files(self.head_root, folder) if folder in self.after.folders else {}
@@ -373,9 +406,7 @@ class _Take:
             meta = dict(read_json(meta_path))
             order = [f for f in meta.get(_ORDER_KEY, []) if f not in (old, folder)]
             if theirs:
-                earlier = self.after.order[: self.after.order.index(folder)]
-                previous = [f for f in earlier if f in order]
-                order.insert(order.index(previous[-1]) + 1 if previous else len(order), folder)
+                order.insert(_place(order, self.after.order, folder), folder)
             meta[_ORDER_KEY] = order
             write_json(meta_path, meta)
         if theirs:
@@ -383,6 +414,35 @@ class _Take:
             for job in self.after.folders[folder].get(JOBS_KEY, []):
                 self.bring_names(self.after.jobs.get(f"{folder}/{job}"))
             self.taken.add(identity)
+
+    def _differs(self, folder: str) -> bool:
+        """Whether a folder of the other branch holds anything the checkout's does not."""
+        old = self.reverse.get(f"{folder}/", f"{folder}/")[:-1]
+        theirs = self.after.folders[folder]
+        if self.before.folders.get(old) != theirs:
+            return True
+        return any(
+            self.before.jobs.get(f"{old}/{job}") != self.after.jobs.get(f"{folder}/{job}")
+            for job in theirs.get(JOBS_KEY, [])
+        )
+
+    def _subapp(self, item: str, name: str) -> None:
+        theirs = _subapp_folders(self.after, name)
+        if not theirs:
+            raise InvalidChange(f"{item}: the other branch has no sub-application {name}")
+        for folder in theirs:
+            if not self._differs(folder):
+                continue
+            part = f"folder:{folder}"
+            if item in self.theirs:
+                self.theirs.add(part)
+            self._folder(part, folder)
+        for folder in _subapp_folders(self.before, name):
+            if self.forward.get(f"{folder}/", f"{folder}/")[:-1] not in self.after.folders:
+                self.warnings.append(
+                    f"folder {folder} of {name} is not in the other branch: it stays as it "
+                    f"is (folder:{folder} removes it)"
+                )
 
     def _link(self, item: str, link: str) -> None:
         theirs = self.after.names.get(link)
@@ -469,9 +529,24 @@ def shown(value: Any) -> str:
     return "(none)" if value is None else str(value)
 
 
+def _subapp_items(result: Comparison) -> list[tuple[str, str]]:
+    """One item per sub-application that has folders to take (added or changed in any way)."""
+    folders: dict[str, set[str]] = {}
+    for node in (*result.folders, *result.jobs):
+        if node.after is None or (node.kind == "folder" and node.change == "removed"):
+            continue
+        name = node.after.get(_SUBAPP)
+        if isinstance(name, str) and name:
+            folders.setdefault(name, set()).add(node.node.partition("/")[0])
+    return [
+        (f"subapp:{name}", f"{len(found)} folder{'s' if len(found) != 1 else ''} that differ")
+        for name, found in folders.items()
+    ]
+
+
 def items_of(result: Comparison) -> tuple[tuple[str, str], ...]:
     """Every item of a comparison that can be taken, with a short description."""
-    items: list[tuple[str, str]] = []
+    items: list[tuple[str, str]] = _subapp_items(result)
     for node in (*result.folders, *result.jobs):
         whole = f"folder:{node.node[:-1]}" if node.kind == "folder" else f"job:{node.node}"
         items.append((whole, f"the whole {node.kind}, {node.change}"))
@@ -518,6 +593,37 @@ def _check_destination(root: Path, base: str) -> None:
         )
 
 
+def take_into(
+    box: ChainRepo, sides: Sides, items: Sequence[str], theirs: Iterable[str] = ()
+) -> _Take:
+    """The ``items`` of the two opened sides applied to the files of ``box``; conflicts raise.
+    The names of the conditions that come along are in the result, not written yet."""
+    before, after = _load(sides.base_root), _load(sides.head_root)
+    folders = _match_folders(before, after)
+    jobs, _ = _match_jobs(before, after, folders)
+    forward = {f"{old}/": f"{new}/" for old, new in folders.items()} | jobs
+    reverse = {new: old for old, new in forward.items()}
+    work = _Take(
+        box, before, after, sides.base_root, sides.head_root, reverse, forward, set(theirs)
+    )
+    for item in dict.fromkeys(items):
+        work.take(item)
+    if work.conflicts:
+        shown = ", ".join(c.item for c in work.conflicts[:3])
+        raise TakeConflict(
+            f"{len(work.conflicts)} item(s) changed in the checkout too: {shown}; "
+            "keep yours (leave them out) or take theirs",
+            tuple(c.to_json() for c in work.conflicts),
+        )
+    work.constants()
+    work.dangling()
+    if sides.translation is not None:
+        from controlm_chain_admin.core.crossenv import kept_unsure  # it imports the comparison
+
+        work.warnings.extend(kept_unsure(sides.translation, box.root))
+    return work
+
+
 def take(
     repo: ChainRepo,
     base: str,
@@ -527,9 +633,12 @@ def take(
     theirs: Iterable[str] = (),
     use_merge_base: bool = True,
     commits: Sequence[str] | None = None,
+    prefer: Sequence[str] = (),
 ) -> ChangeSet:
     """The ``items`` of the comparison of ``base`` (the checked-out branch) with ``head``,
-    taken into the working tree as one change set to preview and apply."""
+    taken into the working tree as one change set to preview and apply. Between two
+    environments, ``prefer`` names the entries of the map that win where it gives several
+    answers for a value."""
     from controlm_chain_admin.core.refactor import _finish, _sandbox, _tracked
 
     repo = load_repo(repo.root)
@@ -537,30 +646,11 @@ def take(
         raise InvalidChange("nothing to take")
     _check_destination(repo.root, base)
     with open_sides(
-        repo.root, base, head, use_merge_base=use_merge_base, commits=commits
+        repo.root, base, head, use_merge_base=use_merge_base, commits=commits, prefer=prefer
     ) as sides:
-        before, after = _load(sides.base_root), _load(sides.head_root)
-        folders = _match_folders(before, after)
-        jobs, _ = _match_jobs(before, after, folders)
-        forward = {f"{old}/": f"{new}/" for old, new in folders.items()} | jobs
-        reverse = {new: old for old, new in forward.items()}
         original = _tracked(repo.root)
         with _sandbox(original) as box:
-            work = _Take(
-                box, before, after, sides.base_root, sides.head_root, reverse, forward,
-                set(theirs),
-            )  # fmt: skip
-            for item in dict.fromkeys(items):
-                work.take(item)
-            if work.conflicts:
-                shown = ", ".join(c.item for c in work.conflicts[:3])
-                raise TakeConflict(
-                    f"{len(work.conflicts)} item(s) changed in the checkout too: {shown}; "
-                    "keep yours (leave them out) or take theirs",
-                    tuple(c.to_json() for c in work.conflicts),
-                )
-            work.constants()
-            work.dangling()
+            work = take_into(box, sides, items, theirs)
             count = len(dict.fromkeys(items))
             listed = ", ".join(list(dict.fromkeys(items))[:3]) + ("..." if count > 3 else "")
             summary = f"take {count} change{'s' if count != 1 else ''} from {head}: {listed}"
