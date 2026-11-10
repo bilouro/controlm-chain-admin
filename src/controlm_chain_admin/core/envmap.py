@@ -29,7 +29,7 @@ from controlm_chain_admin.core.environments import branch_exists, current_branch
 from controlm_chain_admin.core.errors import ChainError, GitError, ModelError
 from controlm_chain_admin.core.history import _git, snapshot
 from controlm_chain_admin.core.letter import LetterRule
-from controlm_chain_admin.core.repo import ChainConfig, load_repo
+from controlm_chain_admin.core.repo import ChainConfig, ChainRepo, load_repo
 
 MAP_FILE = "map.json"
 #: What is expected to differ from one environment to another, whatever the chain.
@@ -533,3 +533,84 @@ def suggest(root: Path, config: ChainConfig, envmap: EnvMap) -> tuple[Suggestion
                                 None if fitting is None else len(fitting),
                                 example or dict(first)))  # fmt: skip
     return tuple(sorted(found, key=lambda s: (-s.nodes, s.key)))
+
+
+# ---------------------------------------------------------------- what every adapter does
+
+
+def show_map(repo: ChainRepo) -> dict[str, Any]:
+    """The map as it is shown: its branch, the letter and the branch of each environment (the
+    branches that exist), and the entries."""
+    return {
+        "branch": repo.config.git_rules.map_branch,
+        "letters": repo.env_letters(),
+        "branches": env_branches(repo.root, repo.config),
+        **read_map(repo.root, repo.config).to_json(),
+    }
+
+
+def derive_map(
+    repo: ChainRepo,
+    *,
+    keys: Sequence[str] = (),
+    text_keys: Sequence[str] = (),
+    min_nodes: int = 2,
+    apply: bool = False,
+) -> tuple[Derived, bool]:
+    """What the branches show and the map lacks, for :data:`DEFAULT_KEYS` and ``keys``; with
+    ``apply`` the new entries are committed on the branch of the map. The second value says
+    whether anything was written."""
+    root, config = repo.root, repo.config
+    found = derive(
+        root,
+        config,
+        read_map(root, config),
+        keys=tuple(dict.fromkeys((*DEFAULT_KEYS, *keys))),
+        text_keys=tuple(text_keys),
+        min_nodes=min_nodes,
+    )
+    count = len(found.entries)
+    if not (apply and count):
+        return found, False
+    write_map(root, config, found.envmap, f"map: {count} {_entries(count)} derived")
+    return found, True
+
+
+def _entries(count: int) -> str:
+    return "entry" if count == 1 else "entries"
+
+
+def add_to_map(
+    repo: ChainRepo,
+    key: str,
+    values: Mapping[str, str],
+    *,
+    name: str | None = None,
+    inline: bool = False,
+) -> tuple[EnvMap, str]:
+    """One more entry, committed on the branch of the map; the map and the name it got."""
+    envmap = add_entry(
+        read_map(repo.root, repo.config),
+        key,
+        values,
+        name=name,
+        inline=inline,
+        environments=tuple(repo.config.environments),
+    )
+    given = envmap.entries[-1].name
+    write_map(repo.root, repo.config, envmap, f"map: add {given}")
+    return envmap, given
+
+
+def remove_from_map(repo: ChainRepo, name: str) -> EnvMap:
+    """The map without the entry ``name``, committed on its branch."""
+    envmap = remove_entry(read_map(repo.root, repo.config), name)
+    write_map(repo.root, repo.config, envmap, f"map: remove {name}")
+    return envmap
+
+
+def rename_in_map(repo: ChainRepo, old: str, new: str) -> EnvMap:
+    """The entry ``old`` called ``new``, committed on the branch of the map."""
+    envmap = rename_entry(read_map(repo.root, repo.config), old, new)
+    write_map(repo.root, repo.config, envmap, f"map: rename {old} to {new}")
+    return envmap

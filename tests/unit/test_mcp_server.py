@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sys
 from collections.abc import Awaitable, Callable
 from pathlib import Path
@@ -12,12 +13,28 @@ import anyio
 import pytest
 from mcp import Client, StdioServerParameters
 
+from controlm_chain_admin.core.kilo import AGENT_FILE, CONFIG, kilo_files
 from controlm_chain_admin.core.refactor import apply, set_attributes
 from controlm_chain_admin.core.repo import ChainRepo, load_repo, read_json
 from controlm_chain_admin.mcpserver import build_server
-from tests.support.gitrepo import chain_git_repo, commit_all, git
+from tests.support.fourenvs import (
+    CHAIN,
+    LETTERS,
+    export_of,
+    four_branches,
+    two_users_in,
+    uat_ahead,
+    with_map,
+)
+from tests.support.gitrepo import chain_git_repo, commit_all, git, plain_git_identity
 
-TOOLS = {"menu", "find", "show", "condition", "validate", "compare", "preview", "apply"}
+WRITERS = {"apply", "write_package"}
+TOOLS = {
+    "menu", "find", "show", "condition", "validate", "compare", "envmap", "takeable",
+    "package", "refresh", "preview", *WRITERS,
+}  # fmt: skip
+BENCH, UAT = "env/bench", "env/uat"
+NEW_JOB = f"job:{CHAIN}/P77_NEW"
 STEPS = [
     {"do": "change-fields", "params": {"nodes": ["P77_CHAIN/P77_B"], "changes": {"MAXWAIT": "3"}}}
 ]
@@ -29,6 +46,21 @@ def repo(tmp_path: Path) -> ChainRepo:
     repo = chain_git_repo(tmp_path)
     git(repo.root, "checkout", "-q", "-b", "release/26.1")
     return repo
+
+
+@pytest.fixture(autouse=True)
+def _identity(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    plain_git_identity(monkeypatch, tmp_path)
+
+
+@pytest.fixture
+def envs(tmp_path: Path) -> ChainRepo:
+    """Four environments, one branch each, with their map; uat is ahead of the others and
+    bench runs one job as another user; the branch of bench is checked out."""
+    repo = four_branches(tmp_path, change=two_users_in("bench"))
+    with_map(repo)
+    git(repo.root, "switch", "-q", BENCH)
+    return load_repo(repo.root)
 
 
 def _run(root: Path, use: Callable[[Client], Awaitable[Any]]) -> Any:
@@ -61,8 +93,9 @@ def test_the_tools_and_which_of_them_only_read(repo: ChainRepo) -> None:
 
     assert set(tools) == TOOLS
     read_only = {name for name, tool in tools.items() if tool.annotations.read_only_hint}
-    assert read_only == TOOLS - {"apply"}
+    assert read_only == TOOLS - WRITERS
     assert tools["apply"].annotations.destructive_hint is False
+    assert "take(head, items, theirs?, prefer?)" in (tools["preview"].description or "")
     assert "change-fields(nodes, changes)" in (tools["preview"].description or "")
     assert "change-in-env(env, nodes, attributes?, variables?, drop?)" in (
         tools["preview"].description or ""
@@ -236,6 +269,154 @@ def test_a_long_diff_is_cut_and_says_so(repo: ChainRepo) -> None:
     preview = _data(_call(repo.root, "preview", {"steps": steps, "diff_lines": 5}))
 
     assert len(preview["diff"].splitlines()) == 6 and "more lines" in preview["diff"]
+
+
+def test_the_kilo_agent_names_every_tool_and_is_asked_before_each_one_that_writes(
+    repo: ChainRepo,
+) -> None:
+    files = kilo_files(repo.root, sys.executable)
+    agent, config = files[AGENT_FILE], json.loads(files[CONFIG])
+
+    assert {f"ctmchain_{tool}" for tool in TOOLS} == set(re.findall(r"ctmchain_[a-z_]+", agent))
+    assert {name for name, rule in config["permission"].items() if rule == "ask"} == {
+        f"ctmchain_{tool}" for tool in WRITERS
+    }
+
+
+# ---------------------------------------------------------------- one branch per environment
+
+
+def test_the_assistant_is_told_how_the_environments_are_kept(envs: ChainRepo) -> None:
+    server = build_server(envs.root)
+    menu = _data(_call(envs.root, "menu"))
+
+    assert "one branch per environment" in (server.instructions or "")
+    assert "  take: Take changes from another branch or environment" in menu
+    for tool in ("envmap", "takeable", "package", "refresh"):
+        assert f"  {tool}: " in menu
+
+
+def test_envmap_gives_the_branches_the_letters_and_the_entries(envs: ChainRepo) -> None:
+    shown = _data(_call(envs.root, "envmap"))
+
+    assert shown["branch"] == "map" and shown["letters"] == LETTERS
+    assert shown["branches"]["prod"] == "main" and shown["branches"]["uat"] == UAT
+    assert {"run_as.1", "run_as.2", "nodeid.1"} <= {entry["name"] for entry in shown["entries"]}
+
+
+def test_compare_two_environments_by_their_real_differences(envs: ChainRepo) -> None:
+    arguments = {"base": BENCH, "head": UAT}
+
+    text = _data(_call(envs.root, "compare", arguments))
+    settled = _data(_call(envs.root, "compare", {**arguments, "prefer": ["run_as.2"]}))
+    raw = _data(_call(envs.root, "compare", {**arguments, "raw": True}))
+
+    assert text.startswith("Compare env/bench (bench) with env/uat (uat): real differences only")
+    assert "kept as it is" in text and "kept as it is" not in settled
+    assert "RUN_AS: abp77proc -> aup77proc" in raw and "RUN_AS: abp77proc" not in text
+
+
+def test_takeable_lists_the_items_with_the_ids_take_accepts(envs: ChainRepo) -> None:
+    found = _data(_call(envs.root, "takeable", {"head": UAT}))
+    first = _data(_call(envs.root, "takeable", {"head": UAT, "base": "main", "limit": 2}))
+
+    assert (found["into"], found["from"], found["environments"]) == (BENCH, UAT, ["bench", "uat"])
+    assert {"id": NEW_JOB, "label": "the whole job, added"} in found["items"]
+    assert found["total"] == len(found["items"])
+    assert first["into"] == "main" and len(first["items"]) == 2 and first["total"] > 2
+
+
+def test_a_take_is_previewed_then_applied_like_any_change(envs: ChainRepo) -> None:
+    steps = [{"do": "take", "params": {"head": UAT, "items": [NEW_JOB],
+                                       "prefer": ["run_as.1"]}}]  # fmt: skip
+
+    preview = _data(_call(envs.root, "preview", {"steps": steps}))
+    applied = _data(
+        _call(envs.root, "apply", {"steps": steps, "preview_id": preview["preview_id"]})
+    )
+
+    assert preview["summary"].startswith("take 1 change from env/uat")
+    assert f"folders/{CHAIN}/jobs/P77_NEW.json" in preview["files"]
+    assert applied["written"] >= 1
+    new = read_json(envs.root / "folders" / CHAIN / "jobs" / "P77_NEW.json")
+    assert new["RUN_AS"] == "abp77proc"  # the user of bench: the map turned it
+
+
+def test_a_conflict_of_a_take_names_the_item_and_its_three_values(repo: ChainRepo) -> None:
+    node, item = f"{CHAIN}/P77_A", f"attr:{CHAIN}/P77_A@CMDLINE"
+    git(repo.root, "switch", "-q", "-c", "release/26.2", "main")
+    apply(repo, set_attributes(repo, node, {"CMDLINE": "/opt/p77/bin/theirs.ksh"}))
+    commit_all(repo.root, "feat: their script")
+    git(repo.root, "switch", "-q", "release/26.1")
+    mine = load_repo(repo.root)
+    apply(mine, set_attributes(mine, node, {"CMDLINE": "/opt/p77/bin/mine.ksh"}))
+    commit_all(repo.root, "feat: my script")
+    steps = [{"do": "take", "params": {"head": "release/26.2", "items": [item]}}]
+
+    result = _call(repo.root, "preview", {"steps": steps})
+    forced = _data(
+        _call(repo.root, "preview", {"steps": [{**steps[0], "params": {
+            **steps[0]["params"], "theirs": [item]}}]})
+    )  # fmt: skip
+
+    message = result.content[0].text
+    assert result.is_error and "1 item(s) changed in the checkout too" in message
+    assert (
+        f"conflict {item}: mine /opt/p77/bin/mine.ksh, before /opt/p77/bin/a.ksh, "
+        "theirs /opt/p77/bin/theirs.ksh"
+    ) in message
+    assert forced["changes"][0]["after"] == "/opt/p77/bin/theirs.ksh"
+
+
+def test_package_says_what_would_go_to_production_and_writes_nothing(envs: ChainRepo) -> None:
+    arguments = {"base": "main", "head": UAT, "take": [NEW_JOB], "prefer": ["run_as.1"]}
+
+    package = _data(_call(envs.root, "package", arguments))
+    nothing = _data(_call(envs.root, "package", {"base": UAT, "head": UAT, "env": "uat"}))
+
+    assert (package["env"], package["source"], package["taken"]) == ("prod", "uat", [NEW_JOB])
+    assert package["folders"] == [{"name": CHAIN, "jobs": 8, "reasons": ["job P77_NEW added"]}]
+    assert package["filename"].startswith("deploy_prod_env-uat_1-item_")
+    assert package["size"] > 0 and package["warnings"] == []
+    assert nothing["size"] == 0 and nothing["folders"] == []
+    assert not list(envs.root.glob("*.xml"))
+
+
+def test_write_package_writes_the_import_file_and_never_over_another(envs: ChainRepo) -> None:
+    arguments = {"base": "main", "head": UAT, "take": [NEW_JOB], "prefer": ["run_as.1"]}
+
+    written = _data(_call(envs.root, "write_package", arguments))
+    again = _call(envs.root, "write_package", arguments)
+    named = _data(_call(envs.root, "write_package", {**arguments, "output": "out/prod.xml"}))
+    empty = _call(envs.root, "write_package", {"base": UAT, "head": UAT, "env": "uat"})
+
+    path = Path(written["path"])
+    assert path == envs.root / written["filename"] and written["size"] == path.stat().st_size
+    assert b'JOBNAME="PP77_NEW"' in path.read_bytes()
+    assert b'RUN_AS="app77proc"' in path.read_bytes()
+    assert again.is_error and "is there already" in again.content[0].text
+    assert Path(named["path"]) == envs.root / "out" / "prod.xml"
+    assert empty.is_error and "nothing to package" in empty.content[0].text
+
+
+def test_refresh_shows_what_an_export_brings_and_writes_nothing(
+    envs: ChainRepo, tmp_path: Path
+) -> None:
+    export = tmp_path / "uat.xml"
+    export.write_bytes(uat_ahead("uat", export_of("uat")).replace(b"a2.ksh -x", b"a3.ksh"))
+    before = git(envs.root, "rev-parse", UAT)
+
+    text = _data(_call(envs.root, "refresh", {"xml": str(export)}))
+    short = _data(_call(envs.root, "refresh", {"xml": str(export), "lines": 3}))
+    missing = _call(envs.root, "refresh", {"xml": "nowhere.xml"})
+
+    assert text.startswith("Refresh env/uat (uat) from uat.xml: 3 folders, 12 jobs")
+    assert "CMDLINE: /opt/p77/bin/a2.ksh -x -> /opt/p77/bin/a3.ksh" in text
+    assert "Nothing written" in text and "ctmchain refresh" in text
+    assert len(short.splitlines()) == 4 and "more lines" in short
+    assert missing.is_error and "nowhere.xml" in missing.content[0].text
+    assert git(envs.root, "rev-parse", UAT) == before
+    assert git(envs.root, "branch", "--show-current") == BENCH
 
 
 def test_the_server_runs_over_stdio(repo: ChainRepo) -> None:

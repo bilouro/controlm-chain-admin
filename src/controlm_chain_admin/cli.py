@@ -21,7 +21,6 @@ from controlm_chain_admin.core import check as check_mod
 from controlm_chain_admin.core import commit as commit_mod
 from controlm_chain_admin.core import compare as compare_mod
 from controlm_chain_admin.core import constants as constants_mod
-from controlm_chain_admin.core import environments as environments_mod
 from controlm_chain_admin.core import fixes as fixes_mod
 from controlm_chain_admin.core import graph as graph_mod
 from controlm_chain_admin.core import guide as guide_mod
@@ -893,10 +892,11 @@ def cmd_take(args: argparse.Namespace) -> int:
     repo = load_repo(args.repo)
     merge_base = not args.no_merge_base
     if args.list:
-        result = compare_mod.compare(
-            repo.root, args.base, args.head, use_merge_base=merge_base, commits=args.commits
-        )
-        _print_takeable(repo.root, result, take_mod.items_of(result), args.format)
+        found = take_mod.takeable(
+            repo.root, args.base, args.head, use_merge_base=merge_base, commits=args.commits,
+            prefer=args.prefer,
+        )  # fmt: skip
+        _print_takeable(found, args.format)
         return EXIT_OK
     if args.apply:
         workspace_mod.ensure_editable(repo)
@@ -908,9 +908,8 @@ def cmd_take(args: argparse.Namespace) -> int:
     except TakeConflict as conflict:
         for c in conflict.conflicts:
             print(
-                f"conflict {c['item']}: mine {take_mod.shown(c['mine'])}, before "
-                f"{take_mod.shown(c['before'])}, theirs {take_mod.shown(c['theirs'])} "
-                f"(take it with --theirs {c['item']}, or leave it out)",
+                f"{take_mod.conflict_line(c)} (take it with --theirs {c['item']}, or leave "
+                "it out)",
                 file=sys.stderr,
             )
         raise
@@ -947,25 +946,19 @@ def _commit_count(selected: Sequence[str] | None, commits: Sequence[Any]) -> str
     return f"{len(selected)} of {_plural(total, 'commit')}"
 
 
-def _print_takeable(
-    root: Path, result: compare_mod.Comparison, items: Sequence[tuple[str, str]], fmt: str
-) -> None:
+def _print_takeable(found: take_mod.Takeable, fmt: str) -> None:
     """The items of a comparison that ``take`` accepts, as a list or as JSON."""
-    into = result.base.name
-    if into == "HEAD":  # the default base: say which branch that is
-        into = environments_mod.current_branch(root) or into
     if fmt == "json":
-        envs = None if result.environments is None else list(result.environments)
-        rows = [{"id": item, "label": label} for item, label in items]
-        body = {"into": into, "from": result.head.name, "environments": envs, "items": rows}
-        print(json.dumps(body, indent=2, ensure_ascii=False))
+        print(json.dumps(found.to_json(), indent=2, ensure_ascii=False))
         return
-    if result.environments is None:
-        print(f"Items {result.head.name} changed that can be taken into {into}:")
+    if found.environments is None:
+        print(f"Items {found.source} changed that can be taken into {found.into}:")
     else:
-        target, source = result.environments
-        print(f"Items {result.head.name} ({source}) has that can be taken into {into} ({target}):")
-    for item, label in items:
+        target, source = found.environments
+        print(
+            f"Items {found.source} ({source}) has that can be taken into {found.into} ({target}):"
+        )
+    for item, label in found.items:
         print(f"  {item}  {label}")
 
 

@@ -128,5 +128,8 @@ def cmd_kilo_init(args: argparse.Namespace) -> int:
         print(f"{written.action} {written.path}{note}")
     print(f"Kilo project: {target}")
     print(f"Open Kilo there with the agent: kilo --agent {AGENT}")
-    print("Changes are asked before they are written (ctmchain_apply: ask in .kilo/kilo.json).")
+    print(
+        "Kilo asks before anything is written (ctmchain_apply and ctmchain_write_package: ask "
+        "in .kilo/kilo.json)."
+    )
     return EXIT_OK

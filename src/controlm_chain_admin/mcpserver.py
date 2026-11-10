@@ -1,10 +1,12 @@
 """``ctmchain mcp``: the chain repository as tools for an assistant (Kilo, Claude, ...).
 
 A thin adapter over the core, like the CLI and the web API. Questions call
-:mod:`~controlm_chain_admin.core.lookup`, validate and compare; a change is a list of steps of
-:mod:`~controlm_chain_admin.core.capabilities`, previewed first and written only by its
-``preview_id``, after the same checks as the web API (a protected branch refuses; a preview
-the repository moved away from is stale). Nothing is committed. Needs the ``[mcp]`` extra.
+:mod:`~controlm_chain_admin.core.lookup`, validate, compare, the map of the environments, what
+can be taken, what a package would hold and what an export would bring; a change is a list of
+steps of :mod:`~controlm_chain_admin.core.capabilities`, previewed first and written only by
+its ``preview_id``, after the same checks as the web API (a protected branch refuses; a preview
+the repository moved away from is stale). Nothing is committed, no branch is switched; the one
+other thing written is the import file of a package. Needs the ``[mcp]`` extra.
 """
 
 from __future__ import annotations
@@ -30,19 +32,32 @@ from controlm_chain_admin.core.capabilities import (
 from controlm_chain_admin.core.capabilities import preview_id as id_of
 from controlm_chain_admin.core.compare import compare as compare_refs
 from controlm_chain_admin.core.compare import render_text
-from controlm_chain_admin.core.errors import ChainError, ChangeConflict
+from controlm_chain_admin.core.envmap import show_map
+from controlm_chain_admin.core.errors import ChainError, ChangeConflict, TakeConflict
 from controlm_chain_admin.core.links import folder_names
 from controlm_chain_admin.core.lookup import describe_node, find_condition, find_nodes
+from controlm_chain_admin.core.package import Package, build_package, save
 from controlm_chain_admin.core.refactor import apply as apply_change
+from controlm_chain_admin.core.refresh import refresh as refresh_env
+from controlm_chain_admin.core.refresh import render_text as render_refresh
 from controlm_chain_admin.core.repo import load_repo
+from controlm_chain_admin.core.take import conflict_line
+from controlm_chain_admin.core.take import takeable as takeable_items
 from controlm_chain_admin.core.validate import validate as validate_repo
 from controlm_chain_admin.core.workspace import ensure_editable
 
 READS = ToolAnnotations(read_only_hint=True, open_world_hint=False)
 WRITES = ToolAnnotations(read_only_hint=False, destructive_hint=False, open_world_hint=False)
+WRITERS = frozenset({"apply", "write_package"})  # every other tool only reads
 APPLIED_NOTE = (
     "Written, not committed: the user reviews it (the Workspace page, or git) and commits."
 )
+REFRESH_NOTE = (
+    "The user applies it: the Refresh page, or ctmchain refresh FILE --apply (it checks the "
+    "branch of the environment out, overwrites it and commits).\n"
+)
+PACKAGE_NOTE = "Nothing in the repository changed: the file is what the user imports in Control-M."
+FINDINGS_SHOWN = 20
 
 _Tool = TypeVar("_Tool", bound=Callable[..., Any])
 
@@ -54,6 +69,9 @@ def _errors_as_messages(tool: _Tool) -> _Tool:
     def wrapper(*args: Any, **kwargs: Any) -> Any:
         try:
             return tool(*args, **kwargs)
+        except TakeConflict as exc:
+            lines = [str(exc), *(conflict_line(c) for c in exc.conflicts)]
+            raise ToolError("\n".join(lines)) from exc
         except ChainError as exc:
             raise ToolError(str(exc)) from exc
 
@@ -109,10 +127,66 @@ class ChainTools:
         findings = report["findings"]
         return {"counts": report["counts"], "total": len(findings), "findings": findings[:limit]}
 
-    def compare(self, base: str, head: str, real_only: bool = False, lines: int = 200) -> str:
-        result = compare_refs(self.root, base, head)
+    def compare(
+        self,
+        base: str,
+        head: str,
+        real_only: bool = False,
+        lines: int = 200,
+        prefer: list[str] | None = None,
+        raw: bool = False,
+    ) -> str:
+        result = compare_refs(self.root, base, head, translate=not raw, prefer=prefer or ())
         text = render_text(result.real_only() if real_only else result)
         return cut_lines(text, lines, "real_only=true leaves out the conditions only renamed")
+
+    def envmap(self) -> dict[str, Any]:
+        return show_map(load_repo(self.root))
+
+    def takeable(
+        self, head: str, base: str = "HEAD", prefer: list[str] | None = None, limit: int = 200
+    ) -> dict[str, Any]:
+        found = takeable_items(self.root, base, head, prefer=prefer or ()).to_json()
+        return {**found, "items": found["items"][:limit], "total": len(found["items"])}
+
+    def _package(
+        self, base: str, head: str, take: list[str] | None, prefer: list[str] | None,
+        env: str | None,
+    ) -> Package:  # fmt: skip
+        return build_package(self.root, base, head, env=env, take=take, prefer=prefer or ())
+
+    def package(
+        self,
+        base: str,
+        head: str = "HEAD",
+        take: list[str] | None = None,
+        prefer: list[str] | None = None,
+        env: str | None = None,
+    ) -> dict[str, Any]:
+        return _package_summary(self._package(base, head, take, prefer, env))
+
+    def write_package(
+        self,
+        base: str,
+        head: str = "HEAD",
+        take: list[str] | None = None,
+        prefer: list[str] | None = None,
+        env: str | None = None,
+        output: str | None = None,
+    ) -> dict[str, Any]:
+        package = self._package(base, head, take, prefer, env)
+        path = save(package, self.root / (output or package.filename))
+        return {"path": str(path), **_package_summary(package), "note": PACKAGE_NOTE}
+
+    def refresh(self, xml: str, env: str | None = None, lines: int = 200) -> str:
+        path = self.root / xml  # an absolute path stays as it is
+        try:
+            data = path.read_bytes()
+        except OSError as exc:
+            raise ChainError(f"cannot read the export {path}: {exc.strerror}") from exc
+        result = refresh_env(load_repo(self.root), data, source=path.name, env=env)
+        text = render_refresh(result) + REFRESH_NOTE
+        return cut_lines(text, lines, "ctmchain refresh FILE shows them all")
 
     def preview(self, steps: list[dict[str, Any]], diff_lines: int = 400) -> dict[str, Any]:
         return preview_steps(load_repo(self.root), steps, diff_lines=diff_lines)
@@ -145,7 +219,26 @@ class ChainTools:
             "condition": "One condition by its name: who emits it (from), waits for it (to), "
                          "deletes it (cleanup).",
             "validate": "What is wrong with the chains: counts by severity, the first findings.",
-            "compare": "What changed between two git refs (branches, tags, commits), as text.",
+            "compare": "What changed between two git refs (branches, tags, commits), as text. "
+                       "Two environments (main, env/uat, ...) show their real differences only: "
+                       "names, users and machines are read through the map; prefer=[entry] "
+                       "settles a value two entries explain; raw=true shows them as stored.",
+            "envmap": "The environments, the branch each one has and the map of what varies "
+                      "between them (letters, users, machines, datacenters). Read only.",
+            "takeable": "What head (a branch or an environment) has that base (default: the "
+                        "branch checked out) has not, as items with the ids the capability "
+                        "take and the tools package and write_package accept.",
+            "package": "What the Control-M import file of base would hold with what head has: "
+                       "folders and why, warnings, new findings, the file name. take=[ids as "
+                       "takeable gives them, like job:FOLDER/JOB] "
+                       "packages only those; base main means production. Writes nothing.",
+            "write_package": "Write that import file, once the user agreed: the same arguments "
+                             "as package; output names the file (default: its own name, in the "
+                             "repository directory). Never over an existing file; nothing in "
+                             "the repository changes.",
+            "refresh": "What the full export of one environment (xml: the path of the file) "
+                       "would change in the branch of that environment. A preview: only the "
+                       "user applies it.",
             "preview": "Preview a change without writing: steps [{do: <capability>, params}] run "
                        f"in order as one change. Capabilities: {signatures}. Returns a "
                        "preview_id, each field before -> after, warnings and the diff.",
@@ -153,6 +246,19 @@ class ChainTools:
                      "the preview_id. Refused when the repository changed since; nothing is "
                      "committed.",
         }  # fmt: skip
+
+
+def _package_summary(package: Package) -> dict[str, Any]:
+    """What a package holds, without its commits and with the first findings only."""
+    data = package.to_json()
+    keys = ("env", "source", "taken", "folders", "warnings", "filename", "size")
+    return {
+        "base": package.base.name,
+        "head": package.head.name,
+        **{key: data[key] for key in keys},
+        "findings": data["findings"][:FINDINGS_SHOWN],
+        "findings_total": len(data["findings"]),
+    }
 
 
 def build_server(root: Path) -> MCPServer:
@@ -164,7 +270,7 @@ def build_server(root: Path) -> MCPServer:
             _errors_as_messages(getattr(tools, name)),
             name=name,
             description=description,
-            annotations=WRITES if name == "apply" else READS,
+            annotations=WRITES if name in WRITERS else READS,
         )
     return server
 

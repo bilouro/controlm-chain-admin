@@ -17,9 +17,16 @@ from controlm_chain_admin.core.constants import Selector, define_constant
 from controlm_chain_admin.core.errors import InvalidChange
 from controlm_chain_admin.core.ops import import_xml
 from controlm_chain_admin.core.overrides import Override, write_overrides
-from controlm_chain_admin.core.refactor import OPERATIONS, apply, fingerprint, set_variable
+from controlm_chain_admin.core.refactor import (
+    OPERATIONS,
+    apply,
+    fingerprint,
+    set_attributes,
+    set_variable,
+)
 from controlm_chain_admin.core.repo import ChainRepo, init_repo, load_repo, read_json, write_json
 from tests.support.anomalies import ANOMALY_EXPORT
+from tests.support.gitrepo import commit_all, git
 from tests.support.samples import SAMPLE_EXPORT
 
 APP = "P77_RISK_ENGINE"
@@ -37,7 +44,19 @@ def repo(tmp_path: Path) -> ChainRepo:
                            {"uat": "UP77_BATCH", "prod": "PP77_BATCH"})  # fmt: skip
     import_xml(repo, SAMPLE_EXPORT, env="uat")  # the values become the constant
     write_overrides(repo, "prod", {"P77_CHAIN/P77_B": Override(attributes={"TASKTYPE": "Dummy"})})
+    _another_branch(root)
     return load_repo(root)
+
+
+def _another_branch(root: Path) -> None:
+    """In git, with a branch that changed one command line: what the take example takes."""
+    git(root, "init", "-q", "-b", "main")
+    commit_all(root, "import the synthetic chain")
+    git(root, "switch", "-q", "-c", "release/26.2")
+    repo = load_repo(root)
+    apply(repo, set_attributes(repo, "P77_CHAIN/P77_A", {"CMDLINE": "/opt/p77/bin/a2.ksh"}))
+    commit_all(root, "feat: another script for P77_A")
+    git(root, "switch", "-q", "-c", "release/26.3", "main")
 
 
 def test_every_operation_is_a_capability_or_left_out_on_purpose() -> None:
@@ -230,3 +249,17 @@ def test_set_variable_keeps_a_variable_without_a_value_as_it_is(repo: ChainRepo)
     assert [row for row in rows if row["where"] == "P77_CHAIN/P77_B"] == [
         {"where": "P77_CHAIN/P77_B", "field": "%%RETRIES", "before": None, "after": "3"}
     ]
+
+
+def test_taking_from_another_branch_is_a_step_like_any_other(repo: ChainRepo) -> None:
+    steps = [{"do": "take", "params": {"head": "release/26.2",
+                                       "items": ["attr:P77_CHAIN/P77_A@CMDLINE"]}}]  # fmt: skip
+
+    preview = preview_steps(repo, steps)
+
+    assert preview["summary"].startswith("take 1 change from release/26.2")
+    assert preview["changes"] == [
+        {"where": "P77_CHAIN/P77_A", "field": "CMDLINE", "before": "/opt/p77/bin/a.ksh",
+         "after": "/opt/p77/bin/a2.ksh"}
+    ]  # fmt: skip
+    assert "takeable" in render_menu(CATALOGUE, "take")

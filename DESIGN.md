@@ -624,7 +624,14 @@ stdio. What can be asked lives in one file, `core/capabilities.json`, read by
 - the **menu** (`ctmchain menu`, the `menu` tool) is rendered from it.
 
 Tools: `menu`, `find`, `show`, `condition`, `validate`, `compare` (read-only, from
-`core/lookup.py` and the existing reports), `preview` and `apply`. A request is a list of
+`core/lookup.py` and the existing reports), `preview` and `apply`; and, for one branch per
+environment (§14), `envmap` (the environments, their branches, the map), `takeable` (the
+items of a comparison with the ids `take` accepts), `package` (what the import file of an
+environment would hold), `write_package` (writes that file, never over another; the only
+tool besides `apply` that writes, and asked like it) and `refresh` (what a full export would
+change in its branch: a preview, since applying it switches the branch and commits, which the
+assistant never does). `take` is a capability, so taking is a step previewed and applied like
+any change, into the branch checked out. A request is a list of
 steps `{do: <capability>, params}`, checked against the schema with a message that says what
 the capability takes, and run in order as one change set (`batch` when there are several
 operations). `preview` returns `preview_id` (the first 12 characters of the change set's
@@ -637,7 +644,7 @@ with their message.
 
 `ctmchain kilo init` writes, at the top of the git repository holding the chains:
 `.kilo/kilo.json` (the server with this machine's Python and repository; `ctmchain_*` allowed,
-`ctmchain_apply` asked), `.kilo/agents/controlm.md` (edit, bash, web denied: the ctmchain
+`ctmchain_apply` and `ctmchain_write_package` asked), `.kilo/agents/controlm.md` (edit, bash, web denied: the ctmchain
 tools only), `.kilo/skills/ctmchain/SKILL.md` and `vocabulary.md` (the team's words, never
 overwritten).
 

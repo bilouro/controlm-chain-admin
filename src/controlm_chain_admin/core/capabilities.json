@@ -8,9 +8,10 @@
     "Then call apply with the same steps and the preview_id: the user is asked to approve it before it runs, so do not ask for a yes in the text as well. Only preview when the user asked only to see the change.",
     "When apply is refused or rejected, say so and change nothing else. Once anything changed, a preview is stale: preview again.",
     "Changes that belong together go in one preview, as steps in the order they must run.",
-    "The base is what every environment has. A change for one environment only (\"only in prod\") is change-in-env, never change-fields.",
-    "Never write the repository files yourself, and never commit or push: the user does that (the Workspace page, or git).",
-    "Answer questions with find, show, condition, validate and compare, quoting the values as the tools give them."
+    "envmap says how the repository keeps its environments. With one branch per environment (the trunk is production, env/<name> every other one), each branch is what its environment has: a change goes into the branch checked out, what another environment has comes with the take capability (takeable lists the items with their ids), and production gets an import file (package says what it would hold, write_package writes it), since its branch is only refreshed from its export.",
+    "Where the environments share one branch instead, the base is what every environment has, and a change for one environment only (\"only in prod\") is change-in-env, never change-fields.",
+    "Never write the repository files yourself, never switch branches, and never commit or push: the user does that (the Workspace page, or git). refresh only shows what an export brings; the user applies it (the Refresh page, or ctmchain refresh FILE --apply).",
+    "Answer questions with find, show, condition, validate, compare, envmap, takeable, package and refresh, quoting the values as the tools give them."
   ],
   "groups": ["Fields", "Environments", "Conditions", "Jobs and folders", "Repository"],
   "questions": [
@@ -18,14 +19,17 @@
     {"tool": "show", "title": "One job or folder: its fields, variables, what it waits for and releases, its exceptions", "say": "What does P77_B wait for?"},
     {"tool": "condition", "title": "One condition: who emits it, who waits for it, who deletes it", "say": "Who waits for P77_B-P77_C_OK?"},
     {"tool": "validate", "title": "What is wrong with the chains: dangling conditions, names off the standard", "say": "Is anything wrong with the chains?"},
-    {"tool": "compare", "title": "What changed between two branches or commits", "say": "What changed between main and the release branch?"}
+    {"tool": "compare", "title": "What changed between two branches or commits, or what differs between two environments", "say": "What does uat have that prod has not?"},
+    {"tool": "envmap", "title": "The environments, their branches and the map of what varies between them (machines, users, datacenters)", "say": "Which environments are there, and what differs between them?"},
+    {"tool": "takeable", "title": "What another branch or environment has that the branch checked out can take, item by item", "say": "What can bench take from uat?"},
+    {"tool": "package", "title": "The import file for Control-M: everything a branch has more than another, or only the items chosen", "say": "What goes to prod if I package the new job of uat?"},
+    {"tool": "refresh", "title": "What the full export of an environment brings to its branch, before anything is written", "say": "What does the export uat.xml change?"}
   ],
   "not_by_prompt": {
     "replace-node": "the whole JSON of a node: the Advanced tab of the job page",
     "set-variables": "every variable of a node at once: the job page; set-variable changes one",
     "batch": "preview takes several steps already",
-    "receive": "an environment's export: ctmchain receive, or the Import page",
-    "take": "changes from another branch: ctmchain take, or the Compare page"
+    "receive": "an environment's export: ctmchain receive, or the Import page"
   },
   "capabilities": [
     {
@@ -161,6 +165,30 @@
       },
       "rules": [],
       "example": {"say": "In bench, node.batch is BP77_BATCH", "params": {"env": "bench", "values": {"node.batch": "BP77_BATCH"}}}
+    },
+    {
+      "id": "take",
+      "op": "take",
+      "group": "Environments",
+      "title": "Take changes from another branch or environment",
+      "when": "something another branch has (a field, a variable, a condition, a whole job or folder) comes into the branch checked out; between two environments the map turns the values into this environment's",
+      "params": {
+        "type": "object",
+        "properties": {
+          "head": {"type": "string", "description": "the branch to take from (env/uat, a release branch)"},
+          "items": {"type": "array", "items": {"type": "string"}, "description": "the ids of the items, exactly as takeable lists them"},
+          "theirs": {"type": "array", "items": {"type": "string"}, "description": "items in conflict to take anyway, over what the branch checked out has"},
+          "prefer": {"type": "array", "items": {"type": "string"}, "description": "entries of the map to follow where a value has two answers (run_as.2)"}
+        },
+        "required": ["head", "items"]
+      },
+      "rules": [
+        "takeable gives the ids: never make one up",
+        "the items arrive in the branch checked out: the user switches to the branch that takes them first",
+        "a conflict names the item and its three values: ask the user, then take it with theirs or leave it out",
+        "production is not taken into: package gives the import file for it"
+      ],
+      "example": {"say": "Take the command line of P77_A from release/26.2", "params": {"head": "release/26.2", "items": ["attr:P77_CHAIN/P77_A@CMDLINE"]}}
     },
     {
       "id": "link-jobs",

@@ -236,3 +236,17 @@ def test_a_preferred_entry_of_the_map_settles_a_value_with_two_answers(
     code, out, _ = _run(capsys, "take", UAT, "--item", f"job:{CHAIN}/P77_NEW", "--prefer",
                         "run_as.1", "--repo", str(repo.root))  # fmt: skip
     assert code == 0 and "kept as it is" not in out
+
+
+def test_the_list_of_what_can_be_taken_follows_the_entry_preferred(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    repo = four_branches(tmp_path, change=two_users_in("bench"))
+    with_map(repo)
+    args = ("take", UAT, "--list", "--base", BENCH, "--repo", str(repo.root))
+
+    code, out, _ = _run(capsys, *args, "--prefer", "run_as.2")
+    assert code == 0 and f"job:{CHAIN}/P77_NEW" in out
+
+    code, _, err = _run(capsys, *args, "--prefer", "run_as.9")
+    assert code != 0 and "no entry called 'run_as.9'" in err

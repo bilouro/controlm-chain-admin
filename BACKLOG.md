@@ -263,8 +263,12 @@ or addresses anywhere in this public repository.
 20. **The branch model in the web UI — next**: a *Refresh* page (drop the export, see the
     differences, apply), a *Map* page (derive, suggest, edit), and the items of a
     cross-environment comparison with *Take* and *Package* on the compare page.
-21. **The branch model for the assistant — next**: MCP tools for `refresh` (preview),
-    `envmap show`, `take --list` and `package --take`; `prefer` on `compare`.
+21. **The branch model for the assistant — DONE (2026-11-10)**: MCP tools `envmap`,
+    `takeable`, `package`, `write_package` (the import file, never over another; asked like
+    `apply`) and `refresh` (a preview: only the user applies an export); `prefer` and `raw` on
+    `compare`; `take` a capability like the others (previewed, then applied into the branch
+    checked out); the Kilo agent and skill know the model. Timed on the real application in
+    four environments: every tool answers in 3 to 7 s.
 22. **The commands of the one-base model — to decide**: `receive`, `check`, `release`,
     `env constants`, `override` stay for repositories of that model; remove them, or keep
     them, once nobody uses one.

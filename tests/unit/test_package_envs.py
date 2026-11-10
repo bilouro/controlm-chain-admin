@@ -9,7 +9,7 @@ import pytest
 
 from controlm_chain_admin.core.errors import ChainError, NothingToPackage
 from controlm_chain_admin.core.history import WORKTREE
-from controlm_chain_admin.core.package import Package, build_package
+from controlm_chain_admin.core.package import Package, build_package, save
 from controlm_chain_admin.core.refactor import apply
 from controlm_chain_admin.core.repo import ChainRepo, load_repo
 from controlm_chain_admin.core.take import take
@@ -213,3 +213,17 @@ def test_a_preferred_entry_settles_the_value_in_the_file(tmp_path: Path) -> None
 
     assert not [w for w in package.warnings if "kept as it is" in w]
     assert _nothing_of_uat(package.require_xml())
+
+
+def test_the_file_is_saved_once_and_never_over_another(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    package = build_package(repo.root, "main", UAT, take=[f"job:{CHAIN}/P77_NEW"], today=TODAY)
+    nothing = build_package(repo.root, UAT, UAT, env="uat", today=TODAY)
+    path = tmp_path / "out" / package.filename
+
+    assert save(package, path) == path and path.read_bytes() == package.xml
+    with pytest.raises(ChainError, match="is there already"):
+        save(package, path)
+    with pytest.raises(NothingToPackage):
+        save(nothing, tmp_path / "nothing.xml")
+    assert not (tmp_path / "nothing.xml").exists()

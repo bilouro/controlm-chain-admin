@@ -6,8 +6,31 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- The assistant works between environments. New MCP tools: `envmap` (the environments, their
+  branches and the map), `takeable` (what a branch or an environment has that another has not,
+  with the ids to take), `package` (what the import file of an environment would hold) and
+  `write_package` (writes that file, never over another; Kilo asks first), `refresh` (what a
+  full export would change in the branch of its environment; a preview only). `compare` takes
+  `prefer` and `raw`.
+- `take` is a capability like the others (`ctmchain do`, the MCP tools `preview` and `apply`,
+  `POST /api/changes/*`): into the branch checked out, with `prefer` for a value two entries
+  of the map explain. A conflict reaches the assistant with the item and its three values.
+- `ctmchain kilo init` writes an agent and a skill that know the model of one branch per
+  environment; `ctmchain_write_package` is asked like `ctmchain_apply`. Run it again with
+  `--force` in a project set up by 0.2.0.
+- `ctmchain take HEAD --list --prefer ENTRY`.
+- The name of an environment given where its branch is expected (`compare main uat`) is
+  answered with the branch it is (`the environment uat is the branch env/uat`); an item
+  without its kind, with how an id looks.
+- `ctmchain envmap show --format json` also gives `branches`: the branch of each environment
+  that has one.
+
 ### Changed
 
+- `ctmchain kilo init` gives the MCP server 120 s to answer (30 s before): comparing two
+  environments of a large repository takes several seconds, more on a slow disk.
 - `ctmchain export` writes the JOBNAMEs of Control-M by default (`--jobnames original`), as
   `package` always did: the export of a branch is its export byte for byte without an option.
   `--jobnames deduped` gives the names as stored. It only matters in a repository that numbers

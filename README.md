@@ -272,9 +272,12 @@ agent: the gate, then a data repository from the exports.
   attributes grouped, findings, comparison of two branches, an editing form with preview.
 - **Ask in plain words.** `ctmchain mcp` gives an assistant (Kilo, Claude, any MCP client)
   the repository as tools: it answers questions and proposes changes, previewed field by
-  field, and writes one only when you agree. `ctmchain kilo init` sets Kilo up with an agent
-  that may use those tools only. The assistant's model reads the names and fields of your
-  jobs: use one your company allows.
+  field, and writes one only when you agree. Between environments too: "what does uat have
+  that prod has not?", "take the new job of uat into bench", "the import file for production
+  with that folder" (it compares, lists what can be taken, takes into the branch checked out,
+  and writes the import file once you agree; it never switches a branch, commits or applies
+  an export). `ctmchain kilo init` sets Kilo up with an agent that may use those tools only.
+  The assistant's model reads the names and fields of your jobs: use one your company allows.
 - **`--format json`** wherever a report is printed, for scripts and agents; exit codes 0 (ok),
   1 (findings), 2 (usage), 3 (error).
 - **Another way to hold the environments**, from the first releases and still there: one

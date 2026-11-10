@@ -29,6 +29,7 @@ from controlm_chain_admin.core.compare import Comparison, comparison
 from controlm_chain_admin.core.constants import placeholder
 from controlm_chain_admin.core.crossenv import kept_unsure
 from controlm_chain_admin.core.errors import (
+    ChainError,
     EnvironmentRequired,
     InvalidChange,
     NothingToPackage,
@@ -112,6 +113,17 @@ class Package:
             "taken": None if self.taken is None else list(self.taken),
             "source": self.source,
         }
+
+
+def save(package: Package, path: Path) -> Path:
+    """Write the import file at ``path`` and never over another file: a package is kept as
+    the record of what went to Control-M."""
+    data = package.require_xml()
+    if path.exists():
+        raise ChainError(f"{path} is there already: give the file another name")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(data)
+    return path
 
 
 class _Reasons:

@@ -8,11 +8,11 @@ from pathlib import Path
 import pytest
 
 from controlm_chain_admin.core.compare import compare
-from controlm_chain_admin.core.errors import InvalidChange
+from controlm_chain_admin.core.errors import ChainError, InvalidChange
 from controlm_chain_admin.core.ops import export_xml
-from controlm_chain_admin.core.refactor import apply
+from controlm_chain_admin.core.refactor import apply, run_operation
 from controlm_chain_admin.core.repo import ChainRepo, load_repo, read_json
-from controlm_chain_admin.core.take import items_of, take
+from controlm_chain_admin.core.take import items_of, take, takeable
 from tests.support.envexports import job
 from tests.support.fourenvs import (
     CHAIN,
@@ -181,3 +181,66 @@ def test_taking_with_a_preferred_entry_settles_it(tmp_path: Path) -> None:
     assert not [w for w in change.warnings if "kept as it is" in w]
     new = read_json(repo.root / "folders" / CHAIN / "jobs" / "P77_NEW.json")
     assert new["RUN_AS"] == administrator("bench")
+
+
+# ---------------------------------------------------------------- the list an adapter shows
+
+
+def test_the_items_that_can_be_taken_say_into_what_and_between_which_environments(
+    tmp_path: Path,
+) -> None:
+    repo = _on_bench(tmp_path)
+
+    found = takeable(repo.root, "HEAD", UAT)
+
+    assert (found.into, found.source, found.environments) == (BENCH, UAT, ("bench", "uat"))
+    assert found.items == items_of(compare(repo.root, BENCH, UAT))
+    assert found.to_json()["items"][0] == {
+        "id": f"subapp:{SUBAPP}", "label": "3 folders that differ"
+    }  # fmt: skip
+    assert found.to_json()["environments"] == ["bench", "uat"]
+
+
+def test_the_list_is_of_the_comparison_with_the_entry_preferred(tmp_path: Path) -> None:
+    repo = _on_bench(tmp_path, two_users_in("bench"))
+
+    found = takeable(repo.root, BENCH, UAT, prefer=("run_as.2",))
+
+    assert f"job:{CHAIN}/P77_NEW" in dict(found.items)
+    with pytest.raises(ChainError, match=r"run_as\.9"):
+        takeable(repo.root, BENCH, UAT, prefer=("run_as.9",))
+
+
+def test_the_operation_takes_into_the_branch_checked_out_with_the_entry_preferred(
+    tmp_path: Path,
+) -> None:
+    repo = _on_bench(tmp_path, two_users_in("bench"))
+    params = {"head": UAT, "items": [f"job:{CHAIN}/P77_NEW"]}
+
+    plain = run_operation(repo, "take", params)
+    settled = run_operation(repo, "take", {**params, "base": BENCH, "prefer": ["run_as.2"]})
+
+    assert [w for w in plain.warnings if "kept as it is" in w]
+    assert not [w for w in settled.warnings if "kept as it is" in w]
+
+
+def test_an_item_without_its_kind_is_refused_with_how_an_id_looks(tmp_path: Path) -> None:
+    repo = _on_bench(tmp_path)
+
+    with pytest.raises(ChainError, match=r"an id is KIND:WHAT, as in job:FOLDER/JOB"):
+        take(repo, BENCH, UAT, [f"{CHAIN}/P77_NEW"])
+
+
+def test_the_name_of_an_environment_given_for_its_branch_says_which_branch_it_is(
+    tmp_path: Path,
+) -> None:
+    repo = _on_bench(tmp_path)
+
+    with pytest.raises(ChainError, match="unknown git ref 'uat': the environment uat is the "
+                                         "branch env/uat"):  # fmt: skip
+        takeable(repo.root, "HEAD", "uat")
+    with pytest.raises(ChainError, match="unknown git ref 'prod': the environment prod is the "
+                                         "branch main"):  # fmt: skip
+        compare(repo.root, "prod", UAT)
+    with pytest.raises(ChainError, match=r"unknown git ref 'nowhere'$"):
+        compare(repo.root, "nowhere", UAT)

@@ -12,10 +12,15 @@ from controlm_chain_admin.core.envmap import (
     EnvMap,
     MapEntry,
     add_entry,
+    add_to_map,
     derive,
+    derive_map,
     read_map,
     remove_entry,
+    remove_from_map,
     rename_entry,
+    rename_in_map,
+    show_map,
     suggest,
     write_map,
 )
@@ -199,3 +204,65 @@ def test_what_else_varies_is_suggested_with_counts(tmp_path: Path) -> None:
     assert (subject.nodes, subject.tuples, subject.text) == (1, 1, True)
     assert dict(subject.example) == {"prod": "PROD", "uat": "UAT", "egma": "EGMA",
                                      "bench": "BENCH"}  # fmt: skip
+
+
+# ---------------------------------------------------------------- what every adapter does
+
+
+def test_the_map_is_shown_with_its_branch_the_letters_and_the_branches(tmp_path: Path) -> None:
+    repo = four_branches(tmp_path)
+    write_map(repo.root, repo.config, EnvMap((USER,)), "map: the users")
+
+    shown = show_map(repo)
+
+    assert shown["branch"] == "map"
+    assert shown["letters"] == {"prod": "P", "uat": "U", "egma": "E", "bench": "B"}
+    assert shown["branches"] == {
+        "prod": "main", "uat": "env/uat", "egma": "env/egma", "bench": "env/bench"
+    }  # fmt: skip
+    assert shown["entries"] == [{"name": "run_as.1", "key": "RUN_AS", "values": USERS}]
+
+
+def test_deriving_looks_at_the_usual_keys_and_writes_only_when_asked(tmp_path: Path) -> None:
+    repo = four_branches(tmp_path)
+
+    found, applied = derive_map(repo)
+
+    assert [entry.key for entry in found.entries] == ["NODEID", "RUN_AS", "DATACENTER"]
+    assert not applied and read_map(repo.root, repo.config) == EnvMap()
+
+    found, applied = derive_map(repo, keys=("VARIABLE[NAME=%%GEIENV]/@VALUE",), min_nodes=1,
+                                apply=True)  # fmt: skip
+
+    assert applied and len(found.entries) == 4
+    assert git(repo.root, "log", "-1", "--format=%s", "map") == "map: 4 entries derived"
+    assert derive_map(repo, apply=True)[1] is False  # nothing new: nothing written
+
+
+def test_an_entry_is_added_renamed_and_removed_each_with_its_commit(tmp_path: Path) -> None:
+    repo = four_branches(tmp_path)
+
+    envmap, name = add_to_map(repo, "RUN_AS", {"prod": "app77adm", "uat": "aup77adm"})
+    assert name == "run_as.1" and envmap.named(name).values["uat"] == "aup77adm"
+    assert git(repo.root, "log", "-1", "--format=%s", "map") == "map: add run_as.1"
+
+    envmap = rename_in_map(repo, "run_as.1", "administrator")
+    assert [entry.name for entry in envmap.entries] == ["administrator"]
+    assert git(repo.root, "log", "-1", "--format=%s", "map") == (
+        "map: rename run_as.1 to administrator"
+    )
+
+    assert remove_from_map(repo, "administrator") == EnvMap()
+    assert git(repo.root, "log", "-1", "--format=%s", "map") == "map: remove administrator"
+    assert read_map(repo.root, repo.config) == EnvMap()
+
+
+def test_an_entry_for_an_unknown_environment_is_refused_and_nothing_is_written(
+    tmp_path: Path,
+) -> None:
+    repo = four_branches(tmp_path)
+
+    with pytest.raises(ChainError, match="nowhere"):
+        add_to_map(repo, "RUN_AS", {"prod": "a", "nowhere": "b"})
+
+    assert git(repo.root, "branch", "--list", "map") == ""

@@ -77,19 +77,29 @@ def test_kilo_init_writes_the_server_the_agent_and_the_skill(
     config = json.loads((kilo / "kilo.json").read_text("utf-8"))
     server = config["mcp"]["ctmchain"]
     assert server["type"] == "local" and server["enabled"] is True
+    assert server["timeout"] >= 120_000  # comparing two environments of a large repository
     assert server["command"] == [
         sys.executable, "-m", "controlm_chain_admin", "mcp", "--repo", str(repo.root.resolve())
     ]  # fmt: skip
     permissions = list(config["permission"].items())
-    assert permissions == [("ctmchain_*", "allow"), ("ctmchain_apply", "ask")]
+    assert permissions == [
+        ("ctmchain_*", "allow"),
+        ("ctmchain_apply", "ask"),
+        ("ctmchain_write_package", "ask"),
+    ]
     agent = (kilo / "agents" / "controlm.md").read_text("utf-8")
     assert agent.startswith("---\ndescription: ")
     assert "  edit: deny\n" in agent and "  bash: deny\n" in agent
-    assert '  "ctmchain_*": allow\n  ctmchain_apply: ask\n' in agent
+    asked = '  "ctmchain_*": allow\n  ctmchain_apply: ask\n  ctmchain_write_package: ask\n'
+    assert asked in agent
+    assert "one branch per environment" in agent and "ctmchain_takeable" in agent
     assert "Find before you change" in agent
     skill = (kilo / "skills" / "ctmchain" / "SKILL.md").read_text("utf-8")
     assert skill.startswith("---\nname: ctmchain\ndescription: ")
     assert "vocabulary.md" in skill
+    assert "## Between environments" in skill
+    for tool in ("envmap", "takeable", "package", "write_package", "refresh"):
+        assert f"ctmchain_{tool}" in skill
     assert (
         (kilo / "skills" / "ctmchain" / "vocabulary.md")
         .read_text("utf-8")

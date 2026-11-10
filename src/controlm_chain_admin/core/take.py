@@ -43,8 +43,10 @@ from controlm_chain_admin.core.compare import (
     _match_folders,
     _match_jobs,
     _Side,
+    compare,
 )
 from controlm_chain_admin.core.constants import PLACEHOLDER
+from controlm_chain_admin.core.environments import current_branch
 from controlm_chain_admin.core.errors import InvalidChange, TakeConflict
 from controlm_chain_admin.core.history import resolve
 from controlm_chain_admin.core.links import INDEX_FILE, LINK_KEY, collect_conditions, read_names
@@ -203,7 +205,10 @@ class _Take:
     def take(self, item: str) -> None:
         kind, sep, rest = item.partition(":")
         if not sep or kind not in KINDS or not rest:
-            raise InvalidChange(f"unknown item {item!r}: use one of {', '.join(KINDS)}")
+            raise InvalidChange(
+                f"unknown item {item!r}: an id is KIND:WHAT, as in job:FOLDER/JOB, with one of "
+                f"{', '.join(KINDS)} (the list of what can be taken gives the ids)"
+            )
         if kind in ("attr", "var", "rel", "group", "const", "exception"):
             left, at, right = rest.rpartition("@") if kind != "exception" else rest.partition("@")
             if not at or not left or not right:
@@ -529,6 +534,14 @@ def shown(value: Any) -> str:
     return "(none)" if value is None else str(value)
 
 
+def conflict_line(conflict: Mapping[str, Any]) -> str:
+    """One conflict of a :class:`TakeConflict` in a line: the item and its three values."""
+    return (
+        f"conflict {conflict['item']}: mine {shown(conflict['mine'])}, before "
+        f"{shown(conflict['before'])}, theirs {shown(conflict['theirs'])}"
+    )
+
+
 def _subapp_items(result: Comparison) -> list[tuple[str, str]]:
     """One item per sub-application that has folders to take (added or changed in any way)."""
     folders: dict[str, set[str]] = {}
@@ -582,6 +595,44 @@ def _plain(override: Override | None) -> dict[str, Any] | None:
     if override is None:
         return None
     return {"set": dict(override.attributes), "variables": dict(override.variables)}
+
+
+@dataclass(frozen=True)
+class Takeable:
+    """What one side has that the other can take: the list ``take`` accepts items from."""
+
+    into: str  # the branch the items arrive in
+    source: str  # the ref they come from
+    environments: tuple[str, str] | None  # (of ``into``, of ``source``) when both are one's
+    items: tuple[tuple[str, str], ...]  # (id, what it is)
+
+    def to_json(self) -> dict[str, Any]:
+        return {
+            "into": self.into,
+            "from": self.source,
+            "environments": None if self.environments is None else list(self.environments),
+            "items": [{"id": item, "label": label} for item, label in self.items],
+        }
+
+
+def takeable(
+    root: Path,
+    base: str,
+    head: str,
+    *,
+    use_merge_base: bool = True,
+    commits: Sequence[str] | None = None,
+    prefer: Sequence[str] = (),
+) -> Takeable:
+    """The items ``head`` has that ``base`` can take, from the smallest to the largest. The
+    default base (``HEAD``) is named by the branch checked out."""
+    result = compare(
+        root, base, head, use_merge_base=use_merge_base, commits=commits, prefer=prefer
+    )
+    into = result.base.name
+    if into == "HEAD":
+        into = current_branch(root) or into
+    return Takeable(into, result.head.name, result.environments, items_of(result))
 
 
 def _check_destination(root: Path, base: str) -> None:

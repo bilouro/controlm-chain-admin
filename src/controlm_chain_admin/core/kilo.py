@@ -22,12 +22,20 @@ CONFIG = ".kilo/kilo.json"
 AGENT_FILE = f".kilo/agents/{AGENT}.md"
 SKILL_FILE = f".kilo/skills/{SKILL}/SKILL.md"
 VOCABULARY_FILE = f".kilo/skills/{SKILL}/vocabulary.md"
-SERVER_TIMEOUT_MS = 30000  # a large repository takes seconds to load
+# A large repository takes seconds to load, and comparing two of its environments several
+# times that on a slow disk: 30 s (the value up to 0.2.0) left little room on Windows.
+SERVER_TIMEOUT_MS = 120_000
 SKILL_DESCRIPTION = (
     "Answer questions about the Control-M chains and change them (fields, variables, "
-    "exceptions of one environment, conditions, renames, moves) with the ctmchain MCP tools: "
-    "find, show, preview, apply."
+    "exceptions of one environment, conditions, renames, moves), compare two environments, "
+    "take what one has into another and build the import file for production, with the "
+    "ctmchain MCP tools: find, show, compare, takeable, package, preview, apply."
 )
+QUESTIONS = (
+    "menu", "find", "show", "condition", "validate", "compare", "envmap", "takeable",
+    "package", "refresh", "preview",
+)  # fmt: skip
+ASKED = ("apply", "write_package")  # the tools that write: Kilo asks the user first
 
 VOCABULARY = """# Local words
 
@@ -74,7 +82,7 @@ def kilo_files(repo_root: Path, python: str) -> dict[str, str]:
                 "timeout": SERVER_TIMEOUT_MS,
             }
         },
-        "permission": {"ctmchain_*": "allow", "ctmchain_apply": "ask"},
+        "permission": {"ctmchain_*": "allow"} | {f"ctmchain_{tool}": "ask" for tool in ASKED},
     }
     return {
         CONFIG: json.dumps(config, indent=2, ensure_ascii=False) + "\n",
@@ -102,7 +110,19 @@ def _workflow() -> str:
     return "\n".join(f"- {rule}" for rule in load_catalogue().workflow)
 
 
+def _wrapped(words: list[str], width: int = 92) -> str:
+    """The words separated by commas, in lines no longer than ``width``."""
+    lines = [""]
+    for word in words:
+        if lines[-1] and len(lines[-1]) + len(word) + 2 > width:
+            lines.append("")
+        lines[-1] += f"{word}, "
+    return "\n".join(line.rstrip() for line in lines).rstrip(",")
+
+
 def _agent() -> str:
+    asked = "\n".join(f"  ctmchain_{tool}: ask" for tool in ASKED)
+    tools = _wrapped([f"ctmchain_{tool}" for tool in (*QUESTIONS, *ASKED)])
     return f"""---
 description: Questions and changes on the Control-M chains, through the ctmchain tools only
 mode: primary
@@ -112,11 +132,11 @@ permission:
   webfetch: deny
   websearch: deny
   "ctmchain_*": allow
-  ctmchain_apply: ask
+{asked}
 ---
 You answer questions about a Control-M chain repository and change it, with the ctmchain
-tools only (ctmchain_menu, ctmchain_find, ctmchain_show, ctmchain_condition,
-ctmchain_validate, ctmchain_compare, ctmchain_preview, ctmchain_apply).
+tools only:
+{tools}.
 
 {_workflow()}
 
@@ -144,6 +164,26 @@ description: {SKILL_DESCRIPTION}
    before -> after; tell the user.
 4. ctmchain_apply with the same steps and the preview_id writes it once the user approves it
    (Kilo asks them). Nothing is committed: the user commits.
+
+## Between environments
+
+With one branch per environment (ctmchain_envmap says so: production on the trunk, env/<name>
+for every other one), the names, users and machines differ by rule and the tools read through
+them: what is left is what really differs.
+
+1. ctmchain_compare with base and head (main, env/uat, ...) gives the real differences; a
+   warning "kept as it is" names the entries that explain one value: pass prefer=[entry].
+2. ctmchain_takeable with head gives the items the branch checked out can take, with their
+   ids. Take them with the capability take: ctmchain_preview with
+   [{{"do": "take", "params": {{"head": "env/uat", "items": ["<id>", ...]}}}}], then
+   ctmchain_apply. A conflict names the item and its three values: leave it out, or name it
+   in theirs once the user chose.
+3. Production is never changed here: ctmchain_package with base main, the head and
+   take=[ids] says what its import file would hold; ctmchain_write_package writes that file
+   once the user agrees (Kilo asks them). The user imports it in Control-M.
+4. ctmchain_refresh with the path of a full export says what it would change in the branch
+   of its environment. The user applies it (ctmchain refresh FILE --apply): it switches the
+   branch and commits, which these tools never do.
 
 ## Local words
 

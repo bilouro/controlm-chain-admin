@@ -134,36 +134,28 @@ def _plural(count: int, one: str, many: str) -> str:
 
 
 def cmd_envmap_show(args: argparse.Namespace) -> int:
-    repo = load_repo(args.repo)
-    envmap = envmap_mod.read_map(repo.root, repo.config)
-    letters = repo.env_letters()
+    shown = envmap_mod.show_map(load_repo(args.repo))
     if args.format == "json":
-        _dump({"branch": repo.config.git_rules.map_branch, "letters": letters,
-               **envmap.to_json()})  # fmt: skip
+        _dump(shown)
         return EXIT_OK
-    branch = repo.config.git_rules.map_branch
-    if envmap.entries:
-        print(f"The map (branch {branch}): {_plural(len(envmap.entries), 'entry', 'entries')}")
+    branch, entries = shown["branch"], shown["entries"]
+    if entries:
+        print(f"The map (branch {branch}): {_plural(len(entries), 'entry', 'entries')}")
     else:
         print(f"The map is empty (branch {branch}): ctmchain envmap derive fills it")
-    print(f"  letters: {' '.join(f'{env}={letter}' for env, letter in letters.items())}")
-    for entry in envmap.entries:
-        print(_entry_line(entry))
+    print(f"  letters: {' '.join(f'{env}={letter}' for env, letter in shown['letters'].items())}")
+    for entry in entries:
+        print(_entry_line(envmap_mod.MapEntry.from_json(entry)))
     return EXIT_OK
 
 
 def cmd_envmap_derive(args: argparse.Namespace) -> int:
     repo = load_repo(args.repo)
     root, config = repo.root, repo.config
-    known = envmap_mod.read_map(root, config)
-    keys = tuple(dict.fromkeys((*envmap_mod.DEFAULT_KEYS, *args.key)))
-    found = envmap_mod.derive(root, config, known, keys=keys, text_keys=tuple(args.text),
-                              min_nodes=args.min_nodes)  # fmt: skip
+    found, applied = envmap_mod.derive_map(
+        repo, keys=args.key, text_keys=args.text, min_nodes=args.min_nodes, apply=args.apply
+    )
     count = len(found.entries)
-    applied = bool(args.apply and count)
-    if applied:
-        message = f"map: {_plural(count, 'entry', 'entries')} derived"
-        envmap_mod.write_map(root, config, found.envmap, message)
     if args.format == "json":
         _dump({**found.to_json(), "applied": applied})
         return EXIT_OK
@@ -223,48 +215,27 @@ def _pairs(values: list[str]) -> dict[str, str]:
     return pairs
 
 
-def _change_map(args: argparse.Namespace, change: Any) -> int:
-    """Read the map, change it (``change`` gives the new map, the commit message and what to
-    say) and write it on its branch."""
-    repo = load_repo(args.repo)
-    envmap, message, done = change(envmap_mod.read_map(repo.root, repo.config), repo)
-    envmap_mod.write_map(repo.root, repo.config, envmap, message)
+def _written(args: argparse.Namespace, envmap: envmap_mod.EnvMap, done: str) -> int:
     if args.format == "json":
         _dump(envmap.to_json())
     else:
-        print(f"Written on {repo.config.git_rules.map_branch}: {done}")
+        branch = load_repo(args.repo).config.git_rules.map_branch
+        print(f"Written on {branch}: {done}")
     return EXIT_OK
 
 
 def cmd_envmap_add(args: argparse.Namespace) -> int:
-    values = _pairs(args.values)
-
-    def change(envmap: envmap_mod.EnvMap, repo: Any) -> tuple[envmap_mod.EnvMap, str, str]:
-        result = envmap_mod.add_entry(envmap, args.key, values, name=args.name, inline=args.text,
-                                      environments=tuple(repo.config.environments))  # fmt: skip
-        name = result.entries[-1].name
-        return result, f"map: add {name}", name
-
-    return _change_map(args, change)
+    envmap, name = envmap_mod.add_to_map(
+        load_repo(args.repo), args.key, _pairs(args.values), name=args.name, inline=args.text
+    )
+    return _written(args, envmap, name)
 
 
 def cmd_envmap_remove(args: argparse.Namespace) -> int:
-    return _change_map(
-        args,
-        lambda envmap, _repo: (
-            envmap_mod.remove_entry(envmap, args.name),
-            f"map: remove {args.name}",
-            f"{args.name} removed",
-        ),
-    )
+    envmap = envmap_mod.remove_from_map(load_repo(args.repo), args.name)
+    return _written(args, envmap, f"{args.name} removed")
 
 
 def cmd_envmap_rename(args: argparse.Namespace) -> int:
-    return _change_map(
-        args,
-        lambda envmap, _repo: (
-            envmap_mod.rename_entry(envmap, args.old, args.new),
-            f"map: rename {args.old} to {args.new}",
-            f"{args.old} is now {args.new}",
-        ),
-    )
+    envmap = envmap_mod.rename_in_map(load_repo(args.repo), args.old, args.new)
+    return _written(args, envmap, f"{args.old} is now {args.new}")

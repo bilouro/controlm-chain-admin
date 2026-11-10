@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from controlm_chain_admin.core.errors import GitError
+from controlm_chain_admin.core.errors import ChainError, GitError
 
 WORKTREE = "WORKTREE"
 _SNAPSHOT_PREFIXES = ("chain.json", "folders/", "meta/", "envs/")
@@ -149,6 +149,18 @@ def git_state(root: Path) -> GitState:
     )
 
 
+def _branch_hint(root: Path, ref: str) -> str:
+    """What to say when ``ref`` is the name of an environment, not of its branch."""
+    from controlm_chain_admin.core.environments import env_branches  # it imports this module
+    from controlm_chain_admin.core.repo import load_repo
+
+    try:
+        branch = env_branches(root, load_repo(root).config).get(ref)
+    except ChainError:  # not a chain repository: nothing to add
+        return ""
+    return f": the environment {ref} is the branch {branch}" if branch else ""
+
+
 def resolve(root: Path, ref: str) -> RefInfo:
     """A ref (branch, tag, sha, ``WORKTREE``) with its commit sha, subject and date."""
     if ref == WORKTREE:
@@ -158,7 +170,7 @@ def resolve(root: Path, ref: str) -> RefInfo:
             root, "log", "-1", f"--format=%H{_SEP}%s{_SEP}%cI", f"{ref}^{{commit}}", "--"
         ).strip()
     except GitError as exc:
-        raise GitError(f"unknown git ref {ref!r}") from exc
+        raise GitError(f"unknown git ref {ref!r}{_branch_hint(root, ref)}") from exc
     sha, subject, date = line.split(_SEP)
     kind = "commit"
     for prefix, name in (
