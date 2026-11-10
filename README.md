@@ -25,10 +25,9 @@ sub-application, and get the import file already written for the environment tha
 ```
 
 > Status: alpha, used on a real application of a few hundred folders and well over a thousand
-> jobs in four environments. The command line carries everything below; the web UI browses,
-> edits, compares, refreshes an environment, keeps the map and takes or packages between
-> environments. Design:
-> [`DESIGN.md`](DESIGN.md); the needs it answers: [`NEEDS.md`](NEEDS.md).
+> jobs in four environments. Three ways to the same thing: the command line, a local web UI
+> and an assistant you ask in plain words. Design: [`DESIGN.md`](DESIGN.md); the needs it
+> answers: [`NEEDS.md`](NEEDS.md).
 
 ## The problem
 
@@ -170,6 +169,27 @@ modified job P77_CHAIN/P77_C
 Nothing written: --apply overwrites env/bench with this export.
 ```
 
+## In the browser, or in plain words
+
+`ctmchain serve` opens the same repository as a local web UI (`127.0.0.1` only; what writes
+asks for the token the command prints):
+
+- **Refresh**: choose the export of an environment. The page says which environment it is
+  and why, what was read, and what differs on its branch, node by node; the branch is
+  overwritten only after you confirm.
+- **Map**: the environments with their letters and branches, and every entry of the map.
+  *Look at the branches* previews what they show before adding it; *Show what else varies*
+  lists the rest, with a button per key; an entry is added, renamed or removed by hand.
+- **Compare**: choose two environments. Only the real differences are listed, each with a
+  box. The checked items are taken into the branch that is checked out, or downloaded as the
+  import file of the other environment, with those items and nothing else. A value the map
+  gives two answers for comes with one *Prefer* button per answer.
+
+`ctmchain serve --assistant` adds an assistant to the page, and `ctmchain mcp` gives the
+same tools to Kilo, Claude or any MCP client: "what does uat have that prod has not?",
+"take the new job of uat into bench", "the import file for production with that folder".
+It previews every change and writes only when you agree.
+
 ## Why git, why JSON
 
 - **One small file per folder and per job**, with stable ordering: `git diff`, `git log` and
@@ -234,9 +254,9 @@ ctmchain compare main env/uat --format md | Out-File -Encoding utf8 uat-vs-prod.
 ctmchain take env/uat --list --base main
 ctmchain package main env/uat --take 'folder:P77_WEEKLY_DAILY' -o prod_import.xml
 
-# 6. Optional: the assistant and the web UI
-ctmchain kilo init --repo .
-ctmchain serve --assistant              # Assistant in the header; Kilo's model
+# 6. Optional: the web UI and the assistant
+ctmchain kilo init --repo .             # set up by an earlier version: again, with --force
+ctmchain serve --assistant              # Refresh, Map, Compare; Assistant in the header
 ```
 
 `--dedupe-jobnames` is for exports where a folder repeats a `JOBNAME`: the repository gives

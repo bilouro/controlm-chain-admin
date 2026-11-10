@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-10
+
 ### Added
 
 - The assistant works between environments. New MCP tools: `envmap` (the environments, their
@@ -523,7 +525,8 @@ First release on PyPI.
 - On Windows, unknown `/api/...` paths and missing assets were answered with the app instead of
   404 (the static files handler sees `\` separators there).
 
-[Unreleased]: https://github.com/bilouro/controlm-chain-admin/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/bilouro/controlm-chain-admin/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/bilouro/controlm-chain-admin/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/bilouro/controlm-chain-admin/compare/v0.1.4...v0.2.0
 [0.1.4]: https://github.com/bilouro/controlm-chain-admin/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/bilouro/controlm-chain-admin/compare/v0.1.2...v0.1.3
