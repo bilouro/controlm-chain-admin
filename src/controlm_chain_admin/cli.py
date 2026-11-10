@@ -87,7 +87,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--dedupe-jobnames",
         action="store_true",
         help="every import and refresh gives a JOBNAME repeated in its folder a numeric suffix "
-        "(X, X2, X3); package, and export --jobnames original, give the original names back",
+        "(X, X2, X3); package and export give the original names back",
     )
     init.set_defaults(func=cmd_init)
 
@@ -119,9 +119,9 @@ def build_parser() -> argparse.ArgumentParser:
     exp.add_argument("--env", help="target environment (needed with the letter rule)")
     exp.add_argument(
         "--jobnames",
-        choices=("deduped", "original"),
-        default="deduped",
-        help="JOBNAMEs as stored (default) or restored to the originals before deduplication",
+        choices=("original", "deduped"),
+        default="original",
+        help="JOBNAMEs as in Control-M (default) or as stored after deduplication",
     )
     exp.add_argument(
         "--names",

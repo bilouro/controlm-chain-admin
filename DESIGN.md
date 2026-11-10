@@ -376,8 +376,8 @@ constants, bench 790, test 1313; `check` 0 in every field for the three, every f
 - Condition names: `--names original` (default) or `--names standard`. Standard pattern:
   `<PRODUCER>-<CONSUMER>_OK`; when the pair of JOBNAMEs is not unique across folders the folder
   is added as a discriminator; `external` links are never renamed; `literal:` names are kept.
-- `--jobnames deduped|original` chooses whether deduplicated jobs are exported with the numbered
-  name (default, the repository content) or with the original one.
+- `--jobnames original|deduped` chooses whether deduplicated jobs are exported with the
+  original name (default: what Control-M has) or with the numbered one (the repository content).
 - Deduplication details (implemented): the first occurrence in export order keeps its name,
   later ones get `NAME2`, `NAME3`… skipping suffixes already used by real jobs; only `JOBNAME`
   changes (`MEMNAME` and condition names do not); the original lives in
@@ -899,8 +899,8 @@ branch holds the files of §3 for one environment: `chain.json` and `envs/` (the
 on every branch), `folders/` and `meta/`. Names are stored without the letter (§4.1), so the
 same folder is the same path on every branch; every other value is stored as that environment
 has it (no constants, no exceptions). `ctmchain export --env <env>` on the branch gives the
-export back byte for byte (with `--jobnames original` where the repository numbers repeated
-JOBNAMEs, §7; `package` writes the original names by default).
+export back byte for byte (`export` and `package` write the original JOBNAMEs where the
+repository numbers repeated ones, §7).
 
 The branches share the first commit (the rules) and nothing else: they are never merged. Git
 is the store and the history of each environment (`git log env/uat` is the list of its

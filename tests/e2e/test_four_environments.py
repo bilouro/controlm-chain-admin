@@ -86,7 +86,7 @@ def test_each_branch_is_its_environment_and_gives_its_export_back(
     for env, branch in (("prod", "main"), ("uat", UAT), ("egma", EGMA), ("bench", BENCH)):
         git(shell.root, "switch", "-q", branch)
         out = tmp_path / f"back-{env}.xml"
-        shell.run("export", "--env", env, "--jobnames", "original", "-o", str(out))
+        shell.run("export", "--env", env, "-o", str(out))
         assert out.read_bytes() == own(exports[env].read_bytes()), env
 
 

@@ -6,6 +6,13 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- `ctmchain export` writes the JOBNAMEs of Control-M by default (`--jobnames original`), as
+  `package` always did: the export of a branch is its export byte for byte without an option.
+  `--jobnames deduped` gives the names as stored. It only matters in a repository that numbers
+  repeated JOBNAMEs (`--dedupe-jobnames`).
+
 ## [0.2.0] - 2026-11-10
 
 One branch per environment. The needs it answers are in `NEEDS.md`, the model in `DESIGN.md`

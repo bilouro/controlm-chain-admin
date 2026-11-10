@@ -61,7 +61,7 @@ ctmchain take {prefix}<other> --list               # what can be taken, item by 
 ctmchain take {prefix}<other> --item folder:<FOLDER> --apply
 ctmchain take {prefix}{other} --list --base {trunk}       # what {production} could get of {other}
 ctmchain package {trunk} {prefix}{other} --take job:<FOLDER>/<JOB> -o {production}_import.xml
-ctmchain export --env {other} --jobnames original -o {other}.xml   # the whole branch, on it
+ctmchain export --env {other} -o {other}.xml          # the whole branch, on it
 ctmchain validate                              # broken chains, dirty names, suggested fixes
 ctmchain serve                                 # the web UI
 ```

@@ -182,6 +182,22 @@ def test_cli_dedupe_and_jobnames_flags(tmp_path: Path, capsys: pytest.CaptureFix
     assert target.read_bytes() == data
 
 
+def test_export_gives_the_names_of_control_m_unless_asked_for_the_stored_ones(
+    tmp_path: Path,
+) -> None:
+    repo = _repo(tmp_path)
+    data = _double()
+    import_xml(repo, data, env="uat", dedupe_jobnames=True)
+    plain, stored = tmp_path / "plain.xml", tmp_path / "stored.xml"
+    command = ["export", "--repo", str(tmp_path), "--env", "uat"]
+
+    assert main([*command, "-o", str(plain)]) == 0
+    assert main([*command, "--jobnames", "deduped", "-o", str(stored)]) == 0
+
+    assert plain.read_bytes() == data  # what Control-M imports back as it is
+    assert "UP77_A2" in _jobnames(stored.read_bytes())
+
+
 def test_a_partial_export_keeps_the_names_the_full_one_gave(tmp_path: Path) -> None:
     repo = _repo(tmp_path)
     import_xml(repo, _double(), env="uat", dedupe_jobnames=True)

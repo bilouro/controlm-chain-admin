@@ -79,9 +79,9 @@ ctmchain refresh ../exports/egma.xml --apply     # env/egma
 ctmchain refresh ../exports/bench.xml --apply    # env/bench
 ```
 
-Every branch now gives its export back byte for byte (`ctmchain export`; with
-`--jobnames original` where repeated JOBNAMEs were numbered). The map comes from the branches
-themselves:
+Every branch now gives its export back byte for byte (`ctmchain export`, with the JOBNAMEs
+of Control-M even where the repository numbered repeated ones). The map comes from the
+branches themselves:
 
 ```console
 $ ctmchain envmap derive --apply
@@ -239,8 +239,8 @@ ctmchain serve --assistant              # Assistant in the header; Kilo's model
 ```
 
 `--dedupe-jobnames` is for exports where a folder repeats a `JOBNAME`: the repository gives
-the repeated ones a numeric suffix; `package` gives the original names back, and `export`
-does with `--jobnames original`.
+the repeated ones a numeric suffix; `package` and `export` give the original names back
+(`export --jobnames deduped` gives the stored ones).
 `ctmchain serve --assistant` starts `kilo serve` itself, with the model Kilo is set to
 (`--assistant-model provider/model` for another one, `kilo models` lists them) and stops it
 with the server. A `kilo` that is not on the PATH: `$env:CTMCHAIN_KILO = "C:\path\to\kilo.cmd"`.
