@@ -10,6 +10,10 @@ All notable changes to this project are documented here. The format follows
 
 - The web UI shows the day colours unless asked: a *Theme* selector in the header (day, night,
   as the system) replaces following the system alone, and the choice is kept in the browser.
+- The *View* selector of the web UI's header is shown only in a repository of the earlier
+  model (a neutral base with constants and exceptions). Where every environment has its
+  branch it changed nothing and is gone: the dialog of the branch button switches to the
+  branch of the environment to look at.
 
 ### Fixed
 
