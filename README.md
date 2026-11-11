@@ -52,6 +52,7 @@ repository of small JSON files:
 | Keep production on `main` and every other environment on a branch of its own | `ctmchain refresh prod.xml --apply`, `ctmchain refresh uat.xml --apply`, ... |
 | Export an environment again and see what changed before accepting it | `ctmchain refresh uat.xml` (nothing is written), then `--apply` |
 | Try an export (whole, or some folders with `--partial`) on a branch of your own and compare it with the environment's | `git switch -c work/uat-next env/uat`, `ctmchain refresh uat-new.xml --here --apply`, `ctmchain compare env/uat work/uat-next` |
+| Carry what a branch of your own holds to another environment: it is read as the environment it started from | `ctmchain compare env/bench work/uat-next`, `ctmchain package env/bench work/uat-next --take folder:F -o bench_import.xml` |
 | Know what is expected to differ between environments, without it belonging to any of them | `ctmchain envmap derive --apply`, `ctmchain envmap show` (kept on the branch `map`) |
 | Compare two environments by their real differences | `ctmchain compare main env/uat` (`--raw`: as stored) |
 | Take one attribute, one variable, one job, one folder or a sub-application into another environment's branch | `ctmchain take env/uat --list`, `ctmchain take env/uat --item job:F/J --apply` |
@@ -181,7 +182,9 @@ asks for the token the command prints):
   of the branch button starts one from the branch that is checked out, `env/uat` say) the
   export goes *Onto* that branch instead, whole or some folders only, and a link opens
   *Compare* on the environment's branch against it: what the export brings, before the
-  environment's branch takes it.
+  environment's branch takes it. Against the branch of another environment, a branch of
+  your own is read as the environment it holds (the one of the last export in its
+  history), so *Compare*, taking and packaging work from it as from `env/uat`.
 - **Map**: the environments with their letters and branches, and every entry of the map.
   *Look at the branches* previews what they show before adding it; *Show what else varies*
   lists the rest, with a button per key; an entry is added, renamed or removed by hand.

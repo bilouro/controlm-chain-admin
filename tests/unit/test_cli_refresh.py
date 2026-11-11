@@ -128,6 +128,14 @@ def test_an_export_onto_the_checked_out_branch_whole_or_partial(
     assert "jobs: 1 modified" in out and "removed" not in out
     assert "--apply rewrites the folders of this export on work/uat-next." in out
 
+    # left to commit by hand, it says the subject a branch of one's own tells its environment by
+    assert main([*args, "--apply", "--no-commit"]) == 0
+    out = capsys.readouterr().out
+    assert (
+        "Written on work/uat-next, not committed: review with git diff, then commit it as "
+        '"import(uat): delivery.xml" (the subject says which environment the branch holds).'
+    ) in out
+
 
 def test_a_partial_export_is_refused_on_the_branch_of_the_environment(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]

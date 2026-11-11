@@ -28,6 +28,8 @@ from controlm_chain_admin.core.environments import (
     branch_of_env,
     current_branch,
     env_of_ref,
+    export_subject,
+    held_env,
 )
 from controlm_chain_admin.core.errors import (
     ChainError,
@@ -66,7 +68,7 @@ class Refresh:
     @property
     def subject(self) -> str:
         """The message of the commit that holds the export."""
-        return f"{'import' if self.work else 'refresh'}({self.env}): {self.source}"
+        return export_subject(self.env, self.source, work=self.work)
 
     @property
     def unchanged(self) -> bool:
@@ -140,6 +142,12 @@ def _target(repo: ChainRepo, env: str, here: bool, partial: bool) -> tuple[str, 
     reason = config.git_rules.refusal(current)
     if reason:
         raise ProtectedBranch(reason)
+    held = held_env(repo.root, config, current)
+    if partial and held not in (None, env):
+        raise ChainError(
+            f"{current} holds {held}: some folders of {env} would leave it with two "
+            f"environments; start a branch from {own}"
+        )
     return current, True
 
 
@@ -322,6 +330,11 @@ def render_text(result: Refresh, *, stat: bool = False) -> str:
         lines.append(f"Nothing written: --apply overwrites {result.branch} with this export.")
     elif result.commit:
         lines.append(f"Committed on {result.branch}: {result.subject}")
+    elif result.work:
+        lines.append(
+            f"Written on {result.branch}, not committed: review with git diff, then commit it "
+            f'as "{result.subject}" (the subject says which environment the branch holds).'
+        )
     else:
         lines.append(
             f"Written on {result.branch}, not committed: review with git diff, then commit."

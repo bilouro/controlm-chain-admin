@@ -944,7 +944,7 @@ only derived, a new export had to be *received* decision by decision, and the an
 | `main` (the trunk) | production | `refresh` from a full export of production, nothing else |
 | `env/<name>` | one other environment | `refresh` from its full export; `take` from another branch; edits |
 | `map` (orphan) | `map.json` | `envmap derive --apply`, `add`, `remove`, `rename` |
-| any other name (`work/uat-next`) | somebody's work, started from one of the above | `refresh --here` (an export, whole or partial); edits |
+| any other name (`work/uat-next`) | somebody's work, started from one of the above: the environment of the last export in its history (§14.2) | `refresh --here` (an export, whole or partial); `take`; edits |
 
 `chain.json` (`git.trunk`, `git.production`, `git.env_prefix`, `git.map_branch`) names them. A
 branch holds the files of §3 for one environment: `chain.json` and `envs/` (the rules, the same
@@ -983,9 +983,29 @@ nothing to translate. `--partial` rewrites the folders of the export and leaves 
 (the export of one folder); without it the export is taken as everything the branch must
 hold. What is refused: `--here` on a branch that holds another environment (`main holds prod:
 an export of uat goes onto env/uat`), on a protected branch or a detached HEAD, and
-`--partial` on the branch of an environment, which holds its full export. Such a branch
-belongs to no environment: compared with the branch of *another* environment nothing is
-translated by the map, and `package` between it and its origin needs `--env`.
+`--partial` on the branch of an environment, which holds its full export.
+
+**What a branch of your own holds (story 24).** The files are the same on every branch, so
+nothing in the tree says which environment they are of; the name says it for the trunk and for
+`env/<name>`, and for any other ref the history does: it holds the environment of the last
+export put in its own line of commits (first parents), the nearest one whose subject is
+`refresh(<env>): …` or `import(<env>): …`, the two a refresh writes. So a branch started from
+`env/uat` holds uat, and a branch started from `main` holds prod until the full export of
+another environment goes onto it (a commit of the history, or a detached HEAD, is read the
+same way). Compared with the branch of *another* environment it is read like the branch of its
+own: whole, through the letter and the map (§14.4), so `compare main work/uat-next`,
+`take work/uat-next` into `env/bench` and `package env/bench work/uat-next` (for bench, no
+`--env`) give what `env/uat` would give if it held the same. With the branch of its own
+environment nothing changes: two branches along their history, nothing to translate, and
+`package` between the two is told the environment with `--env`. `--partial` is refused when
+the export is of another environment than the branch holds (`work/x holds prod: some folders
+of uat would leave it with two environments`); the full export is not, and makes the branch
+that environment. The limit: the subject is the record, so an export left uncommitted
+(`--no-commit`, or the checkbox of the web UI) and then committed under another message
+leaves the branch holding what it held before; the command prints the subject to use. A
+branch started from the environment the export is of, which is the usual way, needs none of
+this. The subject counts only for an environment that has its branch: in a repository that
+keeps every environment in one tree (§5) it is somebody's own wording and says nothing.
 
 ### 14.3 The map (need 8)
 

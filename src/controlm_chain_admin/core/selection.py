@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from controlm_chain_admin.core.environments import env_of_ref
+from controlm_chain_admin.core.environments import held_env
 from controlm_chain_admin.core.errors import ChainError, GitError, SelectionConflict
 from controlm_chain_admin.core.history import (
     CommitInfo,
@@ -162,12 +162,13 @@ def overlay(
 
 
 def environments_of(root: Path, base: str, head: str) -> tuple[str, str] | None:
-    """(the base's environment, the head's) when the two refs hold different environments."""
+    """(the base's environment, the head's) when the two refs hold different environments:
+    the branches of two environments, or a branch of one's own that holds one of them."""
     try:
         config = load_repo(root).config
     except ChainError:
         return None
-    target, source = env_of_ref(root, config, base), env_of_ref(root, config, head)
+    target, source = held_env(root, config, base), held_env(root, config, head)
     if target is None or source is None or target == source:
         return None
     return target, source

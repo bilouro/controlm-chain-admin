@@ -10,6 +10,7 @@ from controlm_chain_admin.core.environments import (
     branch_of_env,
     env_branches,
     env_of_ref,
+    held_env,
 )
 from controlm_chain_admin.core.errors import ModelError, UnknownEnvironment
 from controlm_chain_admin.core.repo import ChainConfig, GitRules, load_repo, read_json, write_json
@@ -87,3 +88,93 @@ def test_the_environment_branches_that_exist(tmp_path: Path) -> None:
         "prod": "main",
         "uat": "env/uat",
     }
+
+
+# ---------------------------------------------------------------- a branch of one's own
+
+
+def _exported(root: Path, subject: str) -> None:
+    """A commit as the tool writes one after an export went onto the branch."""
+    git(root, "commit", "-q", "--allow-empty", "-m", subject)
+
+
+def _with_uat_and_a_branch_of_it(tmp_path: Path) -> Path:
+    """main refreshed from prod, env/uat from uat, and ``work/next`` started from env/uat."""
+    root = fresh_repo(tmp_path).root
+    _exported(root, "refresh(prod): prod.xml")
+    git(root, "switch", "-q", "-c", "env/uat")
+    _exported(root, "refresh(uat): uat.xml")
+    git(root, "switch", "-q", "-c", "work/next")
+    _exported(root, "fix: update job P77_A in P77_CHAIN")
+    return root
+
+
+def test_a_branch_of_one_s_own_holds_the_environment_of_the_branch_it_started_from(
+    tmp_path: Path,
+) -> None:
+    root = _with_uat_and_a_branch_of_it(tmp_path)
+    config = load_repo(root).config
+    git(root, "branch", "work/prod-fix", "main")
+
+    assert held_env(root, config, "work/next") == "uat"
+    assert held_env(root, config, "work/prod-fix") == "prod"
+    assert held_env(root, config, git(root, "rev-parse", "work/next")) == "uat"  # any commit
+    # the branches of the environments are told by their names, as before
+    assert held_env(root, config, "env/uat") == "uat"
+    assert held_env(root, config, "main") == "prod"
+    assert env_of_ref(root, config, "work/next") is None  # the name alone says nothing
+
+
+def test_the_last_export_put_onto_the_branch_says_what_it_holds(tmp_path: Path) -> None:
+    root = _with_uat_and_a_branch_of_it(tmp_path)
+    config = load_repo(root).config
+    git(root, "branch", "env/bench", "main")
+    git(root, "switch", "-q", "-c", "work/prod-fix", "main")
+
+    _exported(root, "import(uat): delivery.xml")
+    assert held_env(root, config, "work/prod-fix") == "uat"
+    _exported(root, "import(bench): bench.xml")
+    _exported(root, "import(nowhere): not an environment of the repository")
+    assert held_env(root, config, "work/prod-fix") == "bench"
+
+
+def test_the_working_tree_and_head_of_a_branch_of_one_s_own(tmp_path: Path) -> None:
+    root = _with_uat_and_a_branch_of_it(tmp_path)
+    config = load_repo(root).config
+
+    assert held_env(root, config, "WORKTREE") == "uat"
+    assert held_env(root, config, "HEAD") == "uat"
+    git(root, "switch", "-q", "--detach", "main")
+    assert held_env(root, config, "HEAD") == "prod"  # a commit of the trunk's history
+
+
+def test_only_the_branch_s_own_line_of_exports_counts(tmp_path: Path) -> None:
+    root = _with_uat_and_a_branch_of_it(tmp_path)
+    config = load_repo(root).config
+    git(root, "switch", "-q", "-c", "work/prod-fix", "main")
+    _exported(root, "docs: a note")
+
+    git(root, "merge", "-q", "--no-ff", "-m", "merge uat's for a look", "env/uat")
+    git(root, "commit", "-q", "--allow-empty", "-m", "docs: quoting\n\nimport(bench): b.xml")
+
+    assert held_env(root, config, "work/prod-fix") == "prod"
+
+
+def test_a_ref_without_an_export_in_its_history_holds_no_environment(tmp_path: Path) -> None:
+    repo = fresh_repo(tmp_path)  # one commit, not written by a refresh
+    git(repo.root, "branch", "release/26.1")
+
+    assert held_env(repo.root, repo.config, "release/26.1") is None
+    assert held_env(repo.root, repo.config, "no-such-ref") is None
+    git(repo.root, "switch", "-q", "release/26.1")
+    assert held_env(repo.root, repo.config, "WORKTREE") is None
+
+
+def test_without_a_branch_for_the_environment_a_subject_that_names_it_says_nothing(
+    tmp_path: Path,
+) -> None:
+    repo = fresh_repo(tmp_path)  # every environment in one tree: no env/uat
+    git(repo.root, "switch", "-q", "-c", "release/26.1")
+    _exported(repo.root, "import(uat): the export of this week")  # a message of one's own
+
+    assert held_env(repo.root, repo.config, "release/26.1") is None

@@ -6,6 +6,24 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- A branch of your own is read as the environment it holds when it meets the branch of
+  another environment. Until now only the name told the environment (the trunk,
+  `env/<name>`), so `compare main work/uat-next` compared the files as stored,
+  `take` from it brought uat's machines and users along, and `package env/bench
+  work/uat-next` asked for `--env`. Now such a branch holds the environment of the last
+  export in its history (the nearest `refresh(<env>): …` or `import(<env>): …` commit on its
+  own line), and the three commands, the *Compare* page and the assistant's tools read it
+  through the letter and the map like that environment's branch. With the branch of its own
+  environment (`compare env/uat work/uat-next`) nothing changes.
+- `refresh --here --partial` refuses some folders of another environment than the branch
+  holds (`work/x holds prod: some folders of uat would leave it with two environments`);
+  the full export of another environment is still taken, and makes the branch that
+  environment.
+- `refresh --here --apply --no-commit` prints the subject to commit with
+  (`import(<env>): <file>`), since that subject is how the branch tells its environment.
+
 ## [0.3.1] - 2026-11-11
 
 ### Added
