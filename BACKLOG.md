@@ -274,7 +274,7 @@ or addresses anywhere in this public repository.
     `compare`; `take` a capability like the others (previewed, then applied into the branch
     checked out); the Kilo agent and skill know the model. Timed on the real application in
     four environments: every tool answers in 3 to 7 s.
-22. **A branch of one's own — DONE (2026-11-11)**, asked by the author (a branch from uat's,
+22. **A branch of one's own — DONE (2026-11-11), released in 0.3.1**, asked by the author (a branch from uat's,
     an export onto it, uat compared with it): *New branch* in the branch dialog, from the
     branch that is checked out (`POST /api/workspace/branch`; the dialog lists such branches);
     `refresh --here [--partial]` and the *Onto* choice of the *Refresh* page put an export,
