@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-11-11
+
 ### Added
 
 - The assistant knows a branch of your own. The `refresh` tool of the MCP server takes
@@ -602,7 +604,8 @@ First release on PyPI.
 - On Windows, unknown `/api/...` paths and missing assets were answered with the app instead of
   404 (the static files handler sees `\` separators there).
 
-[Unreleased]: https://github.com/bilouro/controlm-chain-admin/compare/v0.3.2...HEAD
+[Unreleased]: https://github.com/bilouro/controlm-chain-admin/compare/v0.3.3...HEAD
+[0.3.3]: https://github.com/bilouro/controlm-chain-admin/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/bilouro/controlm-chain-admin/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/bilouro/controlm-chain-admin/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/bilouro/controlm-chain-admin/compare/v0.2.0...v0.3.0

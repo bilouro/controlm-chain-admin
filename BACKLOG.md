@@ -286,7 +286,7 @@ or addresses anywhere in this public repository.
     `env constants`, `override` stay for repositories of that model; remove them, or keep
     them, once nobody uses one.
 24. **A branch of one's own, read as its environment — DONE (2026-11-11): A released in
-    0.3.2, B after it**, found while writing the 0.3.1 instructions. Two gaps of story 22:
+    0.3.2, B in 0.3.3**, found while writing the 0.3.1 instructions. Two gaps of story 22:
     - **A. Against another environment.** Which environment a ref holds is known from its
       name alone (the trunk, `env/<name>`), so `compare main work/x`,
       `take work/x --base env/bench` and `package env/bench work/x` do not read a branch
@@ -297,7 +297,7 @@ or addresses anywhere in this public repository.
       *Compare* page and the assistant's tools treat it like that environment's branch;
       `compare env/uat work/x` (the same environment) stays as it is. A partial export of
       another environment than the branch holds is refused (the branch would hold two).
-      Done after 0.3.2: `package` between two branches of one environment is for that
+      Done in 0.3.3: `package` between two branches of one environment is for that
       environment, no `--env`; the comparison names it and the *Compare* page offers it.
     - **B. The assistant.** The `controlm` agent of Kilo and the `refresh` tool of the MCP
       server preview an export against the environment's branch only: they do not know
