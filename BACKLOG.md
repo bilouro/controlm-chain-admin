@@ -285,7 +285,7 @@ or addresses anywhere in this public repository.
 23. **The commands of the one-base model — to decide**: `receive`, `check`, `release`,
     `env constants`, `override` stay for repositories of that model; remove them, or keep
     them, once nobody uses one.
-24. **A branch of one's own, read as its environment — A DONE (2026-11-11, not released), B to
+24. **A branch of one's own, read as its environment — A DONE (2026-11-11), released in 0.3.2, B to
     wait**, found while writing the 0.3.1 instructions. Two gaps of story 22:
     - **A. Against another environment.** Which environment a ref holds is known from its
       name alone (the trunk, `env/<name>`), so `compare main work/x`,
