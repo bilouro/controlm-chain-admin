@@ -285,6 +285,20 @@ or addresses anywhere in this public repository.
 23. **The commands of the one-base model — to decide**: `receive`, `check`, `release`,
     `env constants`, `override` stay for repositories of that model; remove them, or keep
     them, once nobody uses one.
+24. **A branch of one's own, read as its environment — to do**, found while writing the
+    0.3.1 instructions. Two gaps of story 22:
+    - **A. Against another environment.** Which environment a ref holds is known from its
+      name alone (the trunk, `env/<name>`), so `compare main work/x`,
+      `take work/x --base env/bench` and `package env/bench work/x` do not read a branch
+      started from uat's through the letter and the map, and `package` asks for `--env`.
+      To do: a branch of one's own holds the environment of the last export the tool put in
+      its history (the nearest `refresh(<env>): …` or `import(<env>): …` commit on its
+      first-parent line), so the three commands treat it like that environment's branch;
+      `compare env/uat work/x` (the same environment) stays as it is. A partial export of
+      another environment than the branch holds is refused (the branch would hold two).
+    - **B. The assistant.** The `controlm` agent of Kilo and the `refresh` tool of the MCP
+      server preview an export against the environment's branch only: they do not know
+      `--here` and `--partial`. To wait: the CLI and the *Refresh* page cover it.
 
 Later, unordered: second-environment import with learning; `diff` of environments and XML
 files with `xmldiffreport`; mapping editor; upstream graph explorer (paused by the author);
