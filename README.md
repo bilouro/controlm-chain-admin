@@ -51,6 +51,7 @@ repository of small JSON files:
 |---|---|
 | Keep production on `main` and every other environment on a branch of its own | `ctmchain refresh prod.xml --apply`, `ctmchain refresh uat.xml --apply`, ... |
 | Export an environment again and see what changed before accepting it | `ctmchain refresh uat.xml` (nothing is written), then `--apply` |
+| Try an export (whole, or some folders with `--partial`) on a branch of your own and compare it with the environment's | `git switch -c work/uat-next env/uat`, `ctmchain refresh uat-new.xml --here --apply`, `ctmchain compare env/uat work/uat-next` |
 | Know what is expected to differ between environments, without it belonging to any of them | `ctmchain envmap derive --apply`, `ctmchain envmap show` (kept on the branch `map`) |
 | Compare two environments by their real differences | `ctmchain compare main env/uat` (`--raw`: as stored) |
 | Take one attribute, one variable, one job, one folder or a sub-application into another environment's branch | `ctmchain take env/uat --list`, `ctmchain take env/uat --item job:F/J --apply` |
@@ -176,7 +177,11 @@ asks for the token the command prints):
 
 - **Refresh**: choose the export of an environment. The page says which environment it is
   and why, what was read, and what differs on its branch, node by node; the branch is
-  overwritten only after you confirm.
+  overwritten only after you confirm. From a branch of your own (*New branch* in the dialog
+  of the branch button starts one from the branch that is checked out, `env/uat` say) the
+  export goes *Onto* that branch instead, whole or some folders only, and a link opens
+  *Compare* on the environment's branch against it: what the export brings, before the
+  environment's branch takes it.
 - **Map**: the environments with their letters and branches, and every entry of the map.
   *Look at the branches* previews what they show before adding it; *Show what else varies*
   lists the rest, with a button per key; an entry is added, renamed or removed by hand.
@@ -291,7 +296,8 @@ agent: the gate, then a data repository from the exports.
   `set-variable`. Each prints the change and writes only with `--apply`.
 - **A local web UI** (`ctmchain serve`): the folders, the graph of a chain, a job with its
   attributes grouped, findings, an editing form with preview. Between environments: *Refresh*
-  (the export of an environment, what differs, then the overwrite), *Map* (what varies per
+  (the export of an environment, what differs, then the overwrite; onto a branch of your own
+  to try it first), *Map* (what varies per
   environment, derived from the branches and edited), and *Compare* of two environments with
   a box per item to take it or to package it for the other environment.
 - **Ask in plain words.** `ctmchain mcp` gives an assistant (Kilo, Claude, any MCP client)

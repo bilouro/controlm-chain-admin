@@ -8,7 +8,14 @@ from pathlib import Path
 import pytest
 
 from controlm_chain_admin.cli import main
-from tests.support.fourenvs import empty_repo, export_of, four_branches, write_export
+from tests.support.fourenvs import (
+    empty_repo,
+    export_of,
+    four_branches,
+    uat_ahead,
+    without_folder,
+    write_export,
+)
 from tests.support.gitrepo import git, plain_git_identity
 
 
@@ -90,3 +97,43 @@ def test_json_and_a_wrong_environment(tmp_path: Path, capsys: pytest.CaptureFixt
 
     assert main(["refresh", str(xml), "--repo", str(root), "--env", "bench"]) == 3
     assert "looks like uat" in capsys.readouterr().err
+
+
+def test_an_export_onto_the_checked_out_branch_whole_or_partial(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = four_branches(tmp_path).root
+    git(root, "switch", "-q", "-c", "work/uat-next", "env/uat")
+    newer = write_export(tmp_path, "uat", uat_ahead("uat", export_of("uat")))
+    before = git(root, "rev-parse", "env/uat")
+
+    assert main(["refresh", str(newer), "--repo", str(root), "--here", "--stat"]) == 0
+    out = capsys.readouterr().out
+    assert out.startswith("Import onto work/uat-next (uat) from uat.xml: 3 folders, 12 jobs")
+    assert "Nothing written: --apply overwrites work/uat-next with this export." in out
+
+    assert main(["refresh", str(newer), "--repo", str(root), "--here", "--apply"]) == 0
+    assert "Committed on work/uat-next: import(uat): uat.xml" in capsys.readouterr().out
+    assert git(root, "branch", "--show-current") == "work/uat-next"
+    assert git(root, "rev-parse", "env/uat") == before
+
+    part = tmp_path / "delivery.xml"
+    part.write_bytes(
+        without_folder(newer.read_bytes(), "UP77_INGEST_DAILY").replace(b"c.ksh", b"c2.ksh")
+    )
+    args = ["refresh", str(part), "--repo", str(root), "--here", "--partial"]
+    assert main(args) == 0
+    out = capsys.readouterr().out
+    assert "a partial export: the folders it does not have stay" in out
+    assert "jobs: 1 modified" in out and "removed" not in out
+    assert "--apply rewrites the folders of this export on work/uat-next." in out
+
+
+def test_a_partial_export_is_refused_on_the_branch_of_the_environment(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = four_branches(tmp_path).root
+    xml = write_export(tmp_path, "uat")
+
+    assert main(["refresh", str(xml), "--repo", str(root), "--partial"]) == 3
+    assert "env/uat holds the full export of uat" in capsys.readouterr().err

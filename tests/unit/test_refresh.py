@@ -7,7 +7,13 @@ from pathlib import Path
 
 import pytest
 
-from controlm_chain_admin.core.errors import ChainError, UncommittedChanges
+from controlm_chain_admin.core.compare import compare
+from controlm_chain_admin.core.errors import (
+    ChainError,
+    GitError,
+    ProtectedBranch,
+    UncommittedChanges,
+)
 from controlm_chain_admin.core.ops import export_xml, import_xml
 from controlm_chain_admin.core.refresh import refresh
 from controlm_chain_admin.core.repo import load_repo, read_json
@@ -19,6 +25,7 @@ from tests.support.fourenvs import (
     export_of,
     four_branches,
     own,
+    uat_ahead,
     without_folder,
     without_job,
 )
@@ -206,3 +213,109 @@ def test_other_files_of_the_trunk_follow_into_a_new_environment_branch(tmp_path:
     refresh(repo, export_of("uat"), source="uat.xml", apply=True)
 
     assert (repo.root / "README.md").read_text("utf-8") == "the data\n"
+
+
+# ---------------------------------------------------------------- onto the checked-out branch
+
+
+def on_a_branch_of_uat(tmp_path: Path, name: str = "work/uat-next") -> Path:
+    """The four environments, and a branch started from uat's that is checked out."""
+    root = four_branches(tmp_path).root
+    git(root, "switch", "-q", "-c", name, "env/uat")
+    return root
+
+
+def test_an_export_goes_onto_the_checked_out_branch_and_the_environments_stays(
+    tmp_path: Path,
+) -> None:
+    root = on_a_branch_of_uat(tmp_path)
+    newer = uat_ahead("uat", export_of("uat"))
+    before = git(root, "rev-parse", "env/uat")
+
+    preview = refresh(load_repo(root), newer, source="uat-2.xml", here=True)
+
+    assert (preview.env, preview.branch) == ("uat", "work/uat-next")
+    assert (preview.new_branch, preview.applied, preview.work) == (False, False, True)
+    assert preview.summary["jobs"]["added"] == 3 and preview.summary["folders"]["added"] == 1
+    assert git(root, "status", "--porcelain") == ""  # a preview writes nothing
+
+    done = refresh(load_repo(root), newer, source="uat-2.xml", here=True, apply=True)
+
+    assert done.applied and done.commit == git(root, "rev-parse", "work/uat-next")
+    assert git(root, "branch", "--show-current") == "work/uat-next"
+    assert git(root, "log", "-1", "--format=%s") == "import(uat): uat-2.xml"
+    assert git(root, "rev-parse", "env/uat") == before  # uat's own branch is not touched
+    assert export_xml(load_repo(root), env="uat") == own(newer)
+    # so uat as it was against uat as the export has it is a comparison of two branches
+    between = compare(root, "env/uat", "work/uat-next")
+    assert between.summary()["jobs"]["added"] == 3
+    assert [j.node for j in between.jobs if j.change == "modified"] == [f"{CHAIN}/P77_A"]
+
+
+def test_a_partial_export_keeps_the_folders_it_does_not_have(tmp_path: Path) -> None:
+    root = on_a_branch_of_uat(tmp_path, "work/delivery")
+    delivery = without_folder(export_of("uat"), "UP77_INGEST_DAILY").replace(
+        b"/opt/p77/bin/c.ksh", b"/opt/p77/bin/c2.ksh"
+    )
+
+    whole = refresh(load_repo(root), delivery, source="delivery.xml", here=True)
+
+    assert whole.summary["folders"]["removed"] == 1  # read as a full export, the other one goes
+
+    preview = refresh(load_repo(root), delivery, source="delivery.xml", here=True, partial=True)
+
+    assert preview.partial and preview.summary["folders"]["removed"] == 0
+    assert [(j.node, j.change) for j in preview.comparison.jobs] == [
+        (f"{CHAIN}/P77_C", "modified")
+    ]
+
+    done = refresh(
+        load_repo(root), delivery, source="delivery.xml", here=True, partial=True, apply=True
+    )
+
+    assert done.applied and (root / "folders" / INGEST / "folder.json").is_file()
+    assert git(root, "log", "-1", "--format=%s") == "import(uat): delivery.xml"
+    assert git(root, "status", "--porcelain") == ""
+    again = refresh(
+        load_repo(root), delivery, source="delivery.xml", here=True, partial=True, apply=True
+    )
+    assert again.unchanged and not again.applied
+
+
+def test_the_branch_of_an_environment_takes_only_its_own_full_export(tmp_path: Path) -> None:
+    repo = four_branches(tmp_path)  # on main
+    uat = export_of("uat")
+
+    with pytest.raises(ChainError, match="main holds prod: an export of uat goes onto env/uat"):
+        refresh(repo, uat, here=True)
+    git(repo.root, "switch", "-q", "env/egma")
+    with pytest.raises(ChainError, match="env/egma holds egma: an export of uat goes onto"):
+        refresh(repo, uat, here=True, apply=True)
+    assert git(repo.root, "status", "--porcelain") == ""
+
+    git(repo.root, "switch", "-q", "env/uat")
+    same = refresh(repo, uat, here=True)  # its own branch: the refresh itself
+    assert (same.branch, same.work, same.unchanged) == ("env/uat", False, True)
+    for here in (False, True):
+        with pytest.raises(ChainError, match="env/uat holds the full export of uat"):
+            refresh(repo, uat, here=here, partial=True)
+
+
+def test_a_protected_branch_or_a_detached_head_takes_no_export(tmp_path: Path) -> None:
+    root = on_a_branch_of_uat(tmp_path, "master")
+
+    with pytest.raises(ProtectedBranch, match="master is protected"):
+        refresh(load_repo(root), export_of("uat"), here=True)
+    git(root, "switch", "-q", "--detach", "env/uat")
+    with pytest.raises(GitError, match="HEAD is detached: check a branch out"):
+        refresh(load_repo(root), export_of("uat"), here=True)
+
+
+def test_an_export_onto_the_checked_out_branch_is_refused_over_uncommitted_changes(
+    tmp_path: Path,
+) -> None:
+    root = on_a_branch_of_uat(tmp_path)
+    (root / "chain.json").write_text((root / "chain.json").read_text("utf-8") + "\n", "utf-8")
+
+    with pytest.raises(UncommittedChanges):
+        refresh(load_repo(root), uat_ahead("uat", export_of("uat")), here=True, apply=True)

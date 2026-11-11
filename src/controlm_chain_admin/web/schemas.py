@@ -456,6 +456,12 @@ class EnvBranchOut(BaseModel):
     remote: bool = Field(description="the branch is on the remote too")
 
 
+class BranchOut(BaseModel):
+    branch: str
+    local: bool
+    remote: bool = Field(description="the branch is on the remote too")
+
+
 class StashOut(BaseModel):
     ref: str
     branch: str | None = Field(None, description="where the stash was made")
@@ -482,6 +488,9 @@ class WorkspaceOut(BaseModel):
     env_branches: list[EnvBranchOut] = Field(
         description="the branch of every environment but production's, where it exists"
     )
+    branches: list[BranchOut] = Field(
+        description="every other branch: not the trunk, an environment's, a release or the map"
+    )
 
 
 class ActionOut(BaseModel):
@@ -492,6 +501,10 @@ class ActionOut(BaseModel):
 class StartReleaseRequest(BaseModel):
     name: str = Field(description="the release name; the branch is <prefix><name>")
     stash: bool = Field(False, description="stash uncommitted chain files first")
+
+
+class StartBranchRequest(BaseModel):
+    name: str = Field(description="the whole name of the branch, e.g. work/uat-next")
 
 
 class SwitchRequest(BaseModel):
@@ -755,7 +768,11 @@ class ImportedOut(BaseModel):
 
 class RefreshOut(BaseModel):
     env: str
-    branch: str = Field(description="the branch of the environment")
+    branch: str = Field(
+        description="the branch the export goes onto: the environment's, or the checked-out one"
+    )
+    work: bool = Field(description="the branch is somebody's work, not the environment's own")
+    partial: bool = Field(description="the folders the export does not have stay")
     new_branch: bool = Field(description="the branch is not there yet: apply creates it")
     source: str = Field(description="the name of the export file")
     evidence: list[str] = Field(description="how the environment was told")

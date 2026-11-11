@@ -9,6 +9,8 @@ from the ``git`` key of ``chain.json`` (:class:`~controlm_chain_admin.core.repo.
 
 Uncommitted chain files never travel silently: starting or switching a release with them is
 refused unless they are stashed first, and a stash is restored on a branch that may be edited.
+A branch of any other name starts from what is checked out (an environment's branch, say, to
+try an export on): the uncommitted files follow into it, and the answer says so.
 Push and pull use the user's own git credentials and never prompt.
 """
 
@@ -37,6 +39,7 @@ from controlm_chain_admin.core.repo import ChainConfig, ChainRepo, GitRules
 
 _PATHS = ("chain.json", "folders", "meta", "envs")
 _NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
+_BRANCH = re.compile(rf"{_NAME.pattern}(?:/{_NAME.pattern})*")
 _STASH = re.compile(r"(?:WIP on|On) ([^:]+): (.*)")
 _SEP = "\x1f"
 _NETWORK_TIMEOUT = 120  # seconds
@@ -95,6 +98,18 @@ class EnvBranch:
 
 
 @dataclass(frozen=True)
+class Branch:
+    """A branch that is not the trunk, an environment's, a release or the map."""
+
+    branch: str
+    local: bool
+    remote: bool
+
+    def to_json(self) -> dict[str, Any]:
+        return {"branch": self.branch, "local": self.local, "remote": self.remote}
+
+
+@dataclass(frozen=True)
 class Stash:
     ref: str  # stash@{n}
     branch: str | None  # where it was made
@@ -125,6 +140,7 @@ class Workspace:
     ahead: int  # commits not pushed to the upstream
     behind: int  # commits of the upstream not here (as of the last fetch)
     env_branches: tuple[EnvBranch, ...] = ()  # in the order of the environments
+    branches: tuple[Branch, ...] = ()  # every other branch, by name
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -145,6 +161,7 @@ class Workspace:
             "ahead": self.ahead,
             "behind": self.behind,
             "env_branches": [b.to_json() for b in self.env_branches],
+            "branches": [b.to_json() for b in self.branches],
         }
 
 
@@ -360,7 +377,7 @@ def workspace(repo: ChainRepo) -> Workspace:
         branch, head, rules.trunk, rules.release_prefix, reason is None, reason,
         _current_release(rules, branch), chain_changes(root), tuple(releases), _stashes(root),
         envs, rules.production, remote, upstream, ahead, behind,
-        _env_branches(repo.config, here, there),
+        _env_branches(repo.config, here, there), _other_branches(repo.config, here, there),
     )  # fmt: skip
 
 
@@ -371,6 +388,18 @@ def _env_branches(config: ChainConfig, here: set[str], there: set[str]) -> tuple
         EnvBranch(env, branch, branch in here, branch in there)
         for env, branch in named
         if branch != config.git_rules.trunk and (branch in here or branch in there)
+    )
+
+
+def _other_branches(config: ChainConfig, here: set[str], there: set[str]) -> tuple[Branch, ...]:
+    """Every branch, here or on the remote, that has no part in the model: somebody's work."""
+    rules = config.git_rules
+    known = {rules.trunk, rules.map_branch, "HEAD"}  # HEAD: where the remote itself stands
+    known.update(branch_of_env(config, env) for env in config.environments)
+    return tuple(
+        Branch(name, name in here, name in there)
+        for name in sorted(here | there)
+        if name not in known and _current_release(rules, name) is None
     )
 
 
@@ -402,6 +431,52 @@ def start_release(repo: ChainRepo, name: str, *, stash: bool = False) -> str:
     _git(root, "switch", "-q", "-c", branch, rules.trunk)
     done = f"Started {branch} from {rules.trunk}"
     return f"{saved}. {done}" if saved else done
+
+
+def _reserved(rules: GitRules, name: str) -> str | None:
+    """Why a new branch cannot be called ``name``: the model keeps that name for itself."""
+    if name == rules.trunk or name in rules.protected:
+        return f"{name} is a protected branch: choose another name"
+    if name == rules.map_branch:
+        return f"{name} is the branch of the map: choose another name"
+    if name.startswith(rules.env_prefix):
+        return (
+            f"{rules.env_prefix} holds the branches of the environments (a refresh creates "
+            "them): choose another name"
+        )
+    if name.startswith(rules.release_prefix):
+        return (
+            f"a release starts from {rules.trunk}: start it as a release, or choose a name "
+            f"outside {rules.release_prefix}"
+        )
+    return None
+
+
+def start_branch(repo: ChainRepo, name: str) -> str:
+    """Create the branch ``name`` from what is checked out and check it out.
+
+    Unlike a release it starts where the repository stands, an environment's branch for
+    instance. Uncommitted chain files follow into it: nothing is left behind.
+    """
+    root, rules = repo.root, repo.config.git_rules
+    if not _BRANCH.fullmatch(name) or not _ok(root, "check-ref-format", "--branch", name):
+        raise GitError(
+            f"invalid branch name {name!r}: letters, digits, '.', '_' and '-', in parts "
+            "separated by '/'"
+        )
+    if _exists(root, f"refs/heads/{name}"):
+        raise GitError(f"{name} already exists: switch to it")
+    remote = _remote(root, rules)
+    if remote and _exists(root, f"refs/remotes/{remote}/{name}"):
+        raise GitError(f"{name} already exists on {remote}: switch to it")
+    reason = _reserved(rules, name)
+    if reason:
+        raise GitError(reason)
+    origin = _branch(root) or _out(root, "rev-parse", "--short", "HEAD")
+    changes = chain_changes(root)
+    _git(root, "switch", "-q", "-c", name)
+    done = f"Started {name} from {origin}"
+    return f"{done}, with its {_plural(changes, 'uncommitted chain file')}" if changes else done
 
 
 def switch(repo: ChainRepo, branch: str, *, stash: bool = False) -> str:

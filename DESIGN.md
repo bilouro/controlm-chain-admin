@@ -792,6 +792,16 @@ stop; `run` turns it into `SystemExit` so the cleanup runs).
   comparison of the branch with the export, browsed like any comparison. *Overwrite <branch>…*
   asks first (it checks the branch out; a checkbox says whether the result is committed), then
   `POST /api/refresh/apply?…&commit=`. Uncommitted changes refuse it (409).
+  *A branch of your own* (2026-11-11, asked by the author: start a branch from uat's, import
+  an export onto it, compare uat with it; §14.2). The branch dialog has *New branch*
+  (`POST /api/workspace/branch {name}`: from what is checked out, then checked out) and lists
+  the branches that are neither the trunk, an environment's, a release nor the map
+  (`branches`). On such a branch the *Refresh* page has *Onto*, set to the checked-out branch
+  (the other choice is the branch of the environment), and *The export holds some folders
+  only*: `&here=true[&partial=true]`. The answer says `work` and `partial`, the words of the
+  page follow them, and once applied a link opens *Compare* on the environment's branch
+  against this one. A preview is applied to the branch it was made for only: when another
+  branch is checked out meanwhile the page asks for the preview again.
   *Map* (`/map`): `GET /api/envmap` gives the letters, the branch of each environment and the
   entries. *Look at the branches* is `GET /api/envmap/derive?min_nodes=&key=&text=` (a
   preview: the new entries with how many nodes show each, and how many sets of values were
@@ -884,7 +894,7 @@ Assistant
 - `kilo init [--repo DIR] [--dir DIR] [--force]` — implemented: `.kilo/` for Kilo (server, `controlm` agent, skill, vocabulary) at the top of the git repository.
 
 Environments as branches (§14)
-- `refresh <export.xml> [--env ENV] [--apply] [--no-commit] [--stat] [--format text|json]` — implemented: what the full export of one environment changes on its branch (`main` for production, `env/<name>` else; the environment is read from the letter of the names). Nothing is written without `--apply`, which checks the branch out (created from the rules of the trunk when missing), overwrites its chain files and commits `refresh(<env>): <file>`.
+- `refresh <export.xml> [--env ENV] [--apply] [--no-commit] [--stat] [--format text|json]` — implemented: what the full export of one environment changes on its branch (`main` for production, `env/<name>` else; the environment is read from the letter of the names). Nothing is written without `--apply`, which checks the branch out (created from the rules of the trunk when missing), overwrites its chain files and commits `refresh(<env>): <file>`. `--here` puts the export onto the checked-out branch instead (a branch of your own; commit `import(<env>): <file>`), `--partial` with it leaves the folders the export does not have.
 - `envmap show|suggest|derive [--key SPEC ...] [--text SPEC ...] [--min-nodes N] [--apply]|add KEY ENV=VALUE... [--text] [--as NAME]|remove NAME|rename OLD NEW` — implemented: the map of what is expected to differ, on the branch `map`. `derive` reads the environments' branches (always `NODEID`, `RUN_AS`, `DATACENTER`; more with `--key` and `--text`), `suggest` counts what else varies.
 
 Comparison
@@ -934,6 +944,7 @@ only derived, a new export had to be *received* decision by decision, and the an
 | `main` (the trunk) | production | `refresh` from a full export of production, nothing else |
 | `env/<name>` | one other environment | `refresh` from its full export; `take` from another branch; edits |
 | `map` (orphan) | `map.json` | `envmap derive --apply`, `add`, `remove`, `rename` |
+| any other name (`work/uat-next`) | somebody's work, started from one of the above | `refresh --here` (an export, whole or partial); edits |
 
 `chain.json` (`git.trunk`, `git.production`, `git.env_prefix`, `git.map_branch`) names them. A
 branch holds the files of §3 for one environment: `chain.json` and `envs/` (the rules, the same
@@ -961,6 +972,20 @@ replaces `chain.json`, `folders/` and `meta/` with the import and commits
 what was taken into the branch and never uploaded to Control-M goes too, which the preview
 shows as removed. The same export again changes nothing. Uncommitted chain files refuse a
 refresh.
+
+**Onto a branch of your own (2026-11-11).** To see what an export brings before the branch of
+the environment takes it, or to hold a delivery beside it: a branch of any other name is
+started from the environment's (`git switch -c work/uat-next env/uat`, or *New branch* in the
+web UI) and `refresh <export.xml> --here` imports the export onto it, the checked-out branch.
+The preview compares that branch with the export, `--apply` commits `import(<env>): <file>`
+there, and `env/uat` stays as it was: `compare env/uat work/uat-next` is uat against uat, with
+nothing to translate. `--partial` rewrites the folders of the export and leaves the others
+(the export of one folder); without it the export is taken as everything the branch must
+hold. What is refused: `--here` on a branch that holds another environment (`main holds prod:
+an export of uat goes onto env/uat`), on a protected branch or a detached HEAD, and
+`--partial` on the branch of an environment, which holds its full export. Such a branch
+belongs to no environment: compared with the branch of *another* environment nothing is
+translated by the map, and `package` between it and its origin needs `--env`.
 
 ### 14.3 The map (need 8)
 

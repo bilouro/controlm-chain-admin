@@ -1,4 +1,5 @@
-"""GET /api/workspace and its actions: releases from the trunk, installations, stash, push."""
+"""GET /api/workspace and its actions: releases from the trunk, a branch from what is checked
+out, installations, stash, push."""
 
 from __future__ import annotations
 
@@ -17,6 +18,7 @@ from controlm_chain_admin.web.schemas import (
     ErrorOut,
     InstalledRequest,
     PopRequest,
+    StartBranchRequest,
     StartReleaseRequest,
     SwitchRequest,
     WorkspaceOut,
@@ -68,6 +70,15 @@ def start_release(
     body: StartReleaseRequest, request: Request, repo: ChainRepo = Depends(get_repo)
 ) -> ActionOut:
     return _act(request, repo, lambda: ws.start_release(repo, body.name, stash=body.stash))
+
+
+@router.post(
+    "/branch", summary="Start a branch from what is checked out and switch to it", **ACTION
+)
+def start_branch(
+    body: StartBranchRequest, request: Request, repo: ChainRepo = Depends(get_repo)
+) -> ActionOut:
+    return _act(request, repo, lambda: ws.start_branch(repo, body.name))
 
 
 @router.post("/switch", summary="Switch to another branch", **ACTION)

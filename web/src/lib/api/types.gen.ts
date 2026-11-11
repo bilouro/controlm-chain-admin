@@ -457,7 +457,7 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** Check the branch of the environment out, overwrite it with the export, commit */
+    /** Check the branch out, overwrite it with the export, commit */
     post: operations["apply_api_refresh_apply_post"];
     delete?: never;
     options?: never;
@@ -474,7 +474,7 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** What the export changes on the branch of its environment (nothing written) */
+    /** What the export changes on the branch it goes onto (nothing written) */
     post: operations["preview_api_refresh_preview_post"];
     delete?: never;
     options?: never;
@@ -544,6 +544,23 @@ export interface paths {
     get: operations["get_workspace_api_workspace_get"];
     put?: never;
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/workspace/branch": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Start a branch from what is checked out and switch to it */
+    post: operations["start_branch_api_workspace_branch_post"];
     delete?: never;
     options?: never;
     head?: never;
@@ -848,6 +865,18 @@ export interface components {
     AssistantSessionOut: {
       /** Id */
       id: string;
+    };
+    /** BranchOut */
+    BranchOut: {
+      /** Branch */
+      branch: string;
+      /** Local */
+      local: boolean;
+      /**
+       * Remote
+       * @description the branch is on the remote too
+       */
+      remote: boolean;
     };
     /** ChangePreview */
     ChangePreview: {
@@ -1984,7 +2013,7 @@ export interface components {
       applied: boolean;
       /**
        * Branch
-       * @description the branch of the environment
+       * @description the branch the export goes onto: the environment's, or the checked-out one
        */
       branch: string;
       /**
@@ -2010,6 +2039,11 @@ export interface components {
        */
       new_branch: boolean;
       /**
+       * Partial
+       * @description the folders the export does not have stay
+       */
+      partial: boolean;
+      /**
        * Source
        * @description the name of the export file
        */
@@ -2019,6 +2053,11 @@ export interface components {
        * @description the branch holds this export already
        */
       unchanged: boolean;
+      /**
+       * Work
+       * @description the branch is somebody's work, not the environment's own
+       */
+      work: boolean;
     };
     /** RelationChangeOut */
     RelationChangeOut: {
@@ -2139,6 +2178,14 @@ export interface components {
        * @description the technical attributes: kept in meta, never compared, never an exception
        */
       volatile_attributes?: string[];
+    };
+    /** StartBranchRequest */
+    StartBranchRequest: {
+      /**
+       * Name
+       * @description the whole name of the branch, e.g. work/uat-next
+       */
+      name: string;
     };
     /** StartReleaseRequest */
     StartReleaseRequest: {
@@ -2358,6 +2405,11 @@ export interface components {
        * @description checked-out branch; null when detached
        */
       branch: string | null;
+      /**
+       * Branches
+       * @description every other branch: not the trunk, an environment's, a release or the map
+       */
+      branches: components["schemas"]["BranchOut"][];
       /**
        * Changes
        * @description uncommitted chain files
@@ -3733,6 +3785,10 @@ export interface operations {
         env?: string | null;
         /** @description false leaves the result in the working tree */
         commit?: boolean;
+        /** @description onto the checked-out branch instead of the environment's: somebody's work, no branch of another environment and no protected one */
+        here?: boolean;
+        /** @description the export holds some folders only and the others stay; not for the branch of an environment, which holds its full export */
+        partial?: boolean;
       };
       header?: never;
       path?: never;
@@ -3753,7 +3809,7 @@ export interface operations {
           "application/json": components["schemas"]["RefreshOut"];
         };
       };
-      /** @description The environment cannot be told, or is another one */
+      /** @description The environment cannot be told, or is another one; the checked-out branch holds another environment; a partial export for the branch of an environment */
       400: {
         headers: {
           [name: string]: unknown;
@@ -3778,7 +3834,7 @@ export interface operations {
           "application/json": components["schemas"]["ErrorOut"];
         };
       };
-      /** @description Uncommitted chain changes are in the way */
+      /** @description Uncommitted chain changes are in the way, or the checked-out branch is protected */
       409: {
         headers: {
           [name: string]: unknown;
@@ -3805,6 +3861,10 @@ export interface operations {
         source?: string;
         /** @description the environment; default: told by the letter of the names */
         env?: string | null;
+        /** @description onto the checked-out branch instead of the environment's: somebody's work, no branch of another environment and no protected one */
+        here?: boolean;
+        /** @description the export holds some folders only and the others stay; not for the branch of an environment, which holds its full export */
+        partial?: boolean;
       };
       header?: never;
       path?: never;
@@ -3825,7 +3885,7 @@ export interface operations {
           "application/json": components["schemas"]["RefreshOut"];
         };
       };
-      /** @description The environment cannot be told, or is another one */
+      /** @description The environment cannot be told, or is another one; the checked-out branch holds another environment; a partial export for the branch of an environment */
       400: {
         headers: {
           [name: string]: unknown;
@@ -3850,7 +3910,7 @@ export interface operations {
           "application/json": components["schemas"]["ErrorOut"];
         };
       };
-      /** @description Uncommitted chain changes are in the way */
+      /** @description Uncommitted chain changes are in the way, or the checked-out branch is protected */
       409: {
         headers: {
           [name: string]: unknown;
@@ -3958,6 +4018,64 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["WorkspaceOut"];
+        };
+      };
+      /** @description Missing or wrong session token */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Unknown environment */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description Protected branch, uncommitted changes in the way, or a conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description Not allowed now (see the message) or a git error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+    };
+  };
+  start_branch_api_workspace_branch_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["StartBranchRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ActionOut"];
         };
       };
       /** @description Missing or wrong session token */

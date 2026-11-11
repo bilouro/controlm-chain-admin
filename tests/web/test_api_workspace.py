@@ -76,6 +76,24 @@ def test_the_branches_of_the_other_environments_are_listed_and_switched_to(
     assert body["workspace"]["branch"] == "env/uat" and body["workspace"]["editable"] is True
 
 
+def test_a_branch_from_the_checked_out_branch_is_started_and_listed(
+    client: TestClient, root: Path
+) -> None:
+    git(root, "switch", "-q", "-c", "env/uat")
+    assert client.get("/api/workspace").json()["branches"] == []
+    assert client.post("/api/workspace/branch", json={"name": "work/next"}).status_code == 401
+
+    body = post(client, "branch", {"name": "work/next"})
+
+    assert body["message"] == "Started work/next from env/uat"
+    state = body["workspace"]
+    assert (state["branch"], state["editable"]) == ("work/next", True)
+    assert state["branches"] == [{"branch": "work/next", "local": True, "remote": False}]
+    refused = client.post("/api/workspace/branch", json={"name": "env/other"}, headers=TOKEN)
+    assert refused.status_code == 422 and refused.json()["error"] == "GitError"
+    assert "env/ holds the branches of the environments" in refused.json()["message"]
+
+
 def test_start_a_release_then_edit_it(client: TestClient) -> None:
     assert client.post("/api/workspace/release", json={"name": "march"}).status_code == 401
 

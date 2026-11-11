@@ -71,6 +71,7 @@ function viewedEnv(request: Request): void {
 const WORKSPACE_MESSAGES: Record<string, (body: Record<string, unknown>) => string> = {
   switch: (body) => `Switched to ${String(body.branch)}`,
   release: (body) => `Started release/${String(body.name)} from main`,
+  branch: (body) => `Started ${String(body.name)} from env/bench`,
   installed: (body) => `Tagged ${String(body.env)}/demo-2 on 1234567`,
 };
 

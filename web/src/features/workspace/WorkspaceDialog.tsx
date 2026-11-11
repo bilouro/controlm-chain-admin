@@ -48,6 +48,7 @@ export function WorkspaceDialog({ onClose }: { onClose: () => void }) {
   const dialog = useRef<HTMLDivElement>(null);
   const [target, setTarget] = useState<string | null>(null);
   const [name, setName] = useState("");
+  const [branchName, setBranchName] = useState("");
   const [stashFirst, setStashFirst] = useState(false);
   const [isDiscarding, setIsDiscarding] = useState(false);
   const pending = usePending(isDiscarding);
@@ -265,6 +266,18 @@ export function WorkspaceDialog({ onClose }: { onClose: () => void }) {
                     <td className="py-1.5 text-right">{switchButton(env.branch)}</td>
                   </tr>
                 ))}
+                {data.branches.map((other) => (
+                  <tr key={other.branch} className="hover:bg-surface-2">
+                    <td className="py-1.5">
+                      <span className="font-mono">{other.branch}</span>{" "}
+                      <span className="text-xs text-muted">
+                        branch{!other.local && " · on the remote only"}
+                      </span>
+                    </td>
+                    <td />
+                    <td className="py-1.5 text-right">{switchButton(other.branch)}</td>
+                  </tr>
+                ))}
                 {data.releases.map((release) => (
                   <tr key={release.branch} className="hover:bg-surface-2">
                     <td className="py-1.5 align-top">
@@ -324,6 +337,38 @@ export function WorkspaceDialog({ onClose }: { onClose: () => void }) {
                 }
               >
                 Start release
+              </Button>
+            </section>
+
+            <section aria-label="New branch" className="flex flex-wrap items-end gap-2">
+              <label className="text-xs text-muted">
+                New branch name
+                <TextInput
+                  value={branchName}
+                  onChange={(e) => setBranchName(e.target.value)}
+                  placeholder="e.g. work/uat-next"
+                  className="block"
+                />
+              </label>
+              <span className="pb-1.5 text-xs text-muted">
+                from <span className="font-mono">{data.branch ?? "the commit checked out"}</span>
+                {data.changes > 0 &&
+                  `, with your ${plural(data.changes, "uncommitted chain file")}`}
+                : a branch of your own
+                {data.env_branches.length > 0 &&
+                  `, to import an export onto (Refresh) and compare with ${data.branch ?? "another"}`}
+              </span>
+              <Button
+                size="sm"
+                className="mb-1"
+                disabled={!branchName.trim() || action.isPending}
+                onClick={() =>
+                  run({ action: "branch", body: { name: branchName.trim() } }, () =>
+                    setBranchName(""),
+                  )
+                }
+              >
+                Start branch
               </Button>
             </section>
 

@@ -287,6 +287,30 @@
         "title": "AssistantSessionOut",
         "type": "object"
       },
+      "BranchOut": {
+        "properties": {
+          "branch": {
+            "title": "Branch",
+            "type": "string"
+          },
+          "local": {
+            "title": "Local",
+            "type": "boolean"
+          },
+          "remote": {
+            "description": "the branch is on the remote too",
+            "title": "Remote",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "branch",
+          "local",
+          "remote"
+        ],
+        "title": "BranchOut",
+        "type": "object"
+      },
       "ChangePreview": {
         "properties": {
           "diff": {
@@ -2920,7 +2944,7 @@
             "type": "boolean"
           },
           "branch": {
-            "description": "the branch of the environment",
+            "description": "the branch the export goes onto: the environment's, or the checked-out one",
             "title": "Branch",
             "type": "string"
           },
@@ -2964,6 +2988,11 @@
             "title": "New Branch",
             "type": "boolean"
           },
+          "partial": {
+            "description": "the folders the export does not have stay",
+            "title": "Partial",
+            "type": "boolean"
+          },
           "source": {
             "description": "the name of the export file",
             "title": "Source",
@@ -2973,11 +3002,18 @@
             "description": "the branch holds this export already",
             "title": "Unchanged",
             "type": "boolean"
+          },
+          "work": {
+            "description": "the branch is somebody's work, not the environment's own",
+            "title": "Work",
+            "type": "boolean"
           }
         },
         "required": [
           "env",
           "branch",
+          "work",
+          "partial",
           "new_branch",
           "source",
           "evidence",
@@ -3255,6 +3291,20 @@
           "root"
         ],
         "title": "RepoInfo",
+        "type": "object"
+      },
+      "StartBranchRequest": {
+        "properties": {
+          "name": {
+            "description": "the whole name of the branch, e.g. work/uat-next",
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "StartBranchRequest",
         "type": "object"
       },
       "StartReleaseRequest": {
@@ -3812,6 +3862,14 @@
             "description": "checked-out branch; null when detached",
             "title": "Branch"
           },
+          "branches": {
+            "description": "every other branch: not the trunk, an environment's, a release or the map",
+            "items": {
+              "$ref": "#/components/schemas/BranchOut"
+            },
+            "title": "Branches",
+            "type": "array"
+          },
           "changes": {
             "description": "uncommitted chain files",
             "title": "Changes",
@@ -3928,7 +3986,8 @@
           "production",
           "ahead",
           "behind",
-          "env_branches"
+          "env_branches",
+          "branches"
         ],
         "title": "WorkspaceOut",
         "type": "object"
@@ -6023,6 +6082,30 @@
               "title": "Commit",
               "type": "boolean"
             }
+          },
+          {
+            "description": "onto the checked-out branch instead of the environment's: somebody's work, no branch of another environment and no protected one",
+            "in": "query",
+            "name": "here",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "onto the checked-out branch instead of the environment's: somebody's work, no branch of another environment and no protected one",
+              "title": "Here",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "the export holds some folders only and the others stay; not for the branch of an environment, which holds its full export",
+            "in": "query",
+            "name": "partial",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "the export holds some folders only and the others stay; not for the branch of an environment, which holds its full export",
+              "title": "Partial",
+              "type": "boolean"
+            }
           }
         ],
         "requestBody": {
@@ -6057,7 +6140,7 @@
                 }
               }
             },
-            "description": "The environment cannot be told, or is another one"
+            "description": "The environment cannot be told, or is another one; the checked-out branch holds another environment; a partial export for the branch of an environment"
           },
           "401": {
             "description": "Missing or wrong session token"
@@ -6080,7 +6163,7 @@
                 }
               }
             },
-            "description": "Uncommitted chain changes are in the way"
+            "description": "Uncommitted chain changes are in the way, or the checked-out branch is protected"
           },
           "422": {
             "content": {
@@ -6093,7 +6176,7 @@
             "description": "Not an export, or a git error"
           }
         },
-        "summary": "Check the branch of the environment out, overwrite it with the export, commit",
+        "summary": "Check the branch out, overwrite it with the export, commit",
         "tags": [
           "refresh"
         ]
@@ -6132,6 +6215,30 @@
               "description": "the environment; default: told by the letter of the names",
               "title": "Env"
             }
+          },
+          {
+            "description": "onto the checked-out branch instead of the environment's: somebody's work, no branch of another environment and no protected one",
+            "in": "query",
+            "name": "here",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "onto the checked-out branch instead of the environment's: somebody's work, no branch of another environment and no protected one",
+              "title": "Here",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "the export holds some folders only and the others stay; not for the branch of an environment, which holds its full export",
+            "in": "query",
+            "name": "partial",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "the export holds some folders only and the others stay; not for the branch of an environment, which holds its full export",
+              "title": "Partial",
+              "type": "boolean"
+            }
           }
         ],
         "requestBody": {
@@ -6166,7 +6273,7 @@
                 }
               }
             },
-            "description": "The environment cannot be told, or is another one"
+            "description": "The environment cannot be told, or is another one; the checked-out branch holds another environment; a partial export for the branch of an environment"
           },
           "401": {
             "description": "Missing or wrong session token"
@@ -6189,7 +6296,7 @@
                 }
               }
             },
-            "description": "Uncommitted chain changes are in the way"
+            "description": "Uncommitted chain changes are in the way, or the checked-out branch is protected"
           },
           "422": {
             "content": {
@@ -6202,7 +6309,7 @@
             "description": "Not an export, or a git error"
           }
         },
-        "summary": "What the export changes on the branch of its environment (nothing written)",
+        "summary": "What the export changes on the branch it goes onto (nothing written)",
         "tags": [
           "refresh"
         ]
@@ -6350,6 +6457,70 @@
           }
         },
         "summary": "The branch, whether it may be edited, releases and their installations, stashes",
+        "tags": [
+          "workspace"
+        ]
+      }
+    },
+    "/api/workspace/branch": {
+      "post": {
+        "operationId": "start_branch_api_workspace_branch_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartBranchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or wrong session token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unknown environment"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Protected branch, uncommitted changes in the way, or a conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not allowed now (see the message) or a git error"
+          }
+        },
+        "summary": "Start a branch from what is checked out and switch to it",
         "tags": [
           "workspace"
         ]

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -479,6 +480,93 @@ def test_the_workspace_lists_the_branches_of_the_other_environments(
     there = ws.workspace(teammate)
     assert (there.branch, there.editable) == ("env/uat", True)
     assert there.env_branches == (ws.EnvBranch("uat", "env/uat", True, True),)
+
+
+# ---------------------------------------------------------------- a branch from the one here
+
+
+def test_a_branch_starts_from_the_checked_out_branch(repo: ChainRepo) -> None:
+    git(repo.root, "switch", "-q", "-c", "env/uat")
+    describe(repo, "as uat has it")
+    tip = commit_all(repo.root, "fix: what uat has")
+
+    assert ws.start_branch(repo, "work/uat-next") == "Started work/uat-next from env/uat"
+
+    state = ws.workspace(repo)
+    assert (state.branch, state.editable, state.head) == ("work/uat-next", True, tip)
+    assert git(repo.root, "rev-parse", "main") != tip  # not from the trunk
+    assert state.branches == (ws.Branch("work/uat-next", True, False),)
+
+
+def test_uncommitted_changes_follow_into_the_new_branch_and_are_said(repo: ChainRepo) -> None:
+    ws.start_release(repo, "march")
+    describe(repo, "draft")
+
+    message = ws.start_branch(repo, "spike")
+
+    assert message == "Started spike from release/march, with its 1 uncommitted chain file"
+    state = ws.workspace(repo)
+    assert (state.branch, state.changes) == ("spike", 1)
+
+
+def test_a_branch_starts_from_a_detached_head_too(repo: ChainRepo) -> None:
+    git(repo.root, "switch", "-q", "--detach", "main")
+    short = git(repo.root, "rev-parse", "--short", "HEAD")
+
+    assert ws.start_branch(repo, "spike") == f"Started spike from {short}"
+
+
+@pytest.mark.parametrize(
+    ("name", "why"),
+    [
+        ("", "invalid branch name ''"),
+        ("two words", "invalid branch name"),
+        ("-x", "invalid branch name"),
+        ("a..b", "invalid branch name"),
+        ("x.lock", "invalid branch name"),
+        ("work/", "invalid branch name"),
+        ("@{-1}", "invalid branch name"),
+        ("main", "main already exists: switch to it"),
+        ("release/march", "release/march already exists: switch to it"),
+        ("master", "master is a protected branch"),
+        ("map", "map is the branch of the map"),
+        ("env/uat-next", "env/ holds the branches of the environments"),
+        ("release/april", "a release starts from main"),
+    ],
+)
+def test_names_a_new_branch_cannot_have(repo: ChainRepo, name: str, why: str) -> None:
+    ws.start_release(repo, "march")
+
+    with pytest.raises(GitError, match=re.escape(why)):
+        ws.start_branch(repo, name)
+
+    assert ws.workspace(repo).branch == "release/march"
+
+
+def test_the_workspace_lists_the_other_branches(repo: ChainRepo, tmp_path: Path) -> None:
+    assert ws.workspace(repo).branches == ()
+
+    ws.start_release(repo, "march")
+    for name in ("env/uat", "map", "work/uat-next", "spike"):
+        git(repo.root, "branch", name)
+    here = ws.workspace(repo)
+
+    # not the trunk, an environment's, a release or the map
+    assert here.branches == (
+        ws.Branch("spike", True, False),
+        ws.Branch("work/uat-next", True, False),
+    )
+    assert here.to_json()["branches"][0] == {"branch": "spike", "local": True, "remote": False}
+
+    origin = add_remote(repo, tmp_path)
+    git(repo.root, "push", "-q", "origin", "work/uat-next")
+    teammate = clone(origin, tmp_path)
+
+    assert ws.workspace(teammate).branches == (ws.Branch("work/uat-next", False, True),)
+    with pytest.raises(GitError, match="work/uat-next already exists on origin: switch to it"):
+        ws.start_branch(teammate, "work/uat-next")
+    assert ws.switch(teammate, "work/uat-next") == "Switched to work/uat-next"
+    assert ws.workspace(teammate).branches == (ws.Branch("work/uat-next", True, True),)
 
 
 def test_workspace_as_json(repo: ChainRepo) -> None:

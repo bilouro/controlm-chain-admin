@@ -51,5 +51,6 @@
   "upstream": null,
   "ahead": 0,
   "behind": 0,
-  "env_branches": []
+  "env_branches": [],
+  "branches": []
 }

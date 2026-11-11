@@ -169,6 +169,74 @@ describe("BranchButton", () => {
     ]);
   });
 
+  it("starts a branch from the branch that is checked out", async () => {
+    server.use(http.get("/api/workspace", () => HttpResponse.json(workspaceEnvs)));
+    const user = userEvent.setup();
+    renderAt(<BranchButton />);
+    await user.click(await screen.findByRole("button", { name: /env\/bench/ }));
+    const dialog = await screen.findByRole("dialog", { name: "Releases" });
+    const section = within(dialog).getByRole("region", { name: "New branch" });
+    const start = within(section).getByRole("button", { name: "Start branch" });
+
+    expect(section).toHaveTextContent(
+      "from env/bench: a branch of your own, to import an export onto (Refresh) and compare with env/bench",
+    );
+    expect(section).not.toHaveTextContent("uncommitted");
+    expect(start).toBeDisabled();
+    await user.type(within(section).getByLabelText("New branch name"), " work/bench-next ");
+    await user.click(start);
+
+    expect(await within(dialog).findByRole("status")).toHaveTextContent(
+      "Started work/bench-next from env/bench",
+    );
+    expect(calls.workspace).toEqual([{ action: "branch", body: { name: "work/bench-next" } }]);
+    expect(within(section).getByLabelText("New branch name")).toHaveValue("");
+  });
+
+  it("says that the uncommitted files go with the new branch", async () => {
+    const { dialog } = await openDialog();
+    const section = within(dialog).getByRole("region", { name: "New branch" });
+
+    expect(section).toHaveTextContent(
+      "from release/demo, with your 1 uncommitted chain file: a branch of your own",
+    );
+    // no branch per environment here, so no export goes onto a branch of one's own
+    expect(section).not.toHaveTextContent("Refresh");
+  });
+
+  it("lists the other branches and switches to one", async () => {
+    server.use(
+      http.get("/api/workspace", () =>
+        HttpResponse.json({
+          ...workspaceEnvs,
+          branch: "work/uat-next",
+          branches: [
+            { branch: "work/shared", local: false, remote: true },
+            { branch: "work/uat-next", local: true, remote: false },
+          ],
+        }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderAt(<BranchButton />);
+    await user.click(await screen.findByRole("button", { name: /work\/uat-next/ }));
+    const dialog = await screen.findByRole("dialog", { name: "Releases" });
+    const branches = within(dialog).getByRole("table", { name: "Releases" });
+
+    expect(within(branches).getByRole("row", { name: /work\/uat-next/ })).toHaveTextContent(
+      "checked out",
+    );
+    const shared = within(branches).getByRole("row", { name: /work\/shared/ });
+    expect(shared).toHaveTextContent("branch · on the remote only");
+    await user.click(within(shared).getByRole("button", { name: "Switch to work/shared" }));
+
+    await waitFor(() =>
+      expect(calls.workspace).toEqual([
+        { action: "switch", body: { branch: "work/shared", stash: false } },
+      ]),
+    );
+  });
+
   it("without environment branches the dialog does not speak of them", async () => {
     const { dialog } = await openDialog();
 

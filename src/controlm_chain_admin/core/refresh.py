@@ -4,6 +4,11 @@ Each environment has a branch (the trunk for production, ``env/<name>`` for the 
 holds what its last full export said, and nothing else. A refresh shows what the new export
 differs in from the branch; applied, the export overwrites the branch: folders and jobs it no
 longer has go, and the branch exports the same bytes again.
+
+An export can also go onto the checked-out branch when that is somebody's work (a branch
+started from an environment's, to see what an export brings before the environment's own
+branch takes it): the environment's branch stays as it is, and the two can be compared.
+There a partial export is taken too: the folders it does not have stay.
 """
 
 from __future__ import annotations
@@ -12,14 +17,24 @@ import shutil
 import tempfile
 from collections.abc import Iterator
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
 from controlm_chain_admin.core.compare import Comparison, diff_snapshots
 from controlm_chain_admin.core.compare import render_text as compare_render
-from controlm_chain_admin.core.environments import branch_exists, branch_of_env, current_branch
-from controlm_chain_admin.core.errors import ChainError, GitError, UncommittedChanges
+from controlm_chain_admin.core.environments import (
+    branch_exists,
+    branch_of_env,
+    current_branch,
+    env_of_ref,
+)
+from controlm_chain_admin.core.errors import (
+    ChainError,
+    GitError,
+    ProtectedBranch,
+    UncommittedChanges,
+)
 from controlm_chain_admin.core.history import RefInfo, _git, chain_changes, resolve, snapshot
 from controlm_chain_admin.core.intake import detect_env
 from controlm_chain_admin.core.ops import ImportReport, import_xml
@@ -32,7 +47,7 @@ _CHAIN = ("chain.json", "folders", "meta", "envs")
 
 @dataclass(frozen=True)
 class Refresh:
-    """What a full export changes on the branch of its environment."""
+    """What an export changes on the branch it goes onto: its environment's, unless asked."""
 
     env: str
     branch: str
@@ -45,6 +60,13 @@ class Refresh:
     applied: bool = False
     commit: str | None = None
     empty: bool = False  # the branch is there and holds no folder yet (the trunk, at first)
+    work: bool = False  # the branch is somebody's work, not the environment's own
+    partial: bool = False  # the folders the export does not have stay
+
+    @property
+    def subject(self) -> str:
+        """The message of the commit that holds the export."""
+        return f"{'import' if self.work else 'refresh'}({self.env}): {self.source}"
 
     @property
     def unchanged(self) -> bool:
@@ -58,6 +80,8 @@ class Refresh:
         return {
             "env": self.env,
             "branch": self.branch,
+            "work": self.work,
+            "partial": self.partial,
             "new_branch": self.new_branch,
             "source": self.source,
             "evidence": list(self.evidence),
@@ -93,6 +117,30 @@ def _environment(repo: ChainRepo, data: bytes, env: str | None) -> tuple[str, tu
             f"the export looks like {detected}, not {env} (" + "; ".join(evidence) + ")"
         )
     return env, evidence
+
+
+def _target(repo: ChainRepo, env: str, here: bool, partial: bool) -> tuple[str, bool]:
+    """The branch the export goes onto, and whether that is somebody's work: the branch of
+    the environment, or with ``here`` the checked-out one when it holds no environment."""
+    config = repo.config
+    own = branch_of_env(config, env)
+    current = current_branch(repo.root)
+    if not here or current == own:
+        if partial:
+            raise ChainError(
+                f"{own} holds the full export of {env}: a partial export goes onto a branch "
+                f"of your own (start one from {own})"
+            )
+        return own, False
+    if current is None:
+        raise GitError("HEAD is detached: check a branch out to import the export onto it")
+    holder = env_of_ref(repo.root, config, current)
+    if holder is not None:
+        raise ChainError(f"{current} holds {holder}: an export of {env} goes onto {own}")
+    reason = config.git_rules.refusal(current)
+    if reason:
+        raise ProtectedBranch(reason)
+    return current, True
 
 
 def _copy(source: Path, target: Path, names: tuple[str, ...]) -> None:
@@ -168,18 +216,24 @@ def refresh(
     env: str | None = None,
     apply: bool = False,
     commit: bool = True,
+    here: bool = False,
+    partial: bool = False,
 ) -> Refresh:
     """What the full export ``data`` changes on the branch of its environment.
 
     With ``apply`` the branch is checked out (created from the trunk when it is not there),
     the export overwrites its chain files and the result is committed (left in the working
     tree with ``commit=False``). The same export again changes nothing.
+
+    With ``here`` the export goes onto the checked-out branch instead, which must be
+    somebody's work (no environment's branch but the export's own, no protected one); there
+    ``partial`` keeps the folders the export does not have.
     """
     repo = load_repo(repo.root)
     root = repo.root
     env, evidence = _environment(repo, data, env)
     rules = repo.config.git_rules
-    branch = branch_of_env(repo.config, env)
+    branch, work = _target(repo, env, here, partial)
     exists = branch_exists(root, branch)
     if apply and chain_changes(root):
         count = chain_changes(root)
@@ -191,8 +245,8 @@ def refresh(
         tempfile.TemporaryDirectory(prefix="ctmchain-refresh-") as tmp,
     ):
         imported = Path(tmp)
-        _copy(held, imported, _RULES)
-        report = import_xml(load_repo(imported), data, env, replace_all=True)
+        _copy(held, imported, _CHAIN if partial else _RULES)
+        report = import_xml(load_repo(imported), data, env, replace_all=not partial)
         folders, jobs, links, constants, rules_changed, meta, exceptions = diff_snapshots(
             held, imported
         )
@@ -206,14 +260,13 @@ def refresh(
         )  # fmt: skip
         empty = exists and not any((held / "folders").glob("*/folder.json"))
         result = Refresh(env, branch, not exists, source, evidence, comparison, changed,
-                         report, empty=empty)  # fmt: skip
+                         report, empty=empty, work=work, partial=partial)  # fmt: skip
         if not apply or result.unchanged:
             return result
         _switch(root, branch, rules.trunk, exists)
         _install(imported, root)
-    sha = _commit(root, f"refresh({env}): {source}") if commit else None
-    return Refresh(env, branch, not exists, source, evidence, comparison, changed, report,
-                   applied=True, commit=sha, empty=empty)  # fmt: skip
+    sha = _commit(root, result.subject) if commit else None
+    return replace(result, applied=True, commit=sha)
 
 
 def _counts(summary: dict[str, Any]) -> list[str]:
@@ -228,10 +281,13 @@ def _counts(summary: dict[str, Any]) -> list[str]:
 def render_text(result: Refresh, *, stat: bool = False) -> str:
     """The refresh for a terminal: what the export holds, what differs, what was done."""
     report = result.report
+    what = f"Import onto {result.branch}" if result.work else f"Refresh {result.branch}"
     lines = [
-        f"Refresh {result.branch} ({result.env}) from {result.source}: "
+        f"{what} ({result.env}) from {result.source}: "
         f"{len(report.folders)} folders, {report.jobs} jobs in the export"
     ]
+    if result.partial:
+        lines.append("  a partial export: the folders it does not have stay")
     if result.new_branch:
         lines.append(f"  {result.branch} is a new branch, from the rules of the trunk")
     if result.empty:
@@ -258,10 +314,14 @@ def render_text(result: Refresh, *, stat: bool = False) -> str:
         body = compare_render(comparison).split("\n")[1:]
         lines += [line for line in body if not line.startswith("(")]
     lines.append("")
-    if not result.applied:
+    if not result.applied and result.partial:
+        lines.append(
+            f"Nothing written: --apply rewrites the folders of this export on {result.branch}."
+        )
+    elif not result.applied:
         lines.append(f"Nothing written: --apply overwrites {result.branch} with this export.")
     elif result.commit:
-        lines.append(f"Committed on {result.branch}: refresh({result.env}): {result.source}")
+        lines.append(f"Committed on {result.branch}: {result.subject}")
     else:
         lines.append(
             f"Written on {result.branch}, not committed: review with git diff, then commit."

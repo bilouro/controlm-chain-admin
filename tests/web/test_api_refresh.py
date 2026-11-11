@@ -13,7 +13,15 @@ from controlm_chain_admin.core.ops import export_xml
 from controlm_chain_admin.core.repo import load_repo
 from controlm_chain_admin.web.app import create_app
 from controlm_chain_admin.web.settings import Settings
-from tests.support.fourenvs import CHAIN, export_of, four_branches, own, uat_ahead
+from tests.support.fourenvs import (
+    CHAIN,
+    INGEST,
+    export_of,
+    four_branches,
+    own,
+    uat_ahead,
+    without_folder,
+)
 from tests.support.gitrepo import git, plain_git_identity
 
 XML = {"X-Ctmchain-Token": "t", "Content-Type": "application/xml"}
@@ -51,6 +59,7 @@ def test_the_preview_says_the_environment_and_what_differs_and_writes_nothing(
     assert (body["env"], body["branch"], body["source"]) == ("uat", "env/uat", "uat.xml")
     assert (body["applied"], body["unchanged"], body["new_branch"]) == (False, False, False)
     assert body["commit"] is None and body["files_changed"] == 12
+    assert (body["work"], body["partial"]) == (False, False)
     assert body["imported"]["folders"] == 3 and body["imported"]["jobs"] == 12
     assert "carry the letter U of uat" in body["evidence"][0]
     comparison = body["comparison"]
@@ -130,3 +139,60 @@ def test_apply_is_refused_over_uncommitted_chain_changes(api: TestClient, root: 
 
     assert response.status_code == 409 and response.json()["error"] == "UncommittedChanges"
     assert git(root, "branch", "--show-current").strip() == "main"
+
+
+def test_an_export_goes_onto_the_checked_out_branch_when_asked(
+    api: TestClient, root: Path
+) -> None:
+    git(root, "switch", "-q", "-c", "work/uat-next", "env/uat")
+    before = _sha(root, "env/uat")
+    params = {"source": "uat-2.xml", "here": True}
+
+    preview = api.post("/api/refresh/preview", content=NEWER, params=params, headers=XML).json()
+
+    assert (preview["env"], preview["branch"], preview["applied"]) == (
+        "uat", "work/uat-next", False,
+    )  # fmt: skip
+    assert (preview["work"], preview["partial"]) == (True, False)
+    assert preview["comparison"]["base"]["name"] == "work/uat-next"
+    assert preview["comparison"]["summary"]["jobs"]["added"] == 3
+
+    body = api.post("/api/refresh/apply", content=NEWER, params=params, headers=XML).json()
+
+    assert (body["applied"], body["branch"]) == (True, "work/uat-next")
+    assert body["commit"] == _sha(root, "work/uat-next") and _sha(root, "env/uat") == before
+    assert git(root, "log", "-1", "--format=%s").strip() == "import(uat): uat-2.xml"
+    compared = api.get("/api/compare", params={"base": "env/uat", "head": "work/uat-next"})
+    assert compared.status_code == 200
+    assert compared.json()["summary"]["jobs"]["added"] == 3
+
+
+def test_a_partial_export_leaves_the_other_folders_on_the_checked_out_branch(
+    api: TestClient, root: Path
+) -> None:
+    git(root, "switch", "-q", "-c", "work/delivery", "env/uat")
+    delivery = without_folder(export_of("uat"), "UP77_INGEST_DAILY").replace(b"c.ksh", b"c2.ksh")
+    params = {"here": True, "partial": True}
+
+    body = api.post("/api/refresh/apply", content=delivery, params=params, headers=XML).json()
+
+    assert (body["applied"], body["work"], body["partial"]) == (True, True, True)
+    assert body["comparison"]["summary"]["folders"]["removed"] == 0
+    assert [j["node"] for j in body["comparison"]["jobs"]] == [f"{CHAIN}/P77_C"]
+    assert (root / "folders" / INGEST / "folder.json").is_file()
+
+
+def test_the_checked_out_branch_of_another_environment_refuses_the_export(
+    api: TestClient, root: Path
+) -> None:
+    refused = api.post("/api/refresh/preview", content=NEWER, params={"here": True}, headers=XML)
+
+    assert refused.status_code == 400
+    assert refused.json()["message"] == "main holds prod: an export of uat goes onto env/uat"
+    partial = api.post(
+        "/api/refresh/preview", content=NEWER, params={"partial": True}, headers=XML
+    )
+    assert partial.status_code == 400 and "full export of uat" in partial.json()["message"]
+    git(root, "switch", "-q", "-c", "master", "env/uat")
+    protected = api.post("/api/refresh/apply", content=NEWER, params={"here": True}, headers=XML)
+    assert protected.status_code == 409 and protected.json()["error"] == "ProtectedBranch"

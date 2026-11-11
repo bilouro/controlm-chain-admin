@@ -34,5 +34,6 @@
       "local": true,
       "remote": false
     }
-  ]
+  ],
+  "branches": []
 }

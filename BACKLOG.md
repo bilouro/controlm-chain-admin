@@ -274,7 +274,15 @@ or addresses anywhere in this public repository.
     `compare`; `take` a capability like the others (previewed, then applied into the branch
     checked out); the Kilo agent and skill know the model. Timed on the real application in
     four environments: every tool answers in 3 to 7 s.
-22. **The commands of the one-base model — to decide**: `receive`, `check`, `release`,
+22. **A branch of one's own — DONE (2026-11-11)**, asked by the author (a branch from uat's,
+    an export onto it, uat compared with it): *New branch* in the branch dialog, from the
+    branch that is checked out (`POST /api/workspace/branch`; the dialog lists such branches);
+    `refresh --here [--partial]` and the *Onto* choice of the *Refresh* page put an export,
+    whole or some folders only, onto the checked-out branch and leave the environment's as it
+    is; the page links to *Compare* of the two. Also since 0.3.0: every environment's branch
+    in the dialog, a *Theme* selector (day colours unless asked), the *View* selector only in
+    the one-base model. The Playwright run covers it.
+23. **The commands of the one-base model — to decide**: `receive`, `check`, `release`,
     `env constants`, `override` stay for repositories of that model; remove them, or keep
     them, once nobody uses one.
 

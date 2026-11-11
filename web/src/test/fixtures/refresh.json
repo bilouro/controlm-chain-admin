@@ -1,11 +1,11 @@
 {
   "env": "uat",
   "branch": "env/uat",
+  "work": false,
+  "partial": false,
   "new_branch": false,
   "source": "uat_export.xml",
-  "evidence": [
-    "18 folder and job names carry the letter U of uat"
-  ],
+  "evidence": ["18 folder and job names carry the letter U of uat"],
   "files_changed": 2,
   "unchanged": false,
   "applied": false,

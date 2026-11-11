@@ -6,6 +6,27 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- A branch of your own, to try an export before it reaches the branch of its environment.
+  The branch dialog of the web UI has *New branch*: the name given (`work/uat-next`) is
+  created from whatever is checked out, `env/uat` say, and checked out (uncommitted chain
+  files go with it, and the answer says so). `POST /api/workspace/branch`; the trunk, the
+  map, `env/` and `release/` are not names for it. The dialog lists such branches, on the
+  remote only too, with *Switch* (`branches` in `GET /api/workspace`).
+- An export goes onto the checked-out branch instead of the branch of its environment:
+  `ctmchain refresh <export.xml> --here`, and in the web UI the *Onto* choice of the
+  *Refresh* page, which is there (and set to the checked-out branch) on a branch of your
+  own. The branch of the environment is not touched, so *Compare* `env/uat` with
+  `work/uat-next` shows what the export brings: the page links to it once the export is
+  in. The commit is `import(<env>): <file>`. A branch that holds an environment takes the
+  full export of that environment only, and a protected branch or a detached HEAD none.
+- `--partial` (with `--here`; *The export holds some folders only* in the web UI): the
+  folders of the export are rewritten and the others stay, for the export of one folder or
+  of a delivery. Refused on the branch of an environment, which holds its full export.
+  `here` and `partial` are query parameters of `POST /api/refresh/preview` and `/apply`,
+  and the answer says `work` and `partial`.
+
 ### Changed
 
 - The web UI shows the day colours unless asked: a *Theme* selector in the header (day, night,

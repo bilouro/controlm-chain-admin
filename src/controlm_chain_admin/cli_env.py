@@ -44,6 +44,17 @@ def add_commands(commands: Any) -> None:
     ref.add_argument(
         "--no-commit", action="store_true", help="with --apply: leave the result uncommitted"
     )
+    ref.add_argument(
+        "--here",
+        action="store_true",
+        help="onto the checked-out branch, not the environment's: a branch of your own, "
+        "started from an environment's, that can then be compared with it",
+    )
+    ref.add_argument(
+        "--partial",
+        action="store_true",
+        help="with --here: the export holds some folders only; the others stay",
+    )
     ref.add_argument("--stat", action="store_true", help="counts only, not every difference")
     ref.add_argument("--format", choices=("text", "json"), default="text")
     _repo_option(ref)
@@ -104,6 +115,8 @@ def cmd_refresh(args: argparse.Namespace) -> int:
         env=args.env,
         apply=args.apply,
         commit=not args.no_commit,
+        here=args.here,
+        partial=args.partial,
     )
     if args.format == "json":
         print(json.dumps(result.to_json(), indent=2, ensure_ascii=False))
