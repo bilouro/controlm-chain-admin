@@ -32,7 +32,7 @@ def _package(
     env: str | None = Query(
         None,
         description="target environment, e.g. uat; between the branches of two environments "
-        "it is the base's and may be left out",
+        "it is the base's and may be left out, like between two branches of one environment",
     ),
     take: list[str] | None = Query(
         None,

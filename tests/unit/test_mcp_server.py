@@ -16,7 +16,7 @@ from mcp import Client, StdioServerParameters
 from controlm_chain_admin.core.kilo import AGENT_FILE, CONFIG, kilo_files
 from controlm_chain_admin.core.refactor import apply, set_attributes
 from controlm_chain_admin.core.repo import ChainRepo, load_repo, read_json
-from controlm_chain_admin.mcpserver import build_server
+from controlm_chain_admin.mcpserver import ChainTools, build_server
 from tests.support.fourenvs import (
     CHAIN,
     LETTERS,
@@ -25,6 +25,7 @@ from tests.support.fourenvs import (
     two_users_in,
     uat_ahead,
     with_map,
+    without_folder,
 )
 from tests.support.gitrepo import chain_git_repo, commit_all, git, plain_git_identity
 
@@ -417,6 +418,44 @@ def test_refresh_shows_what_an_export_brings_and_writes_nothing(
     assert missing.is_error and "nowhere.xml" in missing.content[0].text
     assert git(envs.root, "rev-parse", UAT) == before
     assert git(envs.root, "branch", "--show-current") == BENCH
+
+
+def test_refresh_onto_the_branch_of_one_s_own_whole_or_some_folders(
+    envs: ChainRepo, tmp_path: Path
+) -> None:
+    whole, some = tmp_path / "next.xml", tmp_path / "delivery.xml"
+    whole.write_bytes(uat_ahead("uat", export_of("uat")).replace(b"a2.ksh -x", b"a3.ksh"))
+    some.write_bytes(without_folder(whole.read_bytes(), "UP77_INGEST_DAILY"))
+    on_bench = _call(envs.root, "refresh", {"xml": str(whole), "here": True})
+    git(envs.root, "switch", "-q", "-c", "work/uat-next", UAT)
+    before = git(envs.root, "rev-parse", "HEAD")
+
+    onto = _data(_call(envs.root, "refresh", {"xml": str(whole), "here": True}))
+    part = _data(_call(envs.root, "refresh", {"xml": str(some), "here": True, "partial": True}))
+    alone = _call(envs.root, "refresh", {"xml": str(some), "partial": True})
+
+    assert onto.startswith("Import onto work/uat-next (uat) from next.xml: 3 folders, 12 jobs")
+    assert "CMDLINE: /opt/p77/bin/a2.ksh -x -> /opt/p77/bin/a3.ksh" in onto
+    assert "ctmchain refresh FILE --here --apply" in onto and "env/uat stays as it is" in onto
+    assert "a partial export: the folders it does not have stay" in part
+    assert "ctmchain refresh FILE --here --partial --apply" in part
+    assert "removed" not in part  # the folder it lacks stays
+    assert on_bench.is_error and "env/bench holds bench" in on_bench.content[0].text
+    assert alone.is_error and "a branch of your own" in alone.content[0].text
+    assert git(envs.root, "rev-parse", "HEAD") == before
+    assert git(envs.root, "status", "--porcelain") == ""
+
+
+def test_the_assistant_is_told_about_a_branch_of_one_s_own(envs: ChainRepo) -> None:
+    server = build_server(envs.root)
+    described = ChainTools(envs.root).descriptions()["refresh"]
+    agent = kilo_files(envs.root, sys.executable)[AGENT_FILE]
+
+    assert "here=true" in described and "partial=true" in described
+    for text in (server.instructions or "", agent):
+        flat = " ".join(text.split())
+        assert "here=true" in flat and "partial=true" in flat
+        assert "the environment of the last export" in flat
 
 
 def test_the_server_runs_over_stdio(repo: ChainRepo) -> None:

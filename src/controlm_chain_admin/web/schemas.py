@@ -397,6 +397,11 @@ class ComparisonOut(BaseModel):
         description="[the base's environment, the head's] when the two refs are the branches "
         "of two environments; null otherwise",
     )
+    environment: str | None = Field(
+        None,
+        description="the one environment both refs hold, where each environment has its "
+        "branch: what a package of the two is for; null otherwise",
+    )
     translation: TranslationOut | None = Field(
         None,
         description="between two environments: what was read in the base's terms before "

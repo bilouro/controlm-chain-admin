@@ -184,6 +184,12 @@ them: what is left is what really differs.
 4. ctmchain_refresh with the path of a full export says what it would change in the branch
    of its environment. The user applies it (ctmchain refresh FILE --apply): it switches the
    branch and commits, which these tools never do.
+5. Any other branch is the user's own work. It holds the environment of the last export put
+   onto it, else of the branch it started from, and the tools above read it like that
+   environment's branch. ctmchain_refresh with here=true says what an export would change in
+   the branch checked out, and the branch of the environment stays as it is; add
+   partial=true when the export holds some folders only (the others stay). The user applies
+   it: ctmchain refresh FILE --here --apply, with --partial for some folders only.
 
 ## Local words
 

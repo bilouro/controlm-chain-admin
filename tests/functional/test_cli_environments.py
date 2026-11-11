@@ -203,12 +203,12 @@ def test_package_for_another_environment_than_the_base_is_refused(
     assert code == 3 and "env/bench holds bench" in err
 
 
-def test_package_of_one_environment_needs_to_be_told_which(
+def test_package_of_one_environment_is_for_it(
     root: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    code, _, err = _run(capsys, "package", "main", "--worktree", "--repo", str(root))
+    code, out, _ = _run(capsys, "package", "main", "--worktree", "--repo", str(root))
 
-    assert code == 3 and "which environment" in err
+    assert code == 0 and "for prod" in out
 
 
 # ---------------------------------------------------------------- a value the map cannot settle

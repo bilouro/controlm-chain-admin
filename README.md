@@ -53,6 +53,7 @@ repository of small JSON files:
 | Export an environment again and see what changed before accepting it | `ctmchain refresh uat.xml` (nothing is written), then `--apply` |
 | Try an export (whole, or some folders with `--partial`) on a branch of your own and compare it with the environment's | `git switch -c work/uat-next env/uat`, `ctmchain refresh uat-new.xml --here --apply`, `ctmchain compare env/uat work/uat-next` |
 | Carry what a branch of your own holds to another environment: it is read as the environment it started from | `ctmchain compare env/bench work/uat-next`, `ctmchain package env/bench work/uat-next --take folder:F -o bench_import.xml` |
+| The import file of what a branch of your own changes in its own environment (no `--env`: both hold uat) | `ctmchain package env/uat work/uat-next -o uat_import.xml` |
 | Know what is expected to differ between environments, without it belonging to any of them | `ctmchain envmap derive --apply`, `ctmchain envmap show` (kept on the branch `map`) |
 | Compare two environments by their real differences | `ctmchain compare main env/uat` (`--raw`: as stored) |
 | Take one attribute, one variable, one job, one folder or a sub-application into another environment's branch | `ctmchain take env/uat --list`, `ctmchain take env/uat --item job:F/J --apply` |
@@ -309,7 +310,11 @@ agent: the gate, then a data repository from the exports.
   that prod has not?", "take the new job of uat into bench", "the import file for production
   with that folder" (it compares, lists what can be taken, takes into the branch checked out,
   and writes the import file once you agree; it never switches a branch, commits or applies
-  an export). `ctmchain kilo init` sets Kilo up with an agent that may use those tools only.
+  an export). On a branch of your own it also says what an export, whole or some folders
+  only, would change there ("what does delivery.xml change on this branch?"), and tells you
+  the `refresh --here` command that applies it. `ctmchain kilo init` sets Kilo up with an
+  agent that may use those tools only; after an upgrade, `ctmchain kilo init --force` gives
+  the agent the rules of the new version (your `vocabulary.md` is kept).
   The assistant's model reads the names and fields of your jobs: use one your company allows.
 - **`--format json`** wherever a report is printed, for scripts and agents; exit codes 0 (ok),
   1 (findings), 2 (usage), 3 (error).

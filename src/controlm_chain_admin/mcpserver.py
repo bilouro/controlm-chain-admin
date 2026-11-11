@@ -32,15 +32,17 @@ from controlm_chain_admin.core.capabilities import (
 from controlm_chain_admin.core.capabilities import preview_id as id_of
 from controlm_chain_admin.core.compare import compare as compare_refs
 from controlm_chain_admin.core.compare import render_text
+from controlm_chain_admin.core.environments import branch_of_env
 from controlm_chain_admin.core.envmap import show_map
 from controlm_chain_admin.core.errors import ChainError, ChangeConflict, TakeConflict
 from controlm_chain_admin.core.links import folder_names
 from controlm_chain_admin.core.lookup import describe_node, find_condition, find_nodes
 from controlm_chain_admin.core.package import Package, build_package, save
 from controlm_chain_admin.core.refactor import apply as apply_change
+from controlm_chain_admin.core.refresh import Refresh
 from controlm_chain_admin.core.refresh import refresh as refresh_env
 from controlm_chain_admin.core.refresh import render_text as render_refresh
-from controlm_chain_admin.core.repo import load_repo
+from controlm_chain_admin.core.repo import ChainRepo, load_repo
 from controlm_chain_admin.core.take import conflict_line
 from controlm_chain_admin.core.take import takeable as takeable_items
 from controlm_chain_admin.core.validate import validate as validate_repo
@@ -178,14 +180,22 @@ class ChainTools:
         path = save(package, self.root / (output or package.filename))
         return {"path": str(path), **_package_summary(package), "note": PACKAGE_NOTE}
 
-    def refresh(self, xml: str, env: str | None = None, lines: int = 200) -> str:
+    def refresh(
+        self,
+        xml: str,
+        env: str | None = None,
+        lines: int = 200,
+        here: bool = False,
+        partial: bool = False,
+    ) -> str:
         path = self.root / xml  # an absolute path stays as it is
         try:
             data = path.read_bytes()
         except OSError as exc:
             raise ChainError(f"cannot read the export {path}: {exc.strerror}") from exc
-        result = refresh_env(load_repo(self.root), data, source=path.name, env=env)
-        text = render_refresh(result) + REFRESH_NOTE
+        repo = load_repo(self.root)
+        result = refresh_env(repo, data, source=path.name, env=env, here=here, partial=partial)
+        text = render_refresh(result) + _refresh_note(result, repo)
         return cut_lines(text, lines, "ctmchain refresh FILE shows them all")
 
     def preview(self, steps: list[dict[str, Any]], diff_lines: int = 400) -> dict[str, Any]:
@@ -237,8 +247,11 @@ class ChainTools:
                              "repository directory). Never over an existing file; nothing in "
                              "the repository changes.",
             "refresh": "What the full export of one environment (xml: the path of the file) "
-                       "would change in the branch of that environment. A preview: only the "
-                       "user applies it.",
+                       "would change in the branch of that environment. here=true: in the "
+                       "branch checked out instead, a branch of the user's own, and the "
+                       "environment's stays as it is; partial=true with it: the export holds "
+                       "some folders only, the others stay. A preview: only the user applies "
+                       "it.",
             "preview": "Preview a change without writing: steps [{do: <capability>, params}] run "
                        f"in order as one change. Capabilities: {signatures}. Returns a "
                        "preview_id, each field before -> after, warnings and the diff.",
@@ -246,6 +259,19 @@ class ChainTools:
                      "the preview_id. Refused when the repository changed since; nothing is "
                      "committed.",
         }  # fmt: skip
+
+
+def _refresh_note(result: Refresh, repo: ChainRepo) -> str:
+    """How the user applies the export just previewed: onto the branch it was previewed on."""
+    if not result.work:
+        return REFRESH_NOTE
+    flags = "--here --partial" if result.partial else "--here"
+    own = branch_of_env(repo.config, result.env)
+    return (
+        f"The user applies it: the Refresh page (Onto: {result.branch}, checked out), or "
+        f"ctmchain refresh FILE {flags} --apply (it writes onto {result.branch} and commits; "
+        f"{own} stays as it is).\n"
+    )
 
 
 def _package_summary(package: Package) -> dict[str, Any]:

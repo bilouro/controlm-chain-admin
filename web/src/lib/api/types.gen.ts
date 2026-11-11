@@ -959,6 +959,11 @@ export interface components {
       /** Constants */
       constants: components["schemas"]["ConstantChangeOut"][];
       /**
+       * Environment
+       * @description the one environment both refs hold, where each environment has its branch: what a package of the two is for; null otherwise
+       */
+      environment?: string | null;
+      /**
        * Environments
        * @description [the base's environment, the head's] when the two refs are the branches of two environments; null otherwise
        */
@@ -3651,7 +3656,7 @@ export interface operations {
         base: string;
         /** @description head ref, or WORKTREE for uncommitted changes */
         head?: string;
-        /** @description target environment, e.g. uat; between the branches of two environments it is the base's and may be left out */
+        /** @description target environment, e.g. uat; between the branches of two environments it is the base's and may be left out, like between two branches of one environment */
         env?: string | null;
         /** @description package only these items of the comparison (repeat the parameter): the base with the items on it; no branch is changed */
         take?: string[] | null;
@@ -3717,7 +3722,7 @@ export interface operations {
         base: string;
         /** @description head ref, or WORKTREE for uncommitted changes */
         head?: string;
-        /** @description target environment, e.g. uat; between the branches of two environments it is the base's and may be left out */
+        /** @description target environment, e.g. uat; between the branches of two environments it is the base's and may be left out, like between two branches of one environment */
         env?: string | null;
         /** @description package only these items of the comparison (repeat the parameter): the base with the items on it; no branch is changed */
         take?: string[] | null;

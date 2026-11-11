@@ -88,10 +88,14 @@ def test_the_package_for_another_environment_than_the_base_is_refused(api: TestC
     assert response.status_code == 422 and "env/bench holds bench" in response.json()["message"]
 
 
-def test_a_package_of_one_environment_still_asks_which(api: TestClient) -> None:
+def test_a_package_of_one_environment_is_for_it(api: TestClient) -> None:
     response = api.get("/api/package", params={"base": BENCH, "head": "WORKTREE"})
+    same = api.get("/api/compare", params={"base": BENCH, "head": "WORKTREE"}).json()
+    pair = api.get("/api/compare", params={"base": BENCH, "head": UAT}).json()
 
-    assert response.status_code == 422 and "which environment" in response.json()["message"]
+    assert response.status_code == 200 and response.json()["env"] == "bench"
+    assert (same["environment"], same["environments"]) == ("bench", None)
+    assert pair["environment"] is None
 
 
 @pytest.mark.parametrize("api", [two_users_in("bench")], indirect=True)

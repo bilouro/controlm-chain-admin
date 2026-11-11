@@ -629,8 +629,10 @@ environment (§14), `envmap` (the environments, their branches, the map), `takea
 items of a comparison with the ids `take` accepts), `package` (what the import file of an
 environment would hold), `write_package` (writes that file, never over another; the only
 tool besides `apply` that writes, and asked like it) and `refresh` (what a full export would
-change in its branch: a preview, since applying it switches the branch and commits, which the
-assistant never does). `take` is a capability, so taking is a step previewed and applied like
+change in its branch, or with `here` in the branch checked out when that is somebody's work,
+`partial` for some folders only (§14.2): a preview either way, since applying it commits,
+and on the environment's branch switches to it, which the assistant never does; the answer
+ends with the command the user runs). `take` is a capability, so taking is a step previewed and applied like
 any change, into the branch checked out. A request is a list of
 steps `{do: <capability>, params}`, checked against the schema with a message that says what
 the capability takes, and run in order as one change set (`batch` when there are several
@@ -900,7 +902,7 @@ Environments as branches (§14)
 Comparison
 - `compare <base> [<head>] [--worktree] [--no-merge-base] [--commit <sha>...] [--real-only] [--raw] [--prefer ENTRY ...] [--format text|md|json]` — implemented: semantic comparison of two git refs of the repository (see §8). `head` defaults to `HEAD`; `--worktree` compares `base` with the uncommitted files; `--commit` keeps only those commits of head; `--real-only` leaves out what only calls a condition another name. Two environments' branches are compared whole, the head read in the terms of the base's environment (§14); `--raw` compares them as stored.
 - `take <head> [--base HEAD] [--item ID ...] [--theirs ID ...] [--prefer ENTRY ...] [--list] [--commit <sha>...] [--no-merge-base] [--apply] [--stat] [--format text|json]` — implemented: changes of another branch taken into the checked-out one, item by item (see §8); from another environment's branch they arrive in the terms of this one (§14). Items: `subapp:S`, `folder:F`, `job:F/J`, `attr:F/J@NAME`, `var:F/J@%%NAME`, `rel:...`, `group:...`. Refused on the trunk.
-- `package <base> [<head>] [--env <env>] [--take ID ...] [--prefer ENTRY ...] [--commit <sha>...] [--worktree] [--no-merge-base] [--jobnames original|deduped] [--names original|standard] [-o <file>] [--dry-run] [--format text|json]` — implemented: the Control-M import file with every changed folder, whole, and why (see §8). Between two environments' branches the target is the base's environment; `--take` packages the base with only those items on it, and changes no branch. Default file name `deploy_<env>_<head>[_<n>-of-<m>]_<date>.xml`.
+- `package <base> [<head>] [--env <env>] [--take ID ...] [--prefer ENTRY ...] [--commit <sha>...] [--worktree] [--no-merge-base] [--jobnames original|deduped] [--names original|standard] [-o <file>] [--dry-run] [--format text|json]` — implemented: the Control-M import file with every changed folder, whole, and why (see §8). Between two environments' branches the target is the base's environment, between two branches of one environment it is that one (`--env` not needed); `--take` packages the base with only those items on it, and changes no branch. Default file name `deploy_<env>_<head>[_<n>-of-<m>]_<date>.xml`.
 - `diff <A> <B>` — planned: A and B may be repo directories, `env:<name>` resolved views or XML files; XML↔XML goes through `xmldiffreport`.
 
 Refactorings
@@ -996,8 +998,11 @@ same way). Compared with the branch of *another* environment it is read like the
 own: whole, through the letter and the map (§14.4), so `compare main work/uat-next`,
 `take work/uat-next` into `env/bench` and `package env/bench work/uat-next` (for bench, no
 `--env`) give what `env/uat` would give if it held the same. With the branch of its own
-environment nothing changes: two branches along their history, nothing to translate, and
-`package` between the two is told the environment with `--env`. `--partial` is refused when
+environment nothing changes in what is compared: two branches along their history, nothing
+to translate. Their `package` is for that environment (`package env/uat work/uat-next`, no
+`--env`; one given is still obeyed), and the comparison names it (`environment`), which is
+what the *Compare* page offers in its selector; only where one tree holds every environment
+(§5) the refs do not tell and `--env` is asked for. `--partial` is refused when
 the export is of another environment than the branch holds (`work/x holds prod: some folders
 of uat would leave it with two environments`); the full export is not, and makes the branch
 that environment. The limit: the subject is the record, so an export left uncommitted
@@ -1099,7 +1104,8 @@ environment that has them.
 - Releases (`release start|installed|close`), `receive` and `check` belong to the model of §5.
   They still work on a repository of that model and are not part of this one: a release is
   what travels from one environment's branch to another (`take`, `package --take`).
-- The assistant (the MCP tools) previews a refresh and never applies one, and does not edit
+- The assistant (the MCP tools) previews a refresh, onto the environment's branch or onto
+  the branch checked out (`here`, `partial`), and never applies one, and does not edit
   the map; it never switches a branch or commits. The command line and the web UI do
   (§11, *One branch per environment*).
 - A three-way view (what UAT has that neither bench nor production has) is two comparisons.

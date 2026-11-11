@@ -500,6 +500,18 @@
             "title": "Constants",
             "type": "array"
           },
+          "environment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the one environment both refs hold, where each environment has its branch: what a package of the two is for; null otherwise",
+            "title": "Environment"
+          },
           "environments": {
             "anyOf": [
               {
@@ -5689,7 +5701,7 @@
             }
           },
           {
-            "description": "target environment, e.g. uat; between the branches of two environments it is the base's and may be left out",
+            "description": "target environment, e.g. uat; between the branches of two environments it is the base's and may be left out, like between two branches of one environment",
             "in": "query",
             "name": "env",
             "required": false,
@@ -5702,7 +5714,7 @@
                   "type": "null"
                 }
               ],
-              "description": "target environment, e.g. uat; between the branches of two environments it is the base's and may be left out",
+              "description": "target environment, e.g. uat; between the branches of two environments it is the base's and may be left out, like between two branches of one environment",
               "title": "Env"
             }
           },
@@ -5879,7 +5891,7 @@
             }
           },
           {
-            "description": "target environment, e.g. uat; between the branches of two environments it is the base's and may be left out",
+            "description": "target environment, e.g. uat; between the branches of two environments it is the base's and may be left out, like between two branches of one environment",
             "in": "query",
             "name": "env",
             "required": false,
@@ -5892,7 +5904,7 @@
                   "type": "null"
                 }
               ],
-              "description": "target environment, e.g. uat; between the branches of two environments it is the base's and may be left out",
+              "description": "target environment, e.g. uat; between the branches of two environments it is the base's and may be left out, like between two branches of one environment",
               "title": "Env"
             }
           },

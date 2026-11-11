@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from controlm_chain_admin.core.environments import held_env
+from controlm_chain_admin.core.environments import env_branches, held_env
 from controlm_chain_admin.core.errors import ChainError, GitError, SelectionConflict
 from controlm_chain_admin.core.history import (
     CommitInfo,
@@ -54,6 +54,8 @@ class Sides:
     translation: Translation | None = None
     #: (the base's environment, the head's) when the two sides are two environments
     environments: tuple[str, str] | None = None
+    #: the one environment both sides hold, where each environment has its branch
+    environment: str | None = None
 
     @property
     def applied(self) -> tuple[str, ...]:
@@ -174,6 +176,20 @@ def environments_of(root: Path, base: str, head: str) -> tuple[str, str] | None:
     return target, source
 
 
+def shared_env(root: Path, base: str, head: str) -> str | None:
+    """The environment both refs hold, in a repository with one branch per environment: two
+    branches of uat are uat's, so nobody has to say it. None where one tree holds every
+    environment (there the refs do not tell which one is meant)."""
+    try:
+        config = load_repo(root).config
+    except ChainError:
+        return None
+    if len(env_branches(root, config)) < 2:
+        return None
+    target = held_env(root, config, base)
+    return target if target is not None and target == held_env(root, config, head) else None
+
+
 @contextmanager
 def _across(
     root: Path,
@@ -246,16 +262,17 @@ def open_sides(
     history = commits_between(root, compared, head_commit) if base_info.sha else ()
     changes = {c.sha: file_changes(root, c.sha) for c in history if not c.merge}
     selected = select(root, history, commits)
+    shared = shared_env(root, base, head)
     if selected is None:
         with snapshot(root, compared) as base_root, snapshot(root, head) as head_root:
             yield Sides(
                 base_info, head_info, merge, compared, history, None, changes,
-                base_root, head_root,
+                base_root, head_root, environment=shared,
             )  # fmt: skip
         return
     files = overlay(root, compared, history, selected, changes)
     with snapshot(root, compared) as base_root, snapshot(root, compared, files) as head_root:
         yield Sides(
             base_info, head_info, merge, compared, history, selected, changes,
-            base_root, head_root,
+            base_root, head_root, environment=shared,
         )  # fmt: skip

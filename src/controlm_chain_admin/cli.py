@@ -378,7 +378,7 @@ def build_parser() -> argparse.ArgumentParser:
     pkg.add_argument(
         "--env",
         help="target environment, e.g. uat; not needed between two environments' branches "
-        "(it is the base's)",
+        "(it is the base's), nor between two branches of one environment",
     )
     pkg.add_argument(
         "--take",

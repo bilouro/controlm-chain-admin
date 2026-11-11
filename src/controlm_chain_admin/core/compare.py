@@ -172,6 +172,8 @@ class Comparison:
     translation: Translation | None = None
     #: (the base's environment, the head's) when the two sides are two environments
     environments: tuple[str, str] | None = None
+    #: the one environment both sides hold, where each environment has its branch
+    environment: str | None = None
 
     def summary(self) -> dict[str, Any]:
         def count(
@@ -222,6 +224,7 @@ class Comparison:
             "exceptions": [e.to_json() for e in self.exceptions],
             "translation": None if self.translation is None else self.translation.to_json(),
             "environments": None if self.environments is None else list(self.environments),
+            "environment": self.environment,
         }
 
 
@@ -781,7 +784,7 @@ def comparison(sides: Sides) -> Comparison:
         sides.base, sides.head, sides.merge_base, sides.commits,
         _attribute(folders, sides), _attribute(jobs, sides),
         links, constants, rules, meta, sides.selected, exceptions, sides.translation,
-        sides.environments,
+        sides.environments, sides.environment,
     )  # fmt: skip
 
 

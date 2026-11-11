@@ -25,7 +25,7 @@ from tests.support.fourenvs import (
     with_map,
     without_folder,
 )
-from tests.support.gitrepo import git, plain_git_identity
+from tests.support.gitrepo import chain_git_repo, git, plain_git_identity
 
 BENCH, UAT = "env/bench", "env/uat"
 MINE = "work/uat-next"
@@ -106,8 +106,38 @@ def test_its_package_for_another_environment_needs_no_env(tmp_path: Path) -> Non
     assert package.filename == f"deploy_bench_work-uat-next_{TODAY}.xml"
     with pytest.raises(ChainError, match="env/bench holds bench"):
         build_package(root, BENCH, MINE, env="prod", today=TODAY)
-    with pytest.raises(ChainError, match="which environment"):  # one environment on both sides
-        build_package(root, UAT, MINE, today=TODAY)
+
+
+def test_its_package_for_its_own_environment_needs_no_env_either(tmp_path: Path) -> None:
+    repo = four_branches(tmp_path)
+    with_map(repo)
+    root = repo.root
+    git(root, "switch", "-q", "-c", MINE, UAT)
+    refresh(
+        load_repo(root), uat_ahead("uat", export_of("uat")), source="next.xml", here=True,
+        apply=True,
+    )  # fmt: skip
+
+    same = compare(root, UAT, MINE)
+    package = build_package(root, UAT, MINE, today=TODAY)
+
+    assert (same.environments, same.environment) == (None, "uat")
+    assert same.to_json()["environment"] == "uat"
+    assert compare(root, BENCH, MINE).environment is None  # two environments: a pair instead
+    assert package.env == "uat" and b'JOBNAME="UP77_NEW"' in package.require_xml()
+    assert package.filename == f"deploy_uat_work-uat-next_{TODAY}.xml"
+    assert build_package(root, UAT, MINE, env="bench", today=TODAY).env == "bench"  # if asked
+
+
+def test_where_one_tree_holds_every_environment_the_package_still_asks_which(
+    tmp_path: Path,
+) -> None:
+    root = chain_git_repo(tmp_path).root
+    git(root, "checkout", "-q", "-b", "release/26.1")
+
+    assert compare(root, "main", "release/26.1").environment is None
+    with pytest.raises(ChainError, match="which environment"):
+        build_package(root, "main", "release/26.1", today=TODAY)
 
 
 def test_the_full_export_of_another_environment_makes_the_branch_that_environment(

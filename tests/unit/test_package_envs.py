@@ -76,11 +76,13 @@ def test_the_package_is_for_the_environment_of_the_base(tmp_path: Path) -> None:
         _package(repo, env="prod")
 
 
-def test_two_branches_of_one_environment_still_need_to_be_told_which(tmp_path: Path) -> None:
+def test_two_branches_of_one_environment_are_packaged_for_it(tmp_path: Path) -> None:
     repo = _repo(tmp_path)
+    git(repo.root, "branch", "work/prod-fix", "main")
 
-    with pytest.raises(ChainError, match="which environment"):
-        build_package(repo.root, "main", "main", today=TODAY)
+    package = build_package(repo.root, "main", "work/prod-fix", today=TODAY)
+
+    assert package.env == "prod" and package.folders == ()
 
 
 def test_only_what_was_chosen_goes_in_the_package(tmp_path: Path) -> None:

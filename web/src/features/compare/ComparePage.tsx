@@ -187,7 +187,11 @@ export function ComparePage() {
   const isRaw = between.raw && pair !== null;
   const environments = repo.data?.environments ?? [];
   const [chosenEnv, setChosenEnv] = useState<string | null>(null);
-  const env = chosenEnv ?? (environments.includes("uat") ? "uat" : (environments[0] ?? ""));
+  // two branches of one environment are packaged for it, unless another one is chosen
+  const env =
+    chosenEnv ??
+    comparison.data?.environment ??
+    (environments.includes("uat") ? "uat" : (environments[0] ?? ""));
   // the open package: of everything that differs (items null) or of the chosen items
   const [packaged, setPackaged] = useState<{ items: string[] | null } | null>(null);
   const [chosen, setChosen] = useState<string[]>([]);

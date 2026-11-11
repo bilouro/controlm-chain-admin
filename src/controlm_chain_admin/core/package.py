@@ -306,9 +306,10 @@ def _filename(env: str, sides: Sides, today: str, taken: Sequence[str] | None = 
 
 def _target(sides: Sides, env: str | None) -> str:
     """The environment the package is for: the base's when the two sides are two environments
-    (no other makes sense), the one asked for otherwise."""
+    (no other makes sense); otherwise the one asked for, else the one both sides hold."""
     across = sides.translation
     if across is None:
+        env = env or sides.environment
         if env is None:
             raise EnvironmentRequired(
                 f"which environment is the package for? {sides.base.name} and "

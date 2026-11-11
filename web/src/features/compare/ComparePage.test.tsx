@@ -245,6 +245,21 @@ describe("ComparePage", () => {
       .forEach((box) => expect(box).toBeDisabled());
   });
 
+  it("offers the package for the environment both branches hold", async () => {
+    server.use(
+      http.get("/api/compare", () => HttpResponse.json({ ...comparison, environment: "prod" })),
+    );
+    const user = userEvent.setup();
+    renderAt(<ComparePage />, { path: "/compare?base=main&head=work/prod-fix" });
+    await screen.findByLabelText("Environment");
+
+    await waitFor(() => expect(screen.getByLabelText("Environment")).toHaveValue("prod"));
+    await user.click(screen.getByRole("button", { name: "Generate XML" }));
+
+    await screen.findByRole("region", { name: "Import package" });
+    expect(calls.package[calls.package.length - 1]?.get("env")).toBe("prod");
+  });
+
   it("generates the import XML of the changed folders for an environment", async () => {
     const user = userEvent.setup();
     renderAt(<ComparePage />, { path: `/compare?commits=${middle}` });

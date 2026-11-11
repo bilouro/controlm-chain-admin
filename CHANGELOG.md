@@ -6,6 +6,24 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- The assistant knows a branch of your own. The `refresh` tool of the MCP server takes
+  `here` (what an export would change in the branch checked out, the environment's left as
+  it is) and `partial` (the export holds some folders only), like `ctmchain refresh --here
+  [--partial]`; it is still a preview, and its answer ends with the command that applies
+  it. The rules the assistant reads and the `controlm` agent of Kilo say what such a branch
+  holds and when to use the two. An agent written by an earlier version keeps its old
+  rules: run `ctmchain kilo init --force` once (`vocabulary.md` is kept).
+
+### Changed
+
+- `package` between two branches of one environment is for that environment: `ctmchain
+  package env/uat work/uat-next` no longer asks for `--env` (one given is still obeyed).
+  The comparison says which environment both sides hold (`environment`, in `--format json`
+  and `GET /api/compare`), and the *Compare* page starts its *Environment* selector there
+  instead of on uat. Where one tree holds every environment, `--env` is asked for as before.
+
 ## [0.3.2] - 2026-11-11
 
 ### Changed
