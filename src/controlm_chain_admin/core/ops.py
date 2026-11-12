@@ -13,7 +13,6 @@ link references become ``NAME`` attributes again.
 from __future__ import annotations
 
 import re
-import shutil
 from collections.abc import Collection, Mapping
 from dataclasses import dataclass, field, replace
 from typing import Any
@@ -55,6 +54,7 @@ from controlm_chain_admin.core.links import (
     write_names,
 )
 from controlm_chain_admin.core.membership import ENVS_KEY, belongs, environments_of, with_envs
+from controlm_chain_admin.core.memfs import remove_tree
 from controlm_chain_admin.core.model import XmlComment, XmlDeclaration, XmlDocument, XmlElement
 from controlm_chain_admin.core.overrides import Override, apply_override, load_overrides
 from controlm_chain_admin.core.repo import ChainRepo, load_repo, read_json, write_json
@@ -348,7 +348,7 @@ def import_xml(
     if replace_all:
         for directory in (repo.folders_dir, repo.export_meta_file.parent):
             if directory.exists():
-                shutil.rmtree(directory)
+                remove_tree(directory)
     existing_names = read_names(repo)  # names the user may have edited survive a re-import
     ids_by_name: dict[str, str] = {}
     for link_id, name in existing_names.items():
@@ -451,7 +451,7 @@ def _write_folder(
                 earlier[job_id] = read_json(repo.job_file(name, job_id))
         memberships = {key: environments_of(data) for key, data in earlier.items()}
     if folder_dir.exists():
-        shutil.rmtree(folder_dir)  # drop jobs that disappeared since the previous import
+        remove_tree(folder_dir)  # drop jobs that disappeared since the previous import
     env_values = repo.load_env(env).constants if env is not None and config.constants else {}
 
     def member(data: dict[str, Any], key: str) -> dict[str, Any]:

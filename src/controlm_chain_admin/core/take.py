@@ -31,7 +31,6 @@ the users, the machines and the condition names of the environment it arrives in
 
 from __future__ import annotations
 
-import shutil
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from pathlib import Path
@@ -50,10 +49,12 @@ from controlm_chain_admin.core.environments import current_branch
 from controlm_chain_admin.core.errors import InvalidChange, TakeConflict
 from controlm_chain_admin.core.history import resolve
 from controlm_chain_admin.core.links import INDEX_FILE, LINK_KEY, collect_conditions, read_names
+from controlm_chain_admin.core.memfs import remove_tree
 from controlm_chain_admin.core.ops import JOBS_KEY
 from controlm_chain_admin.core.overrides import Override, load_overrides, write_overrides
 from controlm_chain_admin.core.repo import ChainRepo, load_repo, read_json, write_json
 from controlm_chain_admin.core.selection import Sides, open_sides
+from controlm_chain_admin.core.textcache import read_text
 
 if TYPE_CHECKING:
     from controlm_chain_admin.core.refactor import ChangeSet
@@ -141,10 +142,10 @@ def _folder_files(root: Path, folder: str) -> dict[str, str]:
     if directory.is_dir():
         for path in sorted(directory.rglob("*.json")):
             if path.name != INDEX_FILE:
-                files[path.relative_to(root).as_posix()] = path.read_text(encoding="utf-8")
+                files[path.relative_to(root).as_posix()] = read_text(path)
     meta = root / "meta" / "folders" / f"{folder}.json"
     if meta.is_file():
-        files[meta.relative_to(root).as_posix()] = meta.read_text(encoding="utf-8")
+        files[meta.relative_to(root).as_posix()] = read_text(meta)
     return files
 
 
@@ -400,7 +401,7 @@ class _Take:
         if not self.settle(item, mine, before, theirs):
             return
         for name in {old, folder}:
-            shutil.rmtree(self.box.folder_dir(name), ignore_errors=True)
+            remove_tree(self.box.folder_dir(name), ignore_errors=True)
             self.box.folder_meta_file(name).unlink(missing_ok=True)
         for relative, text in theirs.items():
             path = self.box.root / relative
@@ -506,7 +507,7 @@ class _Take:
         used: set[str] = set()
         for identity in self.taken:
             if self.path(identity).is_file():
-                used |= set(PLACEHOLDER.findall(self.path(identity).read_text(encoding="utf-8")))
+                used |= set(PLACEHOLDER.findall(read_text(self.path(identity))))
         for name in sorted(used - set(self.box.config.constants)):
             if name in head.config.constants:
                 self._define(name, head)

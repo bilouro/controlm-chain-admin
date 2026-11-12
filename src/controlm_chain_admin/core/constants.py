@@ -28,6 +28,7 @@ from controlm_chain_admin.core.errors import (
 )
 from controlm_chain_admin.core.model import XmlComment, XmlDocument, XmlElement
 from controlm_chain_admin.core.repo import ChainRepo, load_repo, read_json, write_json
+from controlm_chain_admin.core.textcache import read_text
 
 PLACEHOLDER = re.compile(r"@\{([A-Za-z0-9_.\-]+)\}")
 _SPEC = re.compile(
@@ -321,7 +322,7 @@ def constants_overview(repo: ChainRepo) -> list[ConstantRow]:
         files = [(f"{folder}/", repo.folder_file(folder))]
         files += [(f"{folder}/{j}", repo.job_file(folder, j)) for j in ids]
         for node, path in files:
-            for name in PLACEHOLDER.findall(path.read_text(encoding="utf-8")):
+            for name in PLACEHOLDER.findall(read_text(path)):
                 if name in uses:
                     uses[name] += 1
                     if node not in nodes[name]:
@@ -329,7 +330,7 @@ def constants_overview(repo: ChainRepo) -> list[ConstantRow]:
     for env in repo.config.environments:
         exceptions = repo.env_file(env).with_name("overrides.json")
         if exceptions.is_file():
-            for name in PLACEHOLDER.findall(exceptions.read_text(encoding="utf-8")):
+            for name in PLACEHOLDER.findall(read_text(exceptions)):
                 if name in uses:
                     uses[name] += 1
     return [

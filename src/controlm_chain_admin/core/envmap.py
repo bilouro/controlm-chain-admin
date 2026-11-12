@@ -30,6 +30,7 @@ from controlm_chain_admin.core.errors import ChainError, GitError, ModelError
 from controlm_chain_admin.core.history import _git, snapshot
 from controlm_chain_admin.core.letter import LetterRule
 from controlm_chain_admin.core.repo import ChainConfig, ChainRepo, load_repo
+from controlm_chain_admin.core.textcache import read_text
 
 MAP_FILE = "map.json"
 #: What is expected to differ from one environment to another, whatever the chain.
@@ -269,8 +270,7 @@ def node_tag(data: Mapping[str, Any]) -> str:
 
 
 def _read(path: Path) -> dict[str, Any]:
-    with path.open(encoding="utf-8") as handle:
-        loaded = json.load(handle)
+    loaded = json.loads(read_text(path))
     return loaded if isinstance(loaded, dict) else {}
 
 

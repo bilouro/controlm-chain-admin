@@ -19,6 +19,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from controlm_chain_admin.core import textcache
 from controlm_chain_admin.core.errors import (
     ModelError,
     NotAChainRepo,
@@ -26,6 +27,7 @@ from controlm_chain_admin.core.errors import (
     UnknownEnvironment,
 )
 from controlm_chain_admin.core.letter import DEFAULT_LETTER_ATTRIBUTES, LetterRule
+from controlm_chain_admin.core.memfs import is_memory
 from controlm_chain_admin.core.timing import count
 
 if TYPE_CHECKING:
@@ -285,18 +287,22 @@ class ChainRepo:
 
 def write_json(path: Path, data: Any) -> None:
     """Write JSON deterministically: 2-space indent, UTF-8, LF, trailing newline, keys as given."""
-    path.parent.mkdir(parents=True, exist_ok=True)
     text = json.dumps(data, indent=2, ensure_ascii=False) + "\n"
+    if textcache.holds(path, text):
+        return  # the file says exactly this already
+    path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="\n") as handle:
         handle.write(text)
-    count("files_written")
+    if not is_memory(path):
+        count("files_written")
+    textcache.written(path, text)
 
 
 def read_json(path: Path) -> Any:
-    count("files_read")
+    """The JSON of ``path``; the file is opened only when it changed since it was last read
+    (:mod:`controlm_chain_admin.core.textcache`)."""
     try:
-        with path.open(encoding="utf-8") as handle:
-            return json.load(handle)
+        return json.loads(textcache.read_text(path))
     except FileNotFoundError as exc:
         raise ModelError(f"missing file {path}") from exc
     except json.JSONDecodeError as exc:

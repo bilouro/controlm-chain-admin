@@ -42,7 +42,6 @@ exception equal to what the base gains later goes by itself.
 from __future__ import annotations
 
 import re
-import shutil
 from collections import Counter
 from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass, field, replace
@@ -72,6 +71,7 @@ from controlm_chain_admin.core.errors import InvalidChange, ModelError
 from controlm_chain_admin.core.jsonmodel import CHILDREN_KEY
 from controlm_chain_admin.core.links import LINK_KEY
 from controlm_chain_admin.core.membership import belongs, environments_of, with_envs
+from controlm_chain_admin.core.memfs import remove_tree
 from controlm_chain_admin.core.model import XmlDocument
 from controlm_chain_admin.core.ops import (
     JOB_TAG,
@@ -89,6 +89,7 @@ from controlm_chain_admin.core.overrides import (
     write_overrides,
 )
 from controlm_chain_admin.core.repo import ChainRepo, load_repo, read_json, write_json
+from controlm_chain_admin.core.textcache import read_text
 from controlm_chain_admin.core.xmlio import parse_xml
 
 if TYPE_CHECKING:
@@ -922,7 +923,7 @@ def analyze(
         agreeing: Counter[str] = Counter()
         for name in report.folders:
             for path in (box.folder_dir(name)).rglob("*.json"):
-                agreeing.update(PLACEHOLDER.findall(path.read_text(encoding="utf-8")))
+                agreeing.update(PLACEHOLDER.findall(read_text(path)))
         decisions = collector.finish(agreeing)
         learned = {
             d.constant or "": d.incoming or ""
@@ -1337,7 +1338,7 @@ def _leave_out(box: ChainRepo, node: str) -> None:
     folder, _, job_id = node.partition("/")
     meta_file = box.folder_meta_file(folder)
     if not job_id:
-        shutil.rmtree(box.folder_dir(folder))
+        remove_tree(box.folder_dir(folder))
         meta_file.unlink(missing_ok=True)
         meta = dict(read_json(box.export_meta_file))
         meta["folder_order"] = [f for f in meta.get("folder_order", []) if f != folder]

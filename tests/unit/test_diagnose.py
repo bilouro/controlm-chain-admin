@@ -49,7 +49,9 @@ def test_one_comparison_between_two_environments_by_phase(tmp_path: Path) -> Non
     assert run is not None and run.environments == ("prod", "uat")
     assert {"snapshot", "translate", "diff"} <= set(run.timings.phases)
     counts = run.timings.counts
-    assert counts["files_written"] > 0 and counts["files_read"] > 0 and counts["git_calls"] > 0
+    assert counts["git_calls"] > 0
+    # both branches come out of git into memory: no file is written, none is opened
+    assert counts.get("files_written", 0) == 0 and counts.get("files_read", 0) == 0
     assert run.seconds >= max(run.timings.phases.values())
     assert run.jobs["added"] == 3 and run.again_seconds is not None and run.again_kept
     assert 0 <= found.files_share <= 1
@@ -66,10 +68,10 @@ def test_the_report_has_numbers_and_no_name_of_the_chain(tmp_path: Path) -> None
     for line in ("Machine", "One comparison: env/bench with env/uat", "Where the time goes"):
         assert line in text
     assert "once more, right after" in text and "(kept by commit)" in text
-    assert "small files" in text and "git call" in text and "the rest (deleting" in text
+    assert "small files" in text and "git call" in text and "  the rest: " in text
     assert CHAIN not in text and "P77" not in json.dumps(data)
     assert str(root) not in text and str(tmp_path) not in json.dumps(data)
-    assert data["run"]["timings"]["counts"]["files_written"] > 0
+    assert data["run"]["timings"]["counts"]["git_calls"] > 0
     assert data["version"] and data["platform"]["python"]
 
 

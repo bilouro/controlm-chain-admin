@@ -1074,11 +1074,22 @@ the source). The value the base has at that place wins; without one, the entries
 `--prefer` decide; else the value is kept as it is and a warning names the key, the value, the
 candidate entries and the places. Nothing is guessed.
 
-**What it costs, and what is kept.** Each side is taken out of git into a temporary
-directory, the head is copied and rewritten there, and all of it is read back: tens of
-thousands of small files written or read for an application of a thousand jobs. That is seconds
-on a local disk and minutes where every small file is inspected (an antivirus) or travels (a
-network drive). So the answer is kept by commit (`core/cache.py`): a comparison of two
+**What it costs, and what is kept (story 26).** Until 0.3.3 each side was taken out of git
+into a temporary directory, the head copied and rewritten there, and all of it read back:
+tens of thousands of small files written or read for an application of a thousand jobs, and
+every page read thousands of files of the working tree at every request. That is seconds on
+a local disk and minutes where every small file is inspected (an antivirus) or travels (a
+network drive). Two things replace it. A working copy lives in memory (`core/memfs.py`:
+`MemPath`, the part of `pathlib.Path` the core uses, over a dictionary): the snapshot of a
+ref, the translated copy of the head, the copy a selection of items is taken into, the
+sandbox a change is prepared in, the import of a refresh; `git archive` fills a snapshot in
+one piece and nothing is written. And a file of the repository is opened once
+(`core/textcache.py`): its text is remembered with its size and time, a later reading only
+asks whether those moved (a file changed too shortly before it was read is read again: the
+clock of a file system has a grain), the first reading of a clean working tree comes from
+git in one piece, and a file that already says what is to be written is not written. A
+comparison of two environments opens and writes no file; a page opens none after the first.
+On top of that the answer is kept by commit (`core/cache.py`): a comparison of two
 commits, or their package, depends only on the two commits, the branch checked out, the
 environments' branches, the map, the rules and the options; all of those are in its key, the
 result lives under the git directory (`ctmchain-cache`, the latest sixty), and the same
@@ -1087,8 +1098,8 @@ off. `ctmchain diagnose` measures the machine (a small file in the temporary dir
 next to the repository, one git call, plain computing) and one real comparison, phase by
 phase, with the files it wrote and read, and says what part of the time the files explain;
 its report holds numbers and the two refs, no name of a job, of a folder or of a directory.
-The first comparison of two commits still pays the whole price: reading the two branches
-from git into memory, with no temporary file, is the cure and is not built yet.
+What is left on the disk: the real working tree (an edit applied, a refresh installed) and
+the three-way merge of `take`, which git does on real files.
 
 ### 14.5 Take and package (needs 7 and 10)
 

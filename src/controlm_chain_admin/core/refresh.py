@@ -13,8 +13,6 @@ There a partial export is taken too: the folders it does not have stay.
 
 from __future__ import annotations
 
-import shutil
-import tempfile
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
@@ -39,6 +37,7 @@ from controlm_chain_admin.core.errors import (
 )
 from controlm_chain_admin.core.history import RefInfo, _git, chain_changes, resolve, snapshot
 from controlm_chain_admin.core.intake import detect_env
+from controlm_chain_admin.core.memfs import copy_file, copy_tree, memory_dir, remove_tree
 from controlm_chain_admin.core.ops import ImportReport, import_xml
 from controlm_chain_admin.core.repo import ChainRepo, load_repo
 from controlm_chain_admin.core.xmlio import parse_xml
@@ -155,9 +154,9 @@ def _copy(source: Path, target: Path, names: tuple[str, ...]) -> None:
     for name in names:
         origin = source / name
         if origin.is_dir():
-            shutil.copytree(origin, target / name)
+            copy_tree(origin, target / name)
         elif origin.is_file():
-            shutil.copy2(origin, target / name)
+            copy_file(origin, target / name)
 
 
 def _files(root: Path) -> dict[str, bytes]:
@@ -184,9 +183,9 @@ def _base(root: Path, branch: str, trunk: str, exists: bool) -> Iterator[Path]:
         raise GitError(
             f"the branch {trunk} has no commit yet: commit the rules (chain.json, envs/) first"
         ) from error
-    with snapshot(root, trunk) as held, tempfile.TemporaryDirectory(prefix="ctmchain-") as tmp:
-        _copy(held, Path(tmp), _RULES)
-        yield Path(tmp)
+    with snapshot(root, trunk) as held, memory_dir("rules") as tmp:
+        _copy(held, tmp, _RULES)
+        yield tmp
 
 
 def _switch(root: Path, branch: str, trunk: str, exists: bool) -> None:
@@ -202,7 +201,7 @@ def _install(imported: Path, root: Path) -> None:
     """Put the imported files in the working tree, in place of the chain files there."""
     for name in ("folders", "meta"):
         if (root / name).exists():
-            shutil.rmtree(root / name)
+            remove_tree(root / name)
     (root / "chain.json").unlink(missing_ok=True)
     _copy(imported, root, ("chain.json", "folders", "meta"))
 
@@ -250,9 +249,8 @@ def refresh(
         )
     with (
         _base(root, branch, rules.trunk, exists) as held,
-        tempfile.TemporaryDirectory(prefix="ctmchain-refresh-") as tmp,
+        memory_dir("imported") as imported,
     ):
-        imported = Path(tmp)
         _copy(held, imported, _CHAIN if partial else _RULES)
         report = import_xml(load_repo(imported), data, env, replace_all=not partial)
         folders, jobs, links, constants, rules_changed, meta, exceptions = diff_snapshots(

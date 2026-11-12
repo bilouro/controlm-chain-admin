@@ -22,8 +22,6 @@ from __future__ import annotations
 
 import json
 import re
-import shutil
-import tempfile
 from collections.abc import Callable, Collection, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -51,8 +49,10 @@ from controlm_chain_admin.core.envmap import (
 )
 from controlm_chain_admin.core.letter import LetterRule
 from controlm_chain_admin.core.links import LINKS_FILE
+from controlm_chain_admin.core.memfs import copy_file, copy_tree, memory_dir
 from controlm_chain_admin.core.repo import CHAIN_FILE, ChainConfig, load_repo, write_json
-from controlm_chain_admin.core.timing import active, count, phase
+from controlm_chain_admin.core.textcache import read_text
+from controlm_chain_admin.core.timing import phase
 
 _BOUNDARY = r"(?<![A-Za-z0-9])"
 _PARTS = (CHAIN_FILE, "envs", "folders", "meta")
@@ -257,8 +257,7 @@ def _values(config: ChainConfig, envmap: EnvMap, letters: Mapping[str, str], sou
 
 
 def _read(path: Path) -> dict[str, Any]:
-    with path.open(encoding="utf-8") as handle:
-        loaded = json.load(handle)
+    loaded = json.loads(read_text(path))
     return loaded if isinstance(loaded, dict) else {}
 
 
@@ -394,20 +393,16 @@ def translated(
     ``base_root``, and what was rewritten. ``root`` is the repository: the map is on a branch
     of it. ``prefer`` names the entries of the map that win where it gives several answers.
     Neither side is changed."""
-    with tempfile.TemporaryDirectory(prefix="ctmchain-env-") as tmp:
-        copy = Path(tmp) / "head"
+    with memory_dir(f"{source} as {target}") as tmp:  # the copy lives in memory
+        copy = tmp / "head"
         copy.mkdir()
         with phase("translate"):
             for name in _PARTS:  # what a snapshot holds: the working tree may have much more
                 part = head_root / name
                 if part.is_dir():
-                    shutil.copytree(part, copy / name)
+                    copy_tree(part, copy / name)
                 elif part.is_file():
-                    shutil.copy2(part, copy / name)
-            if active():  # a copy reads and writes every file once
-                copied = sum(1 for path in copy.rglob("*") if path.is_file())
-                count("files_read", copied)
-                count("files_written", copied)
+                    copy_file(part, copy / name)
             rules = _rules(base_root, copy)
         if rules is None:
             yield copy, Translation(source, target)

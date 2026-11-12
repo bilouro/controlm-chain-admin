@@ -305,13 +305,13 @@ or addresses anywhere in this public repository.
       its answer ends with the command to apply it), and the rules of the assistant and the
       agent say what a branch of one's own holds. A set-up of an earlier version needs
       `ctmchain kilo init --force` to get the new agent.
-25. **Repeated job names, seen and solved — to do**, asked by the author (2026-11-11): a
+25. **Repeated job names, seen and solved — A DONE (2026-11-12), released in 0.3.4; B, C, D to do**, asked by the author (2026-11-11): a
     JOBNAME used by more than one job anywhere in the export, not only in one folder. The
     import already numbers the later ones (`X2`, `X3`) but keeps it to itself: the export
     gives the original names back, `validate` sees no repeated name, and the conditions of a
     numbered job show up as `stale-name`, whose fix renames the condition while the job keeps
     its name in Control-M (the consequence offered as the main action). Four deliveries, in
-    this order, released together:
+    this order (A went out first, with story 26, which could not wait):
     - **A. Seen.** A finding of its own for every job whose name is repeated in the
       repository (the folder-only `duplicate-jobname` stays), with the name the import gave
       it; `stale-name` no longer fires for the conditions of such a job; and every code of
@@ -342,7 +342,7 @@ or addresses anywhere in this public repository.
       shows how many jobs follow it (delivery C counts them). To test before designing it:
       whether the jobs that follow an entry can always be told, and a job whose values fit
       two entries.
-26. **Fast where small files are slow — in progress (2026-11-12)**, asked by the author: on
+26. **Fast where small files are slow — DONE (2026-11-12), released in 0.3.4**, asked by the author: on
     the work PC a page takes 30 to 45 seconds to open and a comparison ten minutes. Measured
     on a repository of that size: opening a folder reads thousands of small files at every
     request, the validation more, and a comparison of two environments writes and reads tens
@@ -352,8 +352,13 @@ or addresses anywhere in this public repository.
     - a comparison and its package kept by commit (done); the *Compare* page compares on a
       button, the last comparison stays in view (done);
     - the files of the repository read once: what a file held is remembered until the file
-      changes, and the first reading comes from git in one piece instead of file by file;
-    - a branch taken out of git without writing its files to a temporary directory.
+      changes, and the first reading comes from git in one piece instead of file by file
+      (done, `core/textcache.py`);
+    - a branch taken out of git without writing its files to a temporary directory, and
+      every other working copy in memory too (done, `core/memfs.py`).
+    Left: each read still asks the file system whether the file changed (no file is opened);
+    a page makes a handful of git calls, a comparison some thirty. Not measured on the work
+    PC: `ctmchain diagnose` there says what is left.
 27. **Deliveries kept for later — to do**, asked by the author (2026-11-12): put changes
     aside little by little, each under a name, and choose later which of them go into an
     import file. An entry is made in three ways: from a comparison (the items checked on the

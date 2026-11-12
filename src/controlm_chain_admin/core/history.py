@@ -19,6 +19,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from controlm_chain_admin.core.errors import ChainError, GitError
+from controlm_chain_admin.core.memfs import memory_dir
 from controlm_chain_admin.core.timing import count, phase
 
 WORKTREE = "WORKTREE"
@@ -330,8 +331,7 @@ def snapshot(
         archive: bytes = _git(
             top, "-c", "core.autocrlf=false", "archive", "--format=tar", tree, binary=True
         )
-    with tempfile.TemporaryDirectory(prefix="ctmchain-ref-") as tmp:
-        target = Path(tmp)
+    with memory_dir(f"{ref} {str(info.sha)[:7]}") as target:  # in memory: no file is written
         with phase("snapshot"), tarfile.open(fileobj=io.BytesIO(archive)) as tar:
             for member in tar.getmembers():
                 name = PurePosixPath(member.name)
@@ -345,7 +345,6 @@ def snapshot(
                 path = target.joinpath(*name.parts)
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_bytes(source.read())
-                count("files_written")
         for relative, content in (overlay or {}).items():
             path = target.joinpath(*PurePosixPath(relative).parts)
             if content is None:

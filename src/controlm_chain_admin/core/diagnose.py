@@ -1,11 +1,12 @@
-"""Why a comparison is slow here: what this machine costs, and where one comparison goes.
+"""Why something is slow here: what this machine costs, and where one comparison goes.
 
-A comparison of two environments takes each branch out of git into a temporary directory, as
-thousands of small files, and reads them back. On a machine where every small file is costly
-(an antivirus that inspects each one, a network drive) that is nearly all of the time. This
-module measures both sides of that: the machine (small files in the temporary directory and
-next to the repository, starting git, plain computing) and one real comparison, phase by
-phase, with what it read and wrote.
+Where every small file is costly (an antivirus that inspects each one, a network drive), a
+tool that works through thousands of small files spends nearly all of its time on them. The
+core no longer does: a branch comes out of git into memory, a file of the repository is opened
+once and remembered until it changes. This module measures whether that holds on a machine:
+the machine itself (a small file in the temporary directory and next to the repository, one
+git call, plain computing) and one real comparison, phase by phase, with the files it opened
+and wrote and the git calls it made.
 
 The report holds numbers, versions and the two refs compared: no name of a job, of a folder or
 of a directory, so it can be passed on.
@@ -246,8 +247,10 @@ def _verdict(found: Diagnosis) -> list[str]:
     elif share >= 50:
         lines.append("  The files are most of the comparison, though each one is cheap here.")
     else:
+        calls = run.timings.counts.get("git_calls", 0) * found.probes["git_spawn"]["ms"] / 1000
         lines.append(
-            "  The files do not explain it: look at the phases above (git, or plain computing)."
+            f"  The files do not explain it. Its git calls, at this machine's price: about "
+            f"{calls:.1f} s; the rest is computing."
         )
     repo = found.probes["repo_files"]
     if slow and repo["write_ms"] * 3 <= temp["write_ms"]:
@@ -287,8 +290,8 @@ def render_text(found: Diagnosis) -> str:
         f"One comparison: {found.base} with {found.head}{between}",
         f"  {run.seconds:.1f} s; once more, right after: {run.again_seconds:.1f} s"
         + (" (kept by commit)" if run.again_kept else ""),
-        f"  files written: {counts.get('files_written', 0)}, read: {counts.get('files_read', 0)}"
-        f" (at least), git calls: {counts.get('git_calls', 0)}",
+        f"  files written: {counts.get('files_written', 0)}, opened: "
+        f"{counts.get('files_read', 0)}, git calls: {counts.get('git_calls', 0)}",
         "  jobs: " + ", ".join(f"{n} {kind}" for kind, n in run.jobs.items()),
         "",
         "Where the time goes (a phase inside another counts in both)",
@@ -297,6 +300,6 @@ def render_text(found: Diagnosis) -> str:
     for name, seconds in phases.items():
         lines.append(f"  {name}: {seconds:.1f} s ({run.timings.calls.get(name, 0)}x)")
     rest = run.seconds - sum(phases.get(name, 0.0) for name in _TOP_PHASES)
-    lines.append(f"  the rest (deleting the temporary files, mostly): {max(rest, 0.0):.1f} s")
+    lines.append(f"  the rest: {max(rest, 0.0):.1f} s")
     lines += _verdict(found)
     return "\n".join(lines) + "\n"

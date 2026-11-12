@@ -17,8 +17,6 @@ from __future__ import annotations
 
 import datetime
 import re
-import shutil
-import tempfile
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
@@ -50,10 +48,12 @@ from controlm_chain_admin.core.links import (
     read_names,
     write_names,
 )
+from controlm_chain_admin.core.memfs import copy_tree, memory_dir
 from controlm_chain_admin.core.ops import export_document
 from controlm_chain_admin.core.overrides import load_overrides
 from controlm_chain_admin.core.repo import CHAIN_FILE, ChainRepo, load_repo, read_json
 from controlm_chain_admin.core.selection import Sides, open_sides
+from controlm_chain_admin.core.textcache import read_text
 from controlm_chain_admin.core.validate import Finding, validate
 
 
@@ -206,7 +206,7 @@ def _reasons(result: Comparison, head: ChainRepo, env: str) -> _Reasons:
                 head.folder_file(folder),
                 *sorted(head.folder_dir(folder).glob("jobs/*.json")),
             ]
-            text = "".join(p.read_text("utf-8") for p in files if p.is_file())
+            text = "".join(read_text(p) for p in files if p.is_file())
             for name in changed:
                 if placeholder(name) in text:
                     reasons.add(folder, f"constant {name} changed for {env}")
@@ -334,9 +334,9 @@ def _chosen(sides: Sides, items: Sequence[str] | None) -> Iterator[tuple[Sides, 
         return
     from controlm_chain_admin.core.take import take_into  # it imports the comparison too
 
-    with tempfile.TemporaryDirectory(prefix="ctmchain-") as tmp:
-        copy = Path(tmp) / "chosen"
-        shutil.copytree(sides.base_root, copy)
+    with memory_dir("chosen") as tmp:
+        copy = tmp / "chosen"
+        copy_tree(sides.base_root, copy)
         work = take_into(load_repo(copy), sides, items)
         box = work.box
         write_names(box, build_links(collect_conditions(box), {**read_names(box), **work.names}))

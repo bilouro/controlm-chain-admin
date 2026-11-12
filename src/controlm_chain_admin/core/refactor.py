@@ -16,8 +16,6 @@ import inspect
 import json
 import os
 import re
-import shutil
-import tempfile
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -49,6 +47,7 @@ from controlm_chain_admin.core.links import (
     write_names,
 )
 from controlm_chain_admin.core.membership import ENVS_KEY
+from controlm_chain_admin.core.memfs import memory_dir, move
 from controlm_chain_admin.core.ops import JOB_TAG, JOBS_KEY, ORIGINALS_KEY, TAG_KEY, _check_safe
 from controlm_chain_admin.core.overrides import (
     OVERRIDES_FILE,
@@ -59,6 +58,7 @@ from controlm_chain_admin.core.overrides import (
     write_overrides,
 )
 from controlm_chain_admin.core.repo import ChainRepo, load_repo, read_json, write_json
+from controlm_chain_admin.core.textcache import read_text
 
 #: Canonical child order measured on real Control-M exports; used to place a group that a
 #: refactoring adds when the repository has never seen it under that parent.
@@ -141,14 +141,14 @@ def _tracked(root: Path) -> dict[str, str]:
     for name in _TRACKED_FILES:
         path = root / name
         if path.is_file():
-            files[name] = path.read_text(encoding="utf-8")
+            files[name] = read_text(path)
     for directory in _TRACKED_DIRS:
         base = root / directory
         if not base.is_dir():
             continue
         for path in sorted(base.rglob("*")):
             if path.is_file() and path.name != INDEX_FILE:
-                files[path.relative_to(root).as_posix()] = path.read_text(encoding="utf-8")
+                files[path.relative_to(root).as_posix()] = read_text(path)
     return files
 
 
@@ -158,8 +158,7 @@ def _sandbox(files: Mapping[str, str]) -> Iterator[ChainRepo]:
     if in_place is not None:
         yield load_repo(in_place)
         return
-    with tempfile.TemporaryDirectory(prefix="ctmchain-") as tmp:
-        root = Path(tmp)
+    with memory_dir("change") as root:  # the change is prepared in memory, then diffed
         for relative, text in files.items():
             path = root / relative
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -200,7 +199,7 @@ def apply(repo: ChainRepo, change: ChangeSet) -> ApplyResult:
         path = (root / edit.path).resolve()
         if root not in path.parents:
             raise ModelError(f"change set path {edit.path!r} is outside the repository")
-        current = path.read_text(encoding="utf-8") if path.is_file() else None
+        current = read_text(path) if path.is_file() else None
         if current != edit.before:
             raise ChangeConflict(
                 f"{edit.path} changed since the preview; compute the change again"
@@ -469,7 +468,7 @@ def rename_folder(
     )
     original = _tracked(repo.root)
     with _sandbox(original) as box:
-        shutil.move(box.folder_dir(folder), box.folder_dir(new_name))
+        move(box.folder_dir(folder), box.folder_dir(new_name))
         data = dict(read_json(box.folder_file(new_name)))
         for key in ("FOLDER_NAME", "JOBNAME", "PARENT_FOLDER"):
             if data.get(key) == folder:
@@ -481,7 +480,7 @@ def rename_folder(
                 job["PARENT_FOLDER"] = new_name
                 write_json(box.job_file(new_name, job_id), job)
         if box.folder_meta_file(folder).exists():
-            shutil.move(box.folder_meta_file(folder), box.folder_meta_file(new_name))
+            move(box.folder_meta_file(folder), box.folder_meta_file(new_name))
         if box.export_meta_file.exists():
             export_meta = dict(read_json(box.export_meta_file))
             export_meta["folder_order"] = [
@@ -948,7 +947,7 @@ def rename_constant(repo: ChainRepo, old: str, new: str) -> ChangeSet:
         ]
         targets += sorted((box.root / "envs").glob(f"*/{OVERRIDES_FILE}"))
         for path in targets:
-            text = path.read_text(encoding="utf-8")
+            text = read_text(path)
             if before in text:
                 uses += text.count(before)
                 with path.open("w", encoding="utf-8", newline="\n") as handle:

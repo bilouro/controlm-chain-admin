@@ -25,6 +25,7 @@ from controlm_chain_admin.core.overrides import load_overrides
 from controlm_chain_admin.core.relations import NodeRelations, Relation, all_relations
 from controlm_chain_admin.core.repo import CHAIN_FILE, EnvConfig, load_repo, read_json
 from controlm_chain_admin.core.selection import Sides, open_sides
+from controlm_chain_admin.core.textcache import read_text
 from controlm_chain_admin.core.timing import phase
 
 if TYPE_CHECKING:
@@ -283,7 +284,7 @@ def _load(root: Path) -> _Side:
     meta_dir = root / "meta"
     if meta_dir.is_dir():
         side.meta = {
-            p.relative_to(root).as_posix(): p.read_text("utf-8") for p in meta_dir.rglob("*.json")
+            p.relative_to(root).as_posix(): read_text(p) for p in meta_dir.rglob("*.json")
         }
     rules = repo.config.to_json()
     rules.pop("attribute_order", None)

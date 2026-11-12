@@ -8,6 +8,15 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- Fast where small files are slow (an antivirus that inspects every file, a network drive):
+  a page that took half a minute and a comparison that took ten open and write no file any
+  more. A branch comes out of git into memory instead of a temporary directory, like the
+  copy a comparison rewrites, the one a selection is taken into and the one a change is
+  prepared in; and a file of the repository is opened once and remembered until it changes,
+  the first time read from git in one piece. Measured on an application of a thousand jobs:
+  opening a folder went from some five thousand files opened to none, a comparison of two
+  environments from eleven thousand written and thirty-six thousand read to none. Nothing
+  to install and nothing to set: the standard library only.
 - `ctmchain diagnose`: why a comparison is slow on a machine. It measures the machine (a
   small file in the temporary directory and next to the repository, one git call, plain
   computing) and one real comparison, phase by phase, with the files it wrote and read, and
