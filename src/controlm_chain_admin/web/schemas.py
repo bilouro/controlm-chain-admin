@@ -174,11 +174,20 @@ class FindingOut(BaseModel):
     fixes: list[FixOut] = []
 
 
+class ExplanationOut(BaseModel):
+    looks_for: str = Field(description="what the check looks for")
+    why: str = Field(description="why it matters")
+    fix: str = Field(description="what its fix does, and what follows from it")
+
+
 class ValidateOut(BaseModel):
     links: int
     nodes: int
     counts: dict[str, int]
     findings: list[FindingOut]
+    explanations: dict[str, ExplanationOut] = Field(
+        {}, description="what each code of the findings means, by code"
+    )
 
 
 class ErrorOut(BaseModel):

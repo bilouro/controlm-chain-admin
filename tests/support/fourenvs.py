@@ -11,7 +11,7 @@ from pathlib import Path
 
 from controlm_chain_admin.core.envmap import DEFAULT_KEYS, EnvMap, derive, write_map
 from controlm_chain_admin.core.refresh import refresh
-from controlm_chain_admin.core.repo import ChainRepo, init_repo, load_repo
+from controlm_chain_admin.core.repo import ChainRepo, init_repo, load_repo, read_json, write_json
 from tests.support.envexports import both, job
 from tests.support.gitrepo import APP, commit_all, git
 from tests.support.rawxml import filter_applications, split_folders
@@ -109,6 +109,21 @@ def uat_ahead(env: str, data: bytes) -> bytes:
     return with_folder(data, "UP77_INGEST_DAILY", b"INGEST", b"WEEKLY")
 
 
+def repeated_name(env: str, data: bytes) -> bytes:
+    """One more job called like ``P77_A`` of the chain, in the folder of the ingestion: a
+    JOBNAME used in two folders of the export."""
+    letter = LETTERS[env]
+    return with_job(data, f"{letter}P77_A", like=f"{letter}P77_INGEST_LOAD")
+
+
+def numbering(repo: ChainRepo) -> ChainRepo:
+    """``repo`` told to number the repeated JOBNAMEs of what it imports (``dedupe_jobnames``)."""
+    path = repo.root / "chain.json"
+    write_json(path, {**read_json(path), "dedupe_jobnames": True})
+    commit_all(repo.root, "chore: number the repeated job names")
+    return load_repo(repo.root)
+
+
 def empty_repo(tmp_path: Path) -> ChainRepo:
     """A git repository with the rules of the four environments and nothing else, on main."""
     root = tmp_path / "repo"
@@ -128,10 +143,13 @@ def four_branches(
     tmp_path: Path,
     envs: tuple[str, ...] = ENVS,
     change: Callable[[str, bytes], bytes] | None = None,
+    numbered: bool = False,
 ) -> ChainRepo:
     """main (prod), env/uat, env/egma and env/bench, each refreshed from its export; on main.
     ``change(env, export)`` gives what an environment has instead of its plain export."""
     repo = empty_repo(tmp_path)
+    if numbered:
+        repo = numbering(repo)
     for env in envs:
         data = export_of(env) if change is None else change(env, export_of(env))
         refresh(repo, data, source=f"{env}.xml", apply=True)

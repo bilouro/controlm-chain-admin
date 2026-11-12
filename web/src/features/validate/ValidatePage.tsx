@@ -5,6 +5,7 @@ import { useValidate } from "@/lib/api/queries";
 import { cn, nodeRoute, severityTone } from "@/lib/utils";
 import { useChanges } from "@/features/changes/changes-context";
 import { Badge, Button, Card, Empty, ErrorBox, Loading } from "@/components/ui";
+import { AboutPanel } from "./AboutPanel";
 import { FixOptions } from "./FixOptions";
 import { ResolvePanel } from "./ResolvePanel";
 
@@ -115,6 +116,10 @@ export function ValidatePage() {
           </Button>
         ))}
       </div>
+
+      {code !== null && data.explanations?.[code] && (
+        <AboutPanel code={code} explanation={data.explanations[code]} />
+      )}
 
       {isResolving && selected.length > 0 && !isUpdating && (
         <ResolvePanel

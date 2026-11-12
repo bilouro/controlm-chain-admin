@@ -26,6 +26,7 @@ from controlm_chain_admin.core.errors import (
     UnknownEnvironment,
 )
 from controlm_chain_admin.core.letter import DEFAULT_LETTER_ATTRIBUTES, LetterRule
+from controlm_chain_admin.core.timing import count
 
 if TYPE_CHECKING:
     from controlm_chain_admin.core.constants import Selector
@@ -288,9 +289,11 @@ def write_json(path: Path, data: Any) -> None:
     text = json.dumps(data, indent=2, ensure_ascii=False) + "\n"
     with path.open("w", encoding="utf-8", newline="\n") as handle:
         handle.write(text)
+    count("files_written")
 
 
 def read_json(path: Path) -> Any:
+    count("files_read")
     try:
         with path.open(encoding="utf-8") as handle:
             return json.load(handle)

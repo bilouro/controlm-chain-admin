@@ -100,6 +100,8 @@ def test_validate_report(client: TestClient) -> None:
     assert body["counts"]["error"] == 1
     assert {f["code"] for f in body["findings"]} >= {"dangling", "stale-name", "never-cleaned"}
     assert body["links"] == 12 and body["nodes"] == 11
+    assert set(body["explanations"]) == {f["code"] for f in body["findings"]}
+    assert set(body["explanations"]["never-cleaned"]) == {"looks_for", "why", "fix"}
 
 
 def test_validate_findings_carry_their_link_and_fixes(client: TestClient) -> None:

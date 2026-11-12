@@ -135,6 +135,7 @@ def test_validate_counts_the_findings_and_lists_the_first(repo: ChainRepo) -> No
     assert report["counts"]["error"] >= 1
     assert len(report["findings"]) == 2 and report["total"] > 2
     assert set(report["findings"][0]) >= {"severity", "code", "message"}
+    assert set(report["explanations"]) == {f["code"] for f in report["findings"]}  # of those
 
 
 def test_compare_two_refs_as_text(repo: ChainRepo) -> None:

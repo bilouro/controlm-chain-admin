@@ -148,15 +148,66 @@ describe("ComparePage", () => {
     await waitFor(() => expect(lastCompare()?.get("merge_base")).toBe("false"));
   });
 
-  it("changing a ref asks for the new comparison", async () => {
+  it("changing a ref compares nothing until Compare is pressed", async () => {
     const user = userEvent.setup();
     renderAt(<ComparePage />, { path: "/compare" });
     await screen.findByRole("button", { name: "P77_C modified" });
+    const asked = calls.compare.length;
+    expect(screen.getByRole("button", { name: "Compare" })).toBeDisabled();
 
+    await user.selectOptions(screen.getByLabelText("Base"), "develop");
     await user.selectOptions(screen.getByLabelText("Head"), "WORKTREE");
 
-    await waitFor(() => expect(lastCompare()?.get("head")).toBe("WORKTREE"));
+    expect(calls.compare.length).toBe(asked); // two refs changed, nothing compared
     expect(screen.getByRole("button", { name: "Swap" })).toBeDisabled();
+    expect(screen.getByText(/not compared yet/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Compare" }));
+
+    await waitFor(() => expect(lastCompare()?.get("head")).toBe("WORKTREE"));
+    expect(lastCompare()?.get("base")).toBe("develop");
+    expect(calls.compare.filter((c) => c.get("base") === "develop").length).toBe(
+      calls.compare.filter((c) => c.get("head") === "WORKTREE").length,
+    ); // one comparison for the two changes, not one per dropdown
+    expect(screen.queryByText(/not compared yet/)).not.toBeInTheDocument();
+  });
+
+  it("swapping the refs waits for Compare too", async () => {
+    const user = userEvent.setup();
+    renderAt(<ComparePage />, { path: "/compare" });
+    await screen.findByRole("button", { name: "P77_C modified" });
+    const asked = calls.compare.length;
+
+    await user.click(screen.getByRole("button", { name: "Swap" }));
+
+    expect(screen.getByLabelText("Base")).toHaveValue("feature/demo");
+    expect(screen.getByLabelText("Head")).toHaveValue("main");
+    expect(calls.compare.length).toBe(asked);
+    await user.click(screen.getByRole("button", { name: "Compare" }));
+    await waitFor(() => expect(lastCompare()?.get("base")).toBe("feature/demo"));
+  });
+
+  it("keeps the last comparison in view while the next one runs", async () => {
+    const user = userEvent.setup();
+    renderAt(<ComparePage />, { path: "/compare" });
+    await screen.findByRole("button", { name: "P77_C modified" });
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => (release = resolve));
+    server.use(
+      http.get("/api/compare", async () => {
+        await held;
+        return HttpResponse.json(comparison);
+      }),
+    );
+
+    await user.selectOptions(screen.getByLabelText("Base"), "develop");
+    await user.click(screen.getByRole("button", { name: "Compare" }));
+
+    const status = await screen.findByRole("status");
+    expect(status).toHaveTextContent("Comparing develop with feature/demo");
+    expect(screen.getByRole("button", { name: "P77_C modified" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Generate XML" })).toBeDisabled();
+    release();
+    await waitFor(() => expect(screen.queryByRole("status")).not.toBeInTheDocument());
   });
 
   it("explains when the repository is not a git repository", async () => {

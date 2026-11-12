@@ -52,6 +52,7 @@ from controlm_chain_admin.core.envmap import (
 from controlm_chain_admin.core.letter import LetterRule
 from controlm_chain_admin.core.links import LINKS_FILE
 from controlm_chain_admin.core.repo import CHAIN_FILE, ChainConfig, load_repo, write_json
+from controlm_chain_admin.core.timing import active, count, phase
 
 _BOUNDARY = r"(?<![A-Za-z0-9])"
 _PARTS = (CHAIN_FILE, "envs", "folders", "meta")
@@ -396,23 +397,29 @@ def translated(
     with tempfile.TemporaryDirectory(prefix="ctmchain-env-") as tmp:
         copy = Path(tmp) / "head"
         copy.mkdir()
-        for name in _PARTS:  # what a snapshot holds: the working tree may have much more
-            part = head_root / name
-            if part.is_dir():
-                shutil.copytree(part, copy / name)
-            elif part.is_file():
-                shutil.copy2(part, copy / name)
-        rules = _rules(base_root, copy)
+        with phase("translate"):
+            for name in _PARTS:  # what a snapshot holds: the working tree may have much more
+                part = head_root / name
+                if part.is_dir():
+                    shutil.copytree(part, copy / name)
+                elif part.is_file():
+                    shutil.copy2(part, copy / name)
+            if active():  # a copy reads and writes every file once
+                copied = sum(1 for path in copy.rglob("*") if path.is_file())
+                count("files_read", copied)
+                count("files_written", copied)
+            rules = _rules(base_root, copy)
         if rules is None:
             yield copy, Translation(source, target)
             return
         config, letters = rules
-        rewriter = _values(config, read_map(root, config), letters, source, target, prefer)
-        _translate_values(base_root, copy, rewriter)
-        pair = (letters.get(source, ""), letters.get(target, ""))
-        shape = _shape(config.letter_rule, letters, pair) if all(pair) else None
-        links = _translate_links(base_root, copy, shape)
-        kept = rewriter.kept()
+        with phase("translate"):
+            rewriter = _values(config, read_map(root, config), letters, source, target, prefer)
+            _translate_values(base_root, copy, rewriter)
+            pair = (letters.get(source, ""), letters.get(target, ""))
+            shape = _shape(config.letter_rule, letters, pair) if all(pair) else None
+            links = _translate_links(base_root, copy, shape)
+            kept = rewriter.kept()
         warnings = tuple(
             u.message(source, target, list(dict.fromkeys(node for node, _p, _a in u.places)))
             for u in kept

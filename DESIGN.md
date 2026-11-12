@@ -400,7 +400,20 @@ constants, bench 790, test 1313; `check` 0 in every field for the three, every f
   deletes it after use (`add-cleanup`); `stale-name` and `non-standard-name` → the standard name
   when it is unambiguous (`standard-name`, folder-prefixed `F_A-B_OK` included, which validate
   accepts as standard); `duplicate-jobname` → number the copies (`number-copies`, the JOBNAME changes in
-  Control-M). Without arguments it lists the kinds per code; `CODE=KIND` previews one change for
+  Control-M). **Repeated JOBNAMEs across the export (story 25).** With `dedupe_jobnames` the
+  import numbers every later job of a repeated JOBNAME (`X2`, `X3`), in any folder, and keeps
+  the JOBNAME Control-M has in the folder's metadata (`original_jobnames`), which the export
+  gives back. So nothing in the tree shows a repeated name, and `validate` says it:
+  `repeated-jobname` (warning), one finding per numbered job, with every job that shares the
+  name; it has no fix yet (story 25 B makes the numbered name the real one). A condition
+  named after the JOBNAME such a job has in Control-M names that job: it is not a
+  `stale-name`. `duplicate-jobname` stays for a repository that does not number them. Every
+  code has an explanation in the core (`validate.EXPLANATIONS`: what it looks for, why it
+  matters, what its fix does and what follows): the report carries those of its codes
+  (`explanations`, in `--format json`, `GET /api/validate` and the assistant's `validate`),
+  `resolve` prints them, and the *Validation* page shows the one of the chosen type in a
+  panel that can be hidden (the choice is remembered in the browser).
+  Without arguments it lists the kinds per code; `CODE=KIND` previews one change for
   every finding of the code with exactly one fix of that kind, `--apply` writes it. Several fixes
   run as one `batch` operation: each step runs in place in one sandbox, the diff is computed
   once (94 fixes on the real chain: ~12 s).
@@ -893,6 +906,7 @@ Assistant
 - `menu [<capability>] [--format text|json]` — implemented: what can be asked in plain words, from `core/capabilities.json` (§11, *Assistant*).
 - `mcp [--repo DIR]` — implemented: the MCP server over stdio for an assistant (the `[mcp]` extra).
 - `serve --assistant [--assistant-model PROVIDER/MODEL]` — implemented: the web UI with its *Assistant* panel; starts and stops Kilo.
+- `diagnose [<base> <head>] [--files N] [--format text|json] [-o <file>]` — implemented: what this machine costs per small file and per git call, and where one comparison (default: the trunk with the first other environment) spends its time; numbers only (§14.4).
 - `kilo init [--repo DIR] [--dir DIR] [--force]` — implemented: `.kilo/` for Kilo (server, `controlm` agent, skill, vocabulary) at the top of the git repository.
 
 Environments as branches (§14)
@@ -1059,6 +1073,22 @@ One value of the head may stand for several of the base (two users in the target
 the source). The value the base has at that place wins; without one, the entries named with
 `--prefer` decide; else the value is kept as it is and a warning names the key, the value, the
 candidate entries and the places. Nothing is guessed.
+
+**What it costs, and what is kept.** Each side is taken out of git into a temporary
+directory, the head is copied and rewritten there, and all of it is read back: tens of
+thousands of small files written or read for an application of a thousand jobs. That is seconds
+on a local disk and minutes where every small file is inspected (an antivirus) or travels (a
+network drive). So the answer is kept by commit (`core/cache.py`): a comparison of two
+commits, or their package, depends only on the two commits, the branch checked out, the
+environments' branches, the map, the rules and the options; all of those are in its key, the
+result lives under the git directory (`ctmchain-cache`, the latest sixty), and the same
+question again opens nothing. The working tree is never kept. `CTMCHAIN_NO_CACHE=1` turns it
+off. `ctmchain diagnose` measures the machine (a small file in the temporary directory and
+next to the repository, one git call, plain computing) and one real comparison, phase by
+phase, with the files it wrote and read, and says what part of the time the files explain;
+its report holds numbers and the two refs, no name of a job, of a folder or of a directory.
+The first comparison of two commits still pays the whole price: reading the two branches
+from git into memory, with no temporary file, is the cure and is not built yet.
 
 ### 14.5 Take and package (needs 7 and 10)
 

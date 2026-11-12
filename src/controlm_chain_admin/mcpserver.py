@@ -127,7 +127,13 @@ class ChainTools:
     def validate(self, limit: int = 30) -> dict[str, Any]:
         report = validate_repo(load_repo(self.root)).to_json()
         findings = report["findings"]
-        return {"counts": report["counts"], "total": len(findings), "findings": findings[:limit]}
+        shown = {finding["code"] for finding in findings[:limit]}
+        return {
+            "counts": report["counts"],
+            "total": len(findings),
+            "findings": findings[:limit],
+            "explanations": {c: e for c, e in report["explanations"].items() if c in shown},
+        }
 
     def compare(
         self,

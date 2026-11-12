@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useSearchParams } from "react-router";
 import { ApiError, type GitStateOut } from "@/lib/api/client";
+import { cn } from "@/lib/utils";
 import {
   compareParams,
   useCompare,
@@ -180,6 +181,13 @@ export function ComparePage() {
   const prefer = params.getAll("prefer");
   const between = { raw: params.get("raw") === "1", prefer };
   const comparison = useCompare(base, head, mergeBase, selection, between);
+  // the refs being chosen: nothing is compared until Compare is pressed (it can take long)
+  const [draft, setDraft] = useState<{ base?: string; head?: string }>({});
+  const draftBase = draft.base ?? base;
+  const draftHead = draft.head ?? head;
+  const isDraft = draftBase !== base || draftHead !== head;
+  // the comparison in view is the last one, while the one asked for is being worked out
+  const isBehind = comparison.isPlaceholderData;
   const everything = useCompare(base, head, mergeBase, null, between); // the commits to choose from
   const map = useEnvMap();
   // two environments: the head is read in the terms of the base's, which the package is for
@@ -271,25 +279,37 @@ export function ComparePage() {
           <h1 className="mr-2 text-xl font-semibold">Compare</h1>
           <RefSelect
             label="Base"
-            value={base}
+            value={draftBase}
             git={git.data}
-            onChange={(v) => update({ base: v, node: null })}
+            onChange={(v) => setDraft((d) => ({ ...d, base: v }))}
           />
           <span className="pb-1 text-muted">←</span>
           <RefSelect
             label="Head"
-            value={head}
+            value={draftHead}
             git={git.data}
-            onChange={(v) => update({ head: v, node: null })}
+            onChange={(v) => setDraft((d) => ({ ...d, head: v }))}
           />
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => update({ base: head, head: base, node: null })}
-            disabled={head === WORKTREE}
+            onClick={() => setDraft({ base: draftHead, head: draftBase })}
+            disabled={draftHead === WORKTREE}
           >
             Swap
           </Button>
+          <Button
+            size="sm"
+            onClick={() => {
+              update({ base: draftBase, head: draftHead, node: null });
+              setDraft({});
+            }}
+            disabled={!isDraft}
+            title="Compare the two refs chosen"
+          >
+            Compare
+          </Button>
+          {isDraft && <span className="pb-1 text-xs text-muted">not compared yet</span>}
           {!pair && (
             <label className="flex items-center gap-1 pb-1 text-xs text-muted">
               <input
@@ -320,7 +340,7 @@ export function ComparePage() {
             )}
             <Button
               onClick={() => setPackaged({ items: null })}
-              disabled={!result || (pair ? isRaw : !env)}
+              disabled={!result || isBehind || (pair ? isRaw : !env)}
               title={
                 pair
                   ? `The Control-M import file for ${pair.target} with every folder that differs, whole`
@@ -386,6 +406,15 @@ export function ComparePage() {
         )}
 
         {comparison.isPending && <Loading what="comparison" />}
+        {isBehind && (
+          <p
+            role="status"
+            className="rounded-md border border-accent/40 bg-accent-soft px-3 py-1.5 text-sm"
+          >
+            Comparing {base} with {head}… Below is the comparison before it, until the new one is
+            there.
+          </p>
+        )}
         {comparison.isError &&
           (comparison.error instanceof ApiError && comparison.error.code === "SelectionConflict" ? (
             <SelectionConflict
@@ -397,7 +426,7 @@ export function ComparePage() {
             <ErrorBox error={comparison.error} />
           ))}
         {result && (
-          <>
+          <div inert={isBehind} className={cn("space-y-4", isBehind && "opacity-60")}>
             {result.selected && (
               <p className="rounded-md border border-accent/40 bg-accent-soft px-3 py-1.5 text-sm">
                 Showing the changes of {result.selected.length} of{" "}
@@ -576,7 +605,7 @@ export function ComparePage() {
               onPackage={(items) => setPackaged({ items })}
               onDone={() => setChosen([])}
             />
-          </>
+          </div>
         )}
         {!result && !comparison.isPending && !comparison.isError && (
           <Card>

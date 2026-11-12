@@ -18,12 +18,14 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from controlm_chain_admin.core import cache
 from controlm_chain_admin.core.history import CommitInfo, RefInfo
 from controlm_chain_admin.core.links import LINK_KEY, folder_names, load_links
 from controlm_chain_admin.core.overrides import load_overrides
 from controlm_chain_admin.core.relations import NodeRelations, Relation, all_relations
 from controlm_chain_admin.core.repo import CHAIN_FILE, EnvConfig, load_repo, read_json
 from controlm_chain_admin.core.selection import Sides, open_sides
+from controlm_chain_admin.core.timing import phase
 
 if TYPE_CHECKING:
     from controlm_chain_admin.core.crossenv import Translation
@@ -767,19 +769,30 @@ def compare(
     terms of the base's environment (see :mod:`controlm_chain_admin.core.crossenv`), so that
     only the real differences show; ``translate=False`` compares them as they are, and
     ``prefer`` names the entries of the map that win where it gives several answers.
+
+    Between two commits the answer is kept (:mod:`controlm_chain_admin.core.cache`).
     """
-    with open_sides(
-        root, base, head, use_merge_base=use_merge_base, commits=commits, translate=translate,
-        prefer=prefer,
-    ) as sides:  # fmt: skip
-        return comparison(sides)
+
+    def work() -> Comparison:
+        with open_sides(
+            root, base, head, use_merge_base=use_merge_base, commits=commits,
+            translate=translate, prefer=prefer,
+        ) as sides:  # fmt: skip
+            return comparison(sides)
+
+    parts = cache.state(root, (base, head))
+    if parts is not None:
+        selected = None if commits is None else list(commits)
+        parts = [*parts, use_merge_base, selected, translate, list(prefer)]
+    return cache.remember(root, "compare", parts, work)
 
 
 def comparison(sides: Sides) -> Comparison:
     """The :class:`Comparison` of two opened sides."""
-    folders, jobs, links, constants, rules, meta, exceptions = diff_snapshots(
-        sides.base_root, sides.head_root
-    )
+    with phase("diff"):
+        folders, jobs, links, constants, rules, meta, exceptions = diff_snapshots(
+            sides.base_root, sides.head_root
+        )
     return Comparison(
         sides.base, sides.head, sides.merge_base, sides.commits,
         _attribute(folders, sides), _attribute(jobs, sides),

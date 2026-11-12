@@ -19,6 +19,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from controlm_chain_admin.core.errors import ChainError, GitError
+from controlm_chain_admin.core.timing import count, phase
 
 WORKTREE = "WORKTREE"
 _SNAPSHOT_PREFIXES = ("chain.json", "folders/", "meta/", "envs/")
@@ -89,10 +90,13 @@ class GitState:
 
 
 def _git(root: Path, *args: str, binary: bool = False) -> Any:
+    count("git_calls")
     try:
-        result = subprocess.run(
-            ["git", "-C", str(root), *args], capture_output=True, check=False, text=not binary
-        )
+        with phase("git"):
+            result = subprocess.run(
+                ["git", "-C", str(root), *args], capture_output=True, check=False,
+                text=not binary,
+            )  # fmt: skip
     except FileNotFoundError as exc:
         raise GitError("git is not installed or not on PATH") from exc
     if result.returncode != 0:
@@ -322,12 +326,13 @@ def snapshot(
     # run from the top level: inside a subdirectory git archive keeps only that subdirectory
     top = Path(str(_git(root, "rev-parse", "--show-toplevel")).strip())
     # the files as stored: Git for Windows would hand them out with CRLF (core.autocrlf)
-    archive: bytes = _git(
-        top, "-c", "core.autocrlf=false", "archive", "--format=tar", tree, binary=True
-    )
+    with phase("snapshot"):
+        archive: bytes = _git(
+            top, "-c", "core.autocrlf=false", "archive", "--format=tar", tree, binary=True
+        )
     with tempfile.TemporaryDirectory(prefix="ctmchain-ref-") as tmp:
         target = Path(tmp)
-        with tarfile.open(fileobj=io.BytesIO(archive)) as tar:
+        with phase("snapshot"), tarfile.open(fileobj=io.BytesIO(archive)) as tar:
             for member in tar.getmembers():
                 name = PurePosixPath(member.name)
                 if not member.isfile() or name.is_absolute() or ".." in name.parts:
@@ -340,6 +345,7 @@ def snapshot(
                 path = target.joinpath(*name.parts)
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_bytes(source.read())
+                count("files_written")
         for relative, content in (overlay or {}).items():
             path = target.joinpath(*PurePosixPath(relative).parts)
             if content is None:

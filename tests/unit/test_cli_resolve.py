@@ -24,6 +24,8 @@ def test_without_a_choice_it_lists_the_fixes_per_code(
     assert "  add-cleanup: Delete it after use (1)" in out
     assert "  emit: Make the named producer emit it (1)" in out
     assert "non-standard-name (1 finding): no fix" in out
+    assert "    looks for: A job waits for a condition and never deletes it once it ran." in out
+    assert "    why: " in out and "    its fix: " in out
 
 
 def test_a_choice_is_previewed_then_applied(

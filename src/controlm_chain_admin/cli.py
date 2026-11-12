@@ -16,7 +16,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
-from controlm_chain_admin import __version__, cli_assistant, cli_env
+from controlm_chain_admin import __version__, cli_assistant, cli_diagnose, cli_env
 from controlm_chain_admin.core import check as check_mod
 from controlm_chain_admin.core import commit as commit_mod
 from controlm_chain_admin.core import compare as compare_mod
@@ -35,7 +35,12 @@ from controlm_chain_admin.core.errors import ChainError, NotAChainRepo, TakeConf
 from controlm_chain_admin.core.history import WORKTREE
 from controlm_chain_admin.core.links import NodeRef, folder_names
 from controlm_chain_admin.core.repo import init_repo, load_repo, read_json, write_json
-from controlm_chain_admin.core.validate import render_markdown, render_text, validate
+from controlm_chain_admin.core.validate import (
+    EXPLANATIONS,
+    render_markdown,
+    render_text,
+    validate,
+)
 from controlm_chain_admin.core.xmlio import parse_xml
 
 EXIT_OK = 0
@@ -458,6 +463,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_refactorings(commands)
     cli_env.add_commands(commands)
     cli_assistant.add_commands(commands)
+    cli_diagnose.add_commands(commands)
 
     srv = commands.add_parser(
         "serve", help="serve the local web UI and API (needs the [web] extra)"
@@ -1361,6 +1367,10 @@ def cmd_resolve(args: argparse.Namespace) -> int:
                     kinds[fix.kind] = (title, count + (1 if single else 0))
             head = f"{code} ({_plural(len(groups), 'finding')})"
             print(head + ("" if kinds else ": no fix"))
+            said = EXPLANATIONS[code]
+            print(f"    looks for: {said.looks_for}")
+            print(f"    why: {said.why}")
+            print(f"    its fix: {said.fix}")
             for kind, (title, count) in kinds.items():
                 print(f"  {kind}: {title} ({count})")
         return EXIT_OK

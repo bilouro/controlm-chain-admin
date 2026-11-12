@@ -25,6 +25,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
+from controlm_chain_admin.core import cache
 from controlm_chain_admin.core.compare import Comparison, comparison
 from controlm_chain_admin.core.constants import placeholder
 from controlm_chain_admin.core.crossenv import kept_unsure
@@ -363,8 +364,39 @@ def build_package(
     environments ``env`` is the base's and need not be given, and ``prefer`` names the entries
     of the map that win where it gives several answers for a value. Unresolved constants in a
     packaged folder raise :class:`UnresolvedConstant`.
+
+    Between two commits the package is kept (:mod:`controlm_chain_admin.core.cache`).
     """
+    day = today or datetime.date.today().isoformat()
     taken = None if take is None else tuple(dict.fromkeys(take))
+
+    def work() -> Package:
+        return _build(
+            root, base, head, env, commits, use_merge_base, names, jobnames, day, taken, prefer
+        )
+
+    parts = cache.state(root, (base, head))
+    if parts is not None:
+        selected = None if commits is None else list(commits)
+        chosen = None if taken is None else list(taken)
+        parts = [*parts, env, selected, use_merge_base, names, jobnames, day, chosen,
+                 list(prefer)]  # fmt: skip
+    return cache.remember(root, "package", parts, work)
+
+
+def _build(
+    root: Path,
+    base: str,
+    head: str,
+    env: str | None,
+    commits: Sequence[str] | None,
+    use_merge_base: bool,
+    names: str,
+    jobnames: str,
+    today: str,
+    taken: tuple[str, ...] | None,
+    prefer: Sequence[str],
+) -> Package:
     with (
         open_sides(
             root, base, head, use_merge_base=use_merge_base, commits=commits, prefer=prefer
@@ -403,7 +435,7 @@ def build_package(
         ]
         warnings += [f"folder {f} is not in meta/export.json; it is not packaged" for f in missing]
         findings = _new_findings(sides, repo)
-        filename = _filename(env, sides, today or datetime.date.today().isoformat(), taken)
+        filename = _filename(env, sides, today, taken)
     return Package(
         sides.base, sides.head, sides.merge_base, env, sides.commits, sides.selected,
         folders, tuple(warnings), findings, filename, xml, taken,

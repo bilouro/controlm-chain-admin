@@ -1353,6 +1353,24 @@ export interface components {
         [key: string]: string | null;
       };
     };
+    /** ExplanationOut */
+    ExplanationOut: {
+      /**
+       * Fix
+       * @description what its fix does, and what follows from it
+       */
+      fix: string;
+      /**
+       * Looks For
+       * @description what the check looks for
+       */
+      looks_for: string;
+      /**
+       * Why
+       * @description why it matters
+       */
+      why: string;
+    };
     /** FieldChangeOut */
     FieldChangeOut: {
       /** After */
@@ -2363,6 +2381,14 @@ export interface components {
       /** Counts */
       counts: {
         [key: string]: number;
+      };
+      /**
+       * Explanations
+       * @description what each code of the findings means, by code
+       * @default {}
+       */
+      explanations: {
+        [key: string]: components["schemas"]["ExplanationOut"];
       };
       /** Findings */
       findings: components["schemas"]["FindingOut"][];

@@ -56,6 +56,7 @@ repository of small JSON files:
 | The import file of what a branch of your own changes in its own environment (no `--env`: both hold uat) | `ctmchain package env/uat work/uat-next -o uat_import.xml` |
 | Know what is expected to differ between environments, without it belonging to any of them | `ctmchain envmap derive --apply`, `ctmchain envmap show` (kept on the branch `map`) |
 | Compare two environments by their real differences | `ctmchain compare main env/uat` (`--raw`: as stored) |
+| See why a comparison is slow on a machine (numbers only, safe to pass on) | `ctmchain diagnose` (`-o report.txt` writes it to a file too) |
 | Take one attribute, one variable, one job, one folder or a sub-application into another environment's branch | `ctmchain take env/uat --list`, `ctmchain take env/uat --item job:F/J --apply` |
 | Get the import file of what was chosen, adapted to the target, without changing any branch | `ctmchain package main env/uat --take folder:F -o prod_import.xml` |
 | Export a whole environment as it stands on its branch | `ctmchain export --env bench -o bench.xml` |
@@ -192,7 +193,9 @@ asks for the token the command prints):
 - **Compare**: choose two environments. Only the real differences are listed, each with a
   box. The checked items are taken into the branch that is checked out, or downloaded as the
   import file of the other environment, with those items and nothing else. A value the map
-  gives two answers for comes with one *Prefer* button per answer.
+  gives two answers for comes with one *Prefer* button per answer. Choosing another branch
+  compares nothing until you press *Compare*, and the last comparison stays in view while
+  the next one is worked out.
 
 `ctmchain serve --assistant` adds an assistant to the page, and `ctmchain mcp` gives the
 same tools to Kilo, Claude or any MCP client: "what does uat have that prod has not?",
@@ -294,7 +297,10 @@ agent: the gate, then a data repository from the exports.
 
 - **Validation with fixes** the Control-M interface does not offer: conditions nobody emits
   or nobody cleans, chains broken by a rename, condition names that differ only by a copy's
-  suffix or by case. `ctmchain validate`, `ctmchain resolve <finding>=<fix> --apply`.
+  suffix or by case, a JOBNAME that several jobs of the export share. Every kind of finding
+  says what it looks for, why it matters and what its fix does (`ctmchain resolve` lists
+  them; the *Validation* page shows it when a type is chosen). `ctmchain validate`,
+  `ctmchain resolve <finding>=<fix> --apply`.
 - **Refactorings with a preview**: `rename-job`, `rename-folder`, `rename-subapp`,
   `move-job`, `insert-job` (between two jobs of a chain), `extract-variable`,
   `set-variable`. Each prints the change and writes only with `--apply`.

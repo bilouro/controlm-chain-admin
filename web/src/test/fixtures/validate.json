@@ -436,5 +436,52 @@
         }
       ]
     }
-  ]
+  ],
+  "explanations": {
+    "dangling": {
+      "looks_for": "A job waits for a condition that nobody emits, and the name of the condition names a job that is in the repository.",
+      "why": "The job that waits never starts by itself: the job it names does not release it.",
+      "fix": "Either the named job starts emitting the condition (one line added to that job), or the waiting job stops waiting for it."
+    },
+    "dangling-unknown": {
+      "looks_for": "A job waits for a condition that nobody emits, and the name does not say who should.",
+      "why": "The job that waits never starts by itself, and nothing here tells where the condition should come from.",
+      "fix": "The waiting job stops waiting for it; when it comes from another application, leave it as it is."
+    },
+    "dangling-external": {
+      "looks_for": "A job waits for a condition that nobody here emits, named after a job that is not in this repository.",
+      "why": "Usually nothing is wrong: another application emits it. It is listed so that a mistyped name does not hide among them.",
+      "fix": "None is needed when the other application exists; the waiting job can stop waiting for it otherwise."
+    },
+    "unconsumed": {
+      "looks_for": "A job emits a condition that nobody waits for, though the name names a job that is in the repository, or nobody at all.",
+      "why": "The link the name promises does not exist: the named job runs without waiting for this one.",
+      "fix": "Either the named job starts waiting for the condition, or the emitting job stops emitting it."
+    },
+    "unconsumed-external": {
+      "looks_for": "A job emits a condition that nobody here waits for, named after a job that is not in this repository.",
+      "why": "Usually nothing is wrong: another application waits for it.",
+      "fix": "None is needed when the other application exists; the job can stop emitting it otherwise."
+    },
+    "stale-name": {
+      "looks_for": "The name of a condition names two jobs, and the condition links two others.",
+      "why": "It works, and it misleads whoever reads it: the name tells of a chain that is not the one that runs. A job renamed or a condition reused leaves it so.",
+      "fix": "The condition is renamed after the jobs it really links, in every job that uses it, other folders included."
+    },
+    "non-standard-name": {
+      "looks_for": "The name of a condition is not made of the two jobs it links (PRODUCER-CONSUMER_OK or PRODUCER-TO-CONSUMER).",
+      "why": "Nothing fails. The names alone do not tell who releases whom.",
+      "fix": "The condition is renamed to the standard name, in every job that uses it."
+    },
+    "never-cleaned": {
+      "looks_for": "A job waits for a condition and never deletes it once it ran.",
+      "why": "The condition stays in Control-M and can release the next run of the job before its predecessor ran again.",
+      "fix": "The waiting job gets one line that deletes the condition after use."
+    },
+    "duplicate-jobname": {
+      "looks_for": "Two or more jobs of one folder have the same JOBNAME, and the repository was told not to number them.",
+      "why": "The name does not tell them apart: a condition named after it could be of either.",
+      "fix": "The second and later ones get a number at the end (NAME2, NAME3); the conditions that carry the name and belong to them follow."
+    }
+  }
 }

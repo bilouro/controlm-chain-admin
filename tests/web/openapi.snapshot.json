@@ -1378,6 +1378,32 @@
         "title": "ExceptionOut",
         "type": "object"
       },
+      "ExplanationOut": {
+        "properties": {
+          "fix": {
+            "description": "what its fix does, and what follows from it",
+            "title": "Fix",
+            "type": "string"
+          },
+          "looks_for": {
+            "description": "what the check looks for",
+            "title": "Looks For",
+            "type": "string"
+          },
+          "why": {
+            "description": "why it matters",
+            "title": "Why",
+            "type": "string"
+          }
+        },
+        "required": [
+          "looks_for",
+          "why",
+          "fix"
+        ],
+        "title": "ExplanationOut",
+        "type": "object"
+      },
       "FieldChangeOut": {
         "properties": {
           "after": {
@@ -3748,6 +3774,15 @@
               "type": "integer"
             },
             "title": "Counts",
+            "type": "object"
+          },
+          "explanations": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ExplanationOut"
+            },
+            "default": {},
+            "description": "what each code of the findings means, by code",
+            "title": "Explanations",
             "type": "object"
           },
           "findings": {

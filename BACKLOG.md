@@ -305,6 +305,68 @@ or addresses anywhere in this public repository.
       its answer ends with the command to apply it), and the rules of the assistant and the
       agent say what a branch of one's own holds. A set-up of an earlier version needs
       `ctmchain kilo init --force` to get the new agent.
+25. **Repeated job names, seen and solved — to do**, asked by the author (2026-11-11): a
+    JOBNAME used by more than one job anywhere in the export, not only in one folder. The
+    import already numbers the later ones (`X2`, `X3`) but keeps it to itself: the export
+    gives the original names back, `validate` sees no repeated name, and the conditions of a
+    numbered job show up as `stale-name`, whose fix renames the condition while the job keeps
+    its name in Control-M (the consequence offered as the main action). Four deliveries, in
+    this order, released together:
+    - **A. Seen.** A finding of its own for every job whose name is repeated in the
+      repository (the folder-only `duplicate-jobname` stays), with the name the import gave
+      it; `stale-name` no longer fires for the conditions of such a job; and every code of
+      `validate` explains itself: what it looks for, why it matters, what its fix does and
+      what follows from it. The text lives in the core (CLI, API, assistant); the *Validate*
+      page shows it in a panel, open at first and collapsible.
+    - **B. Solved.** A fix that makes the numbered name the job's JOBNAME in Control-M too:
+      the export gives it, and the conditions that carry the name and belong to that job
+      follow, in every job that uses them, other folders included (a name already in use is
+      kept, with a warning). Chosen job by job or folder by folder, never all at once by
+      default. For it to reach an environment, `compare` shows the JOBNAME change as a change
+      of the job, `package` packages the folder for it and writes the new name, and `take`
+      carries it as an item; today the three ignore the hidden name (an experiment on
+      synthetic data: no job changed, an empty package).
+    - **C. What the map knows, as findings.** Three warnings other commands give once and
+      `validate` does not: a value that carries another environment's letter (said only when
+      the export is refreshed), a value that differs between environments with no entry in
+      the map (`envmap derive`), and a value the map gives two answers for (the "kept as it
+      is" warning of every `compare` and `package`).
+    - **D. Correcting jobs from the map.** Asked by the author (2026-11-11): two entries of
+      one key that differ in one or two environments are often one environment set up
+      wrongly, not two rules. Renaming an entry changes its name in `map.json` and no job. An
+      action of the *Map* page (and of the CLI) makes the jobs that follow one entry follow
+      another: in the environments where the two differ, those jobs get the other entry's
+      value, on the branch checked out, one environment at a time, previewed like any
+      change. It shows in *Compare* and reaches the environment as an import file; once its
+      next export is in, nobody follows the wrong entry and it can be removed. Each entry
+      shows how many jobs follow it (delivery C counts them). To test before designing it:
+      whether the jobs that follow an entry can always be told, and a job whose values fit
+      two entries.
+26. **Fast where small files are slow — in progress (2026-11-12)**, asked by the author: on
+    the work PC a page takes 30 to 45 seconds to open and a comparison ten minutes. Measured
+    on a repository of that size: opening a folder reads thousands of small files at every
+    request, the validation more, and a comparison of two environments writes and reads tens
+    of thousands of temporary files; where every small file is inspected (an antivirus) that
+    is all of the time. To do, in this order:
+    - `ctmchain diagnose`: the machine and one comparison, measured (done);
+    - a comparison and its package kept by commit (done); the *Compare* page compares on a
+      button, the last comparison stays in view (done);
+    - the files of the repository read once: what a file held is remembered until the file
+      changes, and the first reading comes from git in one piece instead of file by file;
+    - a branch taken out of git without writing its files to a temporary directory.
+27. **Deliveries kept for later — to do**, asked by the author (2026-11-12): put changes
+    aside little by little, each under a name, and choose later which of them go into an
+    import file. An entry is made in three ways: from a comparison (the items checked on the
+    *Compare* page), from a change of one's own (a job edited in the tool), and from the
+    chain itself with nothing changed (an attribute, a job or a folder chosen where it is
+    shown, "as this environment has it"). A page lists the entries; one or several are
+    checked, the target environment is chosen, and one file comes out with their sum and
+    nothing else, written as the target writes it. An item already equal in the target is
+    packaged all the same (the author's choice). Assumed until the author says otherwise:
+    the entries are kept in the data repository, in git; an entry is tied to the commits it
+    was made from, with a warning when its source moved since; an entry has no target of its
+    own (the target is chosen when the file is made); two entries that give one attribute
+    two values are refused and shown, not guessed.
 
 Later, unordered: second-environment import with learning; `diff` of environments and XML
 files with `xmldiffreport`; mapping editor; upstream graph explorer (paused by the author);

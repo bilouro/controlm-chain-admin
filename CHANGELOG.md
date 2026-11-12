@@ -6,6 +6,40 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `ctmchain diagnose`: why a comparison is slow on a machine. It measures the machine (a
+  small file in the temporary directory and next to the repository, one git call, plain
+  computing) and one real comparison, phase by phase, with the files it wrote and read, and
+  says what part of the time the files explain. The report holds numbers and the two refs
+  compared, no name of a job, of a folder or of a directory, so it can be passed on
+  (`-o report.txt`, `--format json`).
+- A comparison of two commits, and its import package, is kept by commit and answered at once
+  the next time: `compare`, `take --list`, `package`, the *Compare* page and the assistant's
+  tools. The key holds the two commits, the branch checked out, the environments' branches,
+  the map, the rules and the options, so nothing stale is ever answered; the working tree is
+  never kept. It lives under the git directory (`ctmchain-cache`, the latest sixty results);
+  `CTMCHAIN_NO_CACHE=1` turns it off.
+
+- `validate` sees a JOBNAME that several jobs of the export share, in one folder or in
+  several: `repeated-jobname`, one finding per job the import numbered (`X2`, `X3`), with
+  the jobs that share the name. Until now only two jobs of one folder were looked at, and
+  only where the import did not number them. It has no fix yet.
+- Every kind of finding explains itself: what it looks for, why it matters, and what its fix
+  does and what follows from it. `ctmchain resolve` prints it per code, the report carries
+  it (`explanations`: `validate --format json`, `GET /api/validate`, the assistant's
+  `validate`), and the *Validation* page shows it in a panel when a type of problem is
+  chosen (it can be hidden, and stays so).
+
+### Changed
+
+- A condition named after the JOBNAME a numbered job has in Control-M is no longer a
+  `stale-name`: its fix renamed the condition while the job kept its name there, the
+  consequence offered as the main action.
+- The *Compare* page compares when *Compare* is pressed, not at every change of *Base* or
+  *Head* (*Swap* too waits for it), and the last comparison stays in view, dimmed, while the
+  next one is worked out.
+
 ## [0.3.3] - 2026-11-11
 
 ### Added

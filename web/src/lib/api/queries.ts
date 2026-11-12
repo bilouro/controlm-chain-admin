@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import {
   api,
   encode,
@@ -133,6 +133,8 @@ export function useCompare(
     queryFn: () => api<ComparisonOut>(`/api/compare?${query}`),
     enabled: Boolean(base && head),
     retry: false,
+    // a comparison can take long: the last one stays in view until the next one is there
+    placeholderData: keepPreviousData,
   });
 }
 

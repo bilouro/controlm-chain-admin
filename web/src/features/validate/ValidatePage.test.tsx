@@ -58,6 +58,32 @@ describe("ValidatePage", () => {
     expect(screen.queryByText("P77_A-P77_E_OK")).not.toBeInTheDocument();
   });
 
+  it("a chosen type says what it looks for, why it matters and what its fix does", async () => {
+    const user = userEvent.setup();
+    renderAt(<ValidatePage />);
+    await screen.findByText("Findings (12)");
+    expect(screen.queryByRole("region", { name: /^About / })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /^never-cleaned/ }));
+
+    const about = screen.getByRole("region", { name: "About never-cleaned" });
+    expect(about).toHaveTextContent("What it looks for");
+    expect(about).toHaveTextContent(
+      "A job waits for a condition and never deletes it once it ran.",
+    );
+    expect(about).toHaveTextContent("Why it matters");
+    expect(about).toHaveTextContent("What its fix does");
+    expect(about).toHaveTextContent("one line that deletes the condition after use");
+
+    await user.click(within(about).getByRole("button", { name: "Hide the explanation" }));
+    expect(about).not.toHaveTextContent("Why it matters");
+    await user.click(screen.getByRole("button", { name: /^stale-name/ }));
+    const other = screen.getByRole("region", { name: "About stale-name" });
+    expect(other).not.toHaveTextContent("Why it matters"); // hidden stays hidden
+    await user.click(within(other).getByRole("button", { name: "Show the explanation" }));
+    expect(other).toHaveTextContent("The name of a condition names two jobs");
+  });
+
   it("one finding with two fixes offers both, explained, with what each changes", async () => {
     const user = userEvent.setup();
     renderAt(<ValidatePage />, { path: "/validate" });
