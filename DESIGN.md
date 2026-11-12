@@ -405,7 +405,15 @@ constants, bench 790, test 1313; `check` 0 in every field for the three, every f
   the JOBNAME Control-M has in the folder's metadata (`original_jobnames`), which the export
   gives back. So nothing in the tree shows a repeated name, and `validate` says it:
   `repeated-jobname` (warning), one finding per numbered job, with every job that shares the
-  name; it has no fix yet (story 25 B makes the numbered name the real one). A condition
+  name. Its fix makes the numbered name the real one (`adopt-jobname FOLDER/JOB`, a
+  capability and a command too): the JOBNAME kept aside is forgotten, so the export gives
+  `X2`, and the conditions that carry `X` and belong to that job are renamed, in every job
+  that uses them (a name in use is kept, with a warning). For that to reach an environment
+  the comparison shows a job with the JOBNAME Control-M has for it, so the change is an
+  attribute change of the job (`JOBNAME: X -> X2`), `package` packages its folder and writes
+  the new name, and `take` carries it (`attr:F/X2@JOBNAME`, or the whole job) by forgetting
+  the name kept aside in the branch that receives; the renamed conditions are items of
+  their own (`link:`). A condition
   named after the JOBNAME such a job has in Control-M names that job: it is not a
   `stale-name`. `duplicate-jobname` stays for a repository that does not number them. Every
   code has an explanation in the core (`validate.EXPLANATIONS`: what it looks for, why it
@@ -907,6 +915,8 @@ Assistant
 - `mcp [--repo DIR]` — implemented: the MCP server over stdio for an assistant (the `[mcp]` extra).
 - `serve --assistant [--assistant-model PROVIDER/MODEL]` — implemented: the web UI with its *Assistant* panel; starts and stops Kilo.
 - `diagnose [<base> <head>] [--files N] [--format text|json] [-o <file>]` — implemented: what this machine costs per small file and per git call, and where one comparison (default: the trunk with the first other environment) spends its time; numbers only (§14.4).
+- `adopt-jobname <FOLDER/JOB> [--keep-names] [--apply]` — implemented: the numbered name of a job becomes its JOBNAME in Control-M too (§8).
+- `envmap followers`, `envmap follow <entry> <other> [--apply] [--stat]` — implemented: who follows each entry of the map, and the jobs of one entry made to follow another on the branch checked out (§14.3).
 - `kilo init [--repo DIR] [--dir DIR] [--force]` — implemented: `.kilo/` for Kilo (server, `controlm` agent, skill, vocabulary) at the top of the git repository.
 
 Environments as branches (§14)
@@ -1051,6 +1061,25 @@ each place (a job, a folder) present in two environments or more, the values of 
 that job has. `--text` does the same for one word of a text. `envmap suggest` counts, for every
 attribute, the places whose values differ and neither the letter nor the map explains: a key
 with few sets of values is the environment's, a key with a set per job is a real difference.
+
+**What the map knows about the branches (story 25 C and D, `core/mapcheck.py`).** For every
+entry, the places (an attribute of a job, or of an element inside it) whose values are
+exactly the entry's *follow* it; a place of a mapped key whose values no entry says follows
+none (`envmap followers`, `GET /api/envmap/followers`, the *Followed by* column of the *Map*
+page). The survey reads the commits of the environments' branches and is kept by commit.
+`validate` turns it into four findings, for the environment checked out: `foreign-value` (a
+job has the value another environment has in an entry; its fix gives it this environment's),
+`unmapped-difference` (a difference of a mapped key no entry says), `ambiguous-map` (one
+value here, several answers elsewhere: what `compare` warns about each time) and
+`suspect-map-entry` (an entry that is another one except for one environment, which has
+there the value of a third: one environment set up like another, taken for a rule).
+Renaming an entry changes its name and no job. `envmap follow ENTRY OTHER` (capability
+`follow-entry`, the *Follow…* action of the page, the fix of `suspect-map-entry`) does: on
+the branch checked out, which must hold the environment where the two differ, the places
+that follow `ENTRY` get the value `OTHER` has (a word inside a text is replaced in place),
+previewed like any change. It shows in *Compare*, reaches the environment as an import
+file, and the map is left alone: once the next export is in, nothing follows `ENTRY` and it
+can be removed.
 
 ### 14.4 Real differences (need 9)
 

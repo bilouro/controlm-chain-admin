@@ -58,6 +58,7 @@ export type FieldChangeOut = Schemas["FieldChangeOut"];
 export type ConversationOut = Schemas["ConversationOut"];
 export type AckOut = Schemas["AckOut"];
 export type EnvMapOut = Schemas["EnvMapOut"];
+export type FollowersOut = Schemas["FollowersOut"];
 export type MapEntryOut = Schemas["MapEntryOut"];
 export type MapEntryRequest = Schemas["MapEntryRequest"];
 export type DerivedOut = Schemas["DerivedOut"];

@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any
 from controlm_chain_admin.core import cache
 from controlm_chain_admin.core.history import CommitInfo, RefInfo
 from controlm_chain_admin.core.links import LINK_KEY, folder_names, load_links
+from controlm_chain_admin.core.ops import ORIGINALS_KEY
 from controlm_chain_admin.core.overrides import load_overrides
 from controlm_chain_admin.core.relations import NodeRelations, Relation, all_relations
 from controlm_chain_admin.core.repo import CHAIN_FILE, EnvConfig, load_repo, read_json
@@ -245,6 +246,15 @@ class _Side:
     exceptions: dict[str, dict[str, dict[str, Any]]] = field(default_factory=dict)  # env, node
     meta: dict[str, str] = field(default_factory=dict)
     rules: dict[str, Any] = field(default_factory=dict)
+    #: "F/J" -> the JOBNAME Control-M has, for the jobs the import numbered
+    originals: dict[str, str] = field(default_factory=dict)
+
+    def exported(self, identity: str | None) -> dict[str, Any] | None:
+        """The job as Control-M has it: with the JOBNAME the export gives it."""
+        job = self.jobs.get(identity) if identity else None
+        if job is None or identity not in self.originals:
+            return job
+        return {**job, "JOBNAME": self.originals[identity]}
 
     def position(self, identity: str) -> tuple[int, int]:
         folder, _, job = identity.partition("/")
@@ -263,6 +273,11 @@ def _load(root: Path) -> _Side:
         side.folders[folder] = data
         for job in (str(j) for j in data.get("jobs", [])):
             side.jobs[f"{folder}/{job}"] = dict(read_json(repo.job_file(folder, job)))
+        meta_file = repo.folder_meta_file(folder)
+        if meta_file.is_file():
+            for job, original in read_json(meta_file).get(ORIGINALS_KEY, {}).items():
+                if f"{folder}/{job}" in side.jobs and job != original:
+                    side.originals[f"{folder}/{job}"] = str(original)
     if repo.export_meta_file.is_file():
         side.order = list(read_json(repo.export_meta_file).get("folder_order", []))
     side.order += [f for f in side.folders if f not in side.order]
@@ -667,8 +682,9 @@ def diff_snapshots(base_root: Path, head_root: Path) -> tuple[Any, ...]:
         )
         previous = old if change in ("renamed", "moved") else None
         node = _node(
-            "job", change, identity, previous, before, after, ignore, relations, pairs=pairs
-        )
+            "job", change, identity, previous, base.exported(old), head.exported(identity),
+            ignore, relations, pairs=pairs,
+        )  # fmt: skip
         if change != "modified" or _significant(node):
             jobs.append(node)
     for identity in sorted(removed, key=base.position):
@@ -676,7 +692,7 @@ def diff_snapshots(base_root: Path, head_root: Path) -> tuple[Any, ...]:
             base.relations.get(identity), None, node_map, base.names, head.names, counterparts
         )
         jobs.append(
-            _node("job", "removed", identity, None, base.jobs[identity], None, {}, relations)
+            _node("job", "removed", identity, None, base.exported(identity), None, {}, relations)
         )
 
     links: list[LinkChange] = []

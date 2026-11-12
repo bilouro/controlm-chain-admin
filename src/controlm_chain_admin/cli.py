@@ -1087,6 +1087,18 @@ def _add_refactorings(commands: Any) -> None:
         ),
     )
 
+    aj = commands.add_parser(
+        "adopt-jobname",
+        help="make the numbered name of a job (NAME2) its JOBNAME in Control-M too",
+    )
+    aj.add_argument("node", metavar="FOLDER/JOB")
+    aj.add_argument("--keep-names", action="store_true", help="do not rename condition names")
+    _refactor_options(aj)
+    aj.set_defaults(
+        func=cmd_refactor,
+        build=lambda r, a: refactor_mod.adopt_jobname(r, a.node, update_names=not a.keep_names),
+    )
+
     rf = commands.add_parser("rename-folder", help="rename a folder and everything that names it")
     rf.add_argument("folder")
     rf.add_argument("new_name", metavar="NEW_FOLDER_NAME")

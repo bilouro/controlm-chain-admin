@@ -143,6 +143,36 @@ describe("MapPage", () => {
     expect(screen.getByRole("textbox", { name: "Key" })).toHaveValue("");
   });
 
+  it("says how many places follow each entry, and what follows none", async () => {
+    await shown();
+    const table = screen.getByRole("table", { name: "Map entries" });
+
+    expect(await within(table).findByText("10 places")).toBeInTheDocument();
+    expect(within(table).getByText("1 place")).toBeInTheDocument();
+    expect(within(table).getByText("no place")).toBeInTheDocument(); // datacenter.1
+    expect(screen.getByText(/2 places of these keys follow no entry/)).toBeInTheDocument();
+  });
+
+  it("makes the jobs of one entry follow another of the same key, as a change to review", async () => {
+    const { user } = await shown();
+
+    expect(screen.queryByRole("button", { name: "Follow nodeid.1" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Follow run_as.2" }));
+    const other = screen.getByLabelText("Entry the jobs of run_as.2 should follow");
+    expect(
+      within(other)
+        .getAllByRole("option")
+        .map((o) => o.textContent),
+    ).toEqual(["run_as.1"]);
+    await user.click(screen.getByRole("button", { name: "Preview the change" }));
+
+    await waitFor(() => expect(calls.preview.length).toBeGreaterThan(0));
+    expect(calls.preview[calls.preview.length - 1]).toEqual({
+      op: "follow-entry",
+      params: { entry: "run_as.2", other: "run_as.1" },
+    });
+  });
+
   it("renames an entry", async () => {
     const { user } = await shown();
 

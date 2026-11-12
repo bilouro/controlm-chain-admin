@@ -10,6 +10,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, Query, Request
 
 from controlm_chain_admin.core import envmap as core
+from controlm_chain_admin.core.mapcheck import survey
 from controlm_chain_admin.core.repo import ChainRepo
 from controlm_chain_admin.web.deps import get_repo, require_token
 from controlm_chain_admin.web.schemas import (
@@ -17,6 +18,7 @@ from controlm_chain_admin.web.schemas import (
     DeriveRequest,
     EnvMapOut,
     ErrorOut,
+    FollowersOut,
     MapEntryRequest,
     RenameEntryRequest,
     SuggestionsOut,
@@ -108,6 +110,17 @@ def suggest(
     return SuggestionsOut.model_validate(
         {"total": len(found), "suggestions": found[offset : offset + limit]}
     )
+
+
+@router.get(
+    "/followers",
+    response_model=FollowersOut,
+    responses=ERRORS,
+    summary="How many places of the environments' branches follow each entry of the map",
+)
+def followers(repo: ChainRepo = Depends(get_repo)) -> FollowersOut:
+    seen = survey(repo.root)
+    return FollowersOut.model_validate({**seen.to_json(), "unmapped": len(seen.unmapped)})
 
 
 @router.post("/entries", response_model=EnvMapOut, summary="Add one entry by hand", **WRITE)

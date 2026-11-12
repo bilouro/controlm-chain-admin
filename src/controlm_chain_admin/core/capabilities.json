@@ -302,6 +302,40 @@
       "example": {"say": "P77_D stops emitting P77_D-P77_NOBODY_OK", "params": {"link": "P77_D-P77_NOBODY_OK", "producer": "P77_CHAIN/P77_D"}}
     },
     {
+      "id": "follow-entry",
+      "op": "follow-entry",
+      "group": "Environments",
+      "title": "Make the jobs that follow one entry of the map follow another",
+      "when": "one environment was set up with another one's value (validate says suspect-map-entry): on the branch of that environment, its jobs get the value of the right entry; the map is not changed",
+      "params": {
+        "type": "object",
+        "properties": {
+          "entry": {"type": "string", "description": "the entry the jobs follow now, as envmap names it (run_as.2)"},
+          "other": {"type": "string", "description": "the entry of the same key they should follow"}
+        },
+        "required": ["entry", "other"]
+      },
+      "rules": ["The branch checked out must hold the environment where the two entries differ; the user switches to it."],
+      "example": {"say": "The jobs of run_as.2 should run as run_as.1 says", "params": {"entry": "run_as.2", "other": "run_as.1"}}
+    },
+    {
+      "id": "adopt-jobname",
+      "op": "adopt-jobname",
+      "group": "Jobs and folders",
+      "title": "Make the numbered name of a job its JOBNAME",
+      "when": "a job whose JOBNAME other jobs share: the import numbered it (NAME2) and Control-M still has the shared name; the condition names that embed it follow",
+      "params": {
+        "type": "object",
+        "properties": {
+          "node": {"type": "string", "description": "FOLDER/JOB of the numbered job, as validate names it (repeated-jobname)"},
+          "update_names": {"type": "boolean", "description": "the condition names that embed the old name and belong to the job follow (default true)"}
+        },
+        "required": ["node"]
+      },
+      "rules": [],
+      "example": {"say": "Make P77_F2 the real name of that job", "params": {"node": "P77_CHAIN/P77_F2"}}
+    },
+    {
       "id": "rename-job",
       "op": "rename-job",
       "group": "Jobs and folders",

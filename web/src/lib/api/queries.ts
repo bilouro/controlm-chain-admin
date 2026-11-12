@@ -5,6 +5,7 @@ import {
   type ComparisonOut,
   type DerivedOut,
   type EnvMapOut,
+  type FollowersOut,
   type EnvironmentsOut,
   type FolderDetail,
   type GitStateOut,
@@ -179,6 +180,15 @@ export function useEnvironments() {
 }
 
 /** The map of what varies per environment: letters, branches and entries. */
+/** How many places of the environments' branches follow each entry of the map. */
+export function useFollowers() {
+  return useQuery({
+    queryKey: [...queryKeys.envmap, "followers"] as const,
+    queryFn: () => api<FollowersOut>("/api/envmap/followers"),
+    retry: false,
+  });
+}
+
 export function useEnvMap(enabled = true) {
   return useQuery({
     queryKey: queryKeys.envmap,

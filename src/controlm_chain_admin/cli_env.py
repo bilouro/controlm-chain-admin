@@ -12,10 +12,13 @@ from pathlib import Path
 from typing import Any
 
 from controlm_chain_admin.core import envmap as envmap_mod
+from controlm_chain_admin.core import mapcheck as mapcheck_mod
+from controlm_chain_admin.core import refactor as refactor_mod
 from controlm_chain_admin.core import refresh as refresh_mod
 from controlm_chain_admin.core.environments import env_branches
 from controlm_chain_admin.core.errors import ChainError
 from controlm_chain_admin.core.repo import load_repo
+from controlm_chain_admin.core.workspace import ensure_editable
 
 EXIT_OK = 0  # the codes of cli.py
 
@@ -105,6 +108,15 @@ def _add_envmap(commands: Any) -> None:
     rename = action("rename", cmd_envmap_rename, "give an entry a name that says what it is")
     rename.add_argument("old")
     rename.add_argument("new")
+    action("followers", cmd_envmap_followers, "how many places follow each entry")
+    follow = action(
+        "follow", cmd_envmap_follow,
+        "make the jobs that follow one entry follow another, on the branch checked out",
+    )  # fmt: skip
+    follow.add_argument("entry", help="the entry the jobs follow now")
+    follow.add_argument("other", help="the entry of the same key they should follow")
+    follow.add_argument("--apply", action="store_true", help="write the change (default: preview)")
+    follow.add_argument("--stat", action="store_true", help="list the files, not the diff")
 
 
 def cmd_refresh(args: argparse.Namespace) -> int:
@@ -245,6 +257,42 @@ def cmd_envmap_add(args: argparse.Namespace) -> int:
 def cmd_envmap_remove(args: argparse.Namespace) -> int:
     envmap = envmap_mod.remove_from_map(load_repo(args.repo), args.name)
     return _written(args, envmap, f"{args.name} removed")
+
+
+def cmd_envmap_followers(args: argparse.Namespace) -> int:
+    repo = load_repo(args.repo)
+    seen = mapcheck_mod.survey(repo.root)
+    counts = seen.counts()
+    if args.format == "json":
+        _dump(seen.to_json())
+        return EXIT_OK
+    for entry in envmap_mod.read_map(repo.root, repo.config).entries:
+        print(f"  {entry.name}  {counts.get(entry.name, 0)} place(s)  {entry.key}")
+    print(f"{len(seen.unmapped)} place(s) of these keys follow no entry (ctmchain validate).")
+    return EXIT_OK
+
+
+def cmd_envmap_follow(args: argparse.Namespace) -> int:
+    repo = load_repo(args.repo)
+    if args.apply:
+        ensure_editable(repo)
+    change = mapcheck_mod.follow_entry(repo, args.entry, args.other)
+    applied = refactor_mod.apply(repo, change) if args.apply and change.edits else None
+    if args.format == "json":
+        _dump({**change.to_json(), "applied": applied is not None})
+        return EXIT_OK
+    print(change.summary)
+    for warning in change.warnings:
+        print(f"warning: {warning}")
+    if not change.edits:
+        print("Nothing to change.")
+        return EXIT_OK
+    print(change.stat() if args.stat else change.diff(), end="")
+    if applied is not None:
+        print(f"Applied: {applied.written} written, {applied.deleted} deleted")
+    else:
+        print("Preview only; re-run with --apply to write.")
+    return EXIT_OK
 
 
 def cmd_envmap_rename(args: argparse.Namespace) -> int:

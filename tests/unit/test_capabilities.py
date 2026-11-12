@@ -14,7 +14,7 @@ from controlm_chain_admin.core.capabilities import (
     render_menu,
 )
 from controlm_chain_admin.core.constants import Selector, define_constant
-from controlm_chain_admin.core.errors import InvalidChange
+from controlm_chain_admin.core.errors import ChainError, InvalidChange
 from controlm_chain_admin.core.ops import import_xml
 from controlm_chain_admin.core.overrides import Override, write_overrides
 from controlm_chain_admin.core.refactor import (
@@ -30,14 +30,18 @@ from tests.support.gitrepo import commit_all, git
 from tests.support.samples import SAMPLE_EXPORT
 
 APP = "P77_RISK_ENGINE"
+#: capabilities whose example works on the environments' branches (tests/unit/test_mapcheck.py)
+NEED_THE_MAP = frozenset({"follow-entry"})
 CATALOGUE = load_catalogue()
 
 
 @pytest.fixture
 def repo(tmp_path: Path) -> ChainRepo:
-    """The synthetic chain, with a constant and an exception the examples need."""
+    """The synthetic chain, with a constant and an exception the examples need; its repeated
+    JOBNAME is numbered at the import (``P77_F2``), as the adopt-jobname example expects."""
     root = tmp_path / "repo"
-    repo = init_repo(root, APP, ("test", "uat", "bench", "prod"), prefixes=("P77", "RQ_", "RC_"))
+    repo = init_repo(root, APP, ("test", "uat", "bench", "prod"), prefixes=("P77", "RQ_", "RC_"),
+                     dedupe_jobnames=True)  # fmt: skip
     import_xml(repo, SAMPLE_EXPORT, env="uat")
     import_xml(repo, ANOMALY_EXPORT, env="uat")
     repo = define_constant(repo, "node.batch", Selector("NODEID"),
@@ -80,6 +84,10 @@ def test_every_example_previews_a_change_on_the_synthetic_chain(
     repo: ChainRepo, capability: str
 ) -> None:
     example = CATALOGUE.get(capability).example
+    if capability in NEED_THE_MAP:  # one branch per environment and their map: not this chain
+        with pytest.raises(ChainError, match="no entry called"):
+            plan(repo, [{"do": capability, "params": example}])
+        return
 
     change = plan(repo, [{"do": capability, "params": example}])
 

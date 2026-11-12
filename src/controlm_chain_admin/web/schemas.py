@@ -760,6 +760,15 @@ class SuggestionsOut(BaseModel):
     suggestions: list[SuggestionOut]
 
 
+class FollowersOut(BaseModel):
+    environments: list[str] = Field(description="the environments whose branches were read")
+    followers: dict[str, int] = Field(
+        description="entry -> the places (an attribute of a job, or of an element inside it) "
+        "whose values are the entry's"
+    )
+    unmapped: int = Field(description="places of a mapped key whose values no entry says")
+
+
 class MapEntryRequest(BaseModel):
     key: str = Field(min_length=1, description="ATTR, TAG/@ATTR or TAG[K=V]/@ATTR")
     values: dict[str, str] = Field(description="environment -> value; two or more")

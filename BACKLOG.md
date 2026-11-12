@@ -305,7 +305,7 @@ or addresses anywhere in this public repository.
       its answer ends with the command to apply it), and the rules of the assistant and the
       agent say what a branch of one's own holds. A set-up of an earlier version needs
       `ctmchain kilo init --force` to get the new agent.
-25. **Repeated job names, seen and solved — A DONE (2026-11-12), released in 0.3.4; B, C, D to do**, asked by the author (2026-11-11): a
+25. **Repeated job names, seen and solved — DONE (2026-11-12): A released in 0.3.4, B, C and D in 0.4.0**, asked by the author (2026-11-11): a
     JOBNAME used by more than one job anywhere in the export, not only in one folder. The
     import already numbers the later ones (`X2`, `X3`) but keeps it to itself: the export
     gives the original names back, `validate` sees no repeated name, and the conditions of a

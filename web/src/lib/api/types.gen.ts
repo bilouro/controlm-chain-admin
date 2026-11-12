@@ -261,6 +261,23 @@ export interface paths {
     patch: operations["rename_entry_api_envmap_entries__name__patch"];
     trace?: never;
   };
+  "/api/envmap/followers": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** How many places of the environments' branches follow each entry of the map */
+    get: operations["followers_api_envmap_followers_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/envmap/suggest": {
     parameters: {
       query?: never;
@@ -1515,6 +1532,26 @@ export interface components {
       name: string;
       /** Sub Application */
       sub_application?: string | null;
+    };
+    /** FollowersOut */
+    FollowersOut: {
+      /**
+       * Environments
+       * @description the environments whose branches were read
+       */
+      environments: string[];
+      /**
+       * Followers
+       * @description entry -> the places (an attribute of a job, or of an element inside it) whose values are the entry's
+       */
+      followers: {
+        [key: string]: number;
+      };
+      /**
+       * Unmapped
+       * @description places of a mapped key whose values no entry says
+       */
+      unmapped: number;
     };
     /** GitStateOut */
     GitStateOut: {
@@ -3285,6 +3322,44 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+      /** @description A key that cannot be read, or a git error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+    };
+  };
+  followers_api_envmap_followers_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["FollowersOut"];
+        };
+      };
+      /** @description No such entry, a name taken, an unknown environment */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
       };
       /** @description A key that cannot be read, or a git error */
       422: {

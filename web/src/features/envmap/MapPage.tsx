@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ApiError, encode, sendApi, type EnvMapOut, type MapEntryOut } from "@/lib/api/client";
-import { queryKeys, useEnvMap } from "@/lib/api/queries";
+import { queryKeys, useEnvMap, useFollowers } from "@/lib/api/queries";
+import { useChanges } from "@/features/changes/changes-context";
 import { TokenForm } from "@/features/changes/TokenForm";
 import {
   Badge,
@@ -11,6 +12,7 @@ import {
   Empty,
   ErrorBox,
   Loading,
+  SelectInput,
   Table,
   Td,
   TextInput,
@@ -52,11 +54,55 @@ function Environments({ map }: { map: EnvMapOut }) {
 
 type RowProps = { entry: MapEntryOut; envs: string[]; submit: Submit; isPending: boolean };
 
-function EntryActions({ entry, submit, isPending }: Omit<RowProps, "envs">) {
-  const [mode, setMode] = useState<"rename" | "remove" | null>(null);
+/** "3 places", "1 place", "no place": how many attributes of the branches follow an entry. */
+function places(count: number): string {
+  if (count === 0) return "no place";
+  return count === 1 ? "1 place" : `${count} places`;
+}
+
+function EntryActions({
+  entry,
+  siblings,
+  submit,
+  isPending,
+}: Omit<RowProps, "envs"> & { siblings: MapEntryOut[] }) {
+  const { propose } = useChanges();
+  const [mode, setMode] = useState<"rename" | "remove" | "follow" | null>(null);
   const [name, setName] = useState(entry.name);
+  const [other, setOther] = useState(siblings[0]?.name ?? "");
   const close = () => setMode(null);
   const path = `entries/${encode(entry.name)}`;
+  if (mode === "follow") {
+    return (
+      <span className="flex flex-wrap items-center gap-1">
+        <SelectInput
+          aria-label={`Entry the jobs of ${entry.name} should follow`}
+          value={other}
+          onChange={(e) => setOther(e.target.value)}
+        >
+          {siblings.map((sibling) => (
+            <option key={sibling.name} value={sibling.name}>
+              {sibling.name}
+            </option>
+          ))}
+        </SelectInput>
+        <Button
+          size="sm"
+          disabled={!other}
+          title="On the branch checked out: its jobs that follow this entry get the value of the other one"
+          onClick={() => {
+            propose({ op: "follow-entry", params: { entry: entry.name, other } });
+            close();
+          }}
+        >
+          Preview the change
+        </Button>
+        <Button size="sm" variant="ghost" onClick={close}>
+          Cancel
+        </Button>
+      </span>
+    );
+  }
   if (mode === "rename") {
     const next = name.trim();
     return (
@@ -109,6 +155,17 @@ function EntryActions({ entry, submit, isPending }: Omit<RowProps, "envs">) {
   }
   return (
     <span className="flex gap-1">
+      {siblings.length > 0 && (
+        <Button
+          size="sm"
+          variant="ghost"
+          aria-label={`Follow ${entry.name}`}
+          title="Make the jobs that follow this entry follow another entry of the same key"
+          onClick={() => setMode("follow")}
+        >
+          Follow…
+        </Button>
+      )}
       <Button
         size="sm"
         variant="ghost"
@@ -135,6 +192,8 @@ function Entries({
   isPending,
 }: { map: EnvMapOut } & Omit<RowProps, "entry" | "envs">) {
   const envs = Object.keys(map.letters);
+  const followers = useFollowers();
+  const unmapped = followers.data?.unmapped ?? 0;
   return (
     <Card>
       <CardHeader
@@ -156,6 +215,7 @@ function Entries({
               {envs.map((env) => (
                 <Th key={env}>{env}</Th>
               ))}
+              <Th>Followed by</Th>
               <Th>
                 <span className="sr-only">Actions</span>
               </Th>
@@ -173,13 +233,31 @@ function Entries({
                     {entry.values[env] ?? "—"}
                   </Td>
                 ))}
+                <Td className="whitespace-nowrap text-xs text-muted">
+                  {followers.data ? places(followers.data.followers[entry.name] ?? 0) : "…"}
+                </Td>
                 <Td>
-                  <EntryActions entry={entry} submit={submit} isPending={isPending} />
+                  <EntryActions
+                    entry={entry}
+                    siblings={map.entries.filter(
+                      (e) =>
+                        e.name !== entry.name &&
+                        e.key === entry.key &&
+                        (e.inline ?? false) === (entry.inline ?? false),
+                    )}
+                    submit={submit}
+                    isPending={isPending}
+                  />
                 </Td>
               </tr>
             ))}
           </tbody>
         </Table>
+      )}
+      {unmapped > 0 && (
+        <p className="border-t border-border px-3 py-2 text-xs text-muted">
+          {places(unmapped)} of these keys follow no entry: the Validation page lists them.
+        </p>
       )}
     </Card>
   );

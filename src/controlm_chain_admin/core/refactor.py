@@ -449,6 +449,47 @@ def rename_job(
         return _finish(original, box, summary, warnings, names)
 
 
+def adopt_jobname(repo: ChainRepo, node: str, *, update_names: bool = True) -> ChangeSet:
+    """Make the numbered name of a job its JOBNAME in Control-M too.
+
+    The import numbers every later job of a repeated JOBNAME (``X2``) and keeps the name
+    Control-M has (``X``) aside, for the export to give back. This forgets that name: the
+    export gives ``X2``, and the condition names that embed ``X`` and belong to this job
+    follow unless ``update_names`` is off (a name already in use is kept, with a warning).
+    """
+    repo = load_repo(repo.root)
+    ref = _require_job(repo, node)
+    assert ref.job is not None
+    original = _load_meta(repo, ref.folder).get(ORIGINALS_KEY, {}).get(ref.job)
+    if original is None or original == ref.job:
+        raise InvalidChange(
+            f"{ref} was not numbered by the import: its JOBNAME is its own already"
+        )
+    warnings: list[str] = []
+    every = load_links(repo)
+    names = (
+        _renamed_names(_touching(every, ref), str(original), ref.job, every, warnings)
+        if update_names
+        else {}
+    )
+    tracked = _tracked(repo.root)
+    with _sandbox(tracked) as box:
+        meta = _load_meta(box, ref.folder)
+        originals = {job: name for job, name in meta.get(ORIGINALS_KEY, {}).items()
+                     if job != ref.job}  # fmt: skip
+        if originals:
+            meta[ORIGINALS_KEY] = originals
+        else:
+            meta.pop(ORIGINALS_KEY, None)
+        write_json(box.folder_meta_file(ref.folder), meta)
+        if read_json(box.job_file(ref.folder, ref.job)).get("MEMNAME") == original:
+            warnings.append(f"MEMNAME stays {original}")
+        summary = f"JOBNAME of {ref} in Control-M: {original} -> {ref.job}"
+        if names:
+            summary += f"; {len(names)} condition name(s) updated"
+        return _finish(tracked, box, summary, warnings, names)
+
+
 def rename_folder(
     repo: ChainRepo, folder: str, new_name: str, *, update_names: bool = True
 ) -> ChangeSet:
@@ -1444,6 +1485,7 @@ OPERATIONS: dict[str, Callable[..., ChangeSet]] = {
     "stop-emitting": lambda repo, link, producer: stop_emitting(repo, link, producer),
     "batch": lambda repo, changes: batch(repo, changes),
     "rename-job": rename_job,
+    "adopt-jobname": adopt_jobname,
     "rename-folder": rename_folder,
     "rename-subapp": rename_subapp,
     "move-job": move_job,
@@ -1459,7 +1501,14 @@ OPERATIONS: dict[str, Callable[..., ChangeSet]] = {
         repo, xml, env, choices, full
     ),
     "take": lambda repo, head, items, base="HEAD", **kw: _take(repo, base, head, items, **kw),
+    "follow-entry": lambda repo, entry, other: _follow(repo, entry, other),
 }
+
+
+def _follow(repo: ChainRepo, entry: str, other: str) -> ChangeSet:
+    from controlm_chain_admin.core.mapcheck import follow_entry  # it builds on this module
+
+    return follow_entry(repo, entry, other)
 
 
 def _take(

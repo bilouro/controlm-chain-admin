@@ -150,6 +150,41 @@ EXPLANATIONS: dict[str, Explanation] = {
         "environment's jobs, or never get the resource here.",
         "The letter is taken out of the resource name of that job.",
     ),
+    "foreign-value": Explanation(
+        "A job of this environment has, where the map has an entry, the value another "
+        "environment has in that entry: a machine, a user, a word of a mail subject.",
+        "It is most likely this environment set up with another one's value: the job runs "
+        "on, or as, or tells of, what belongs to the other environment.",
+        "The job gets the value the map has for this environment (for an attribute of the "
+        "job itself; a value inside an element is corrected in the job page).",
+    ),
+    "unmapped-difference": Explanation(
+        "An attribute the map has entries for, whose values differ between the environments "
+        "in a way no entry says.",
+        "Every comparison shows it as a real difference, and what is taken to another "
+        "environment keeps this environment's value there.",
+        "None: add an entry to the map when the values do stand for each other (the Map "
+        "page, or ctmchain envmap add), or correct the job when they should not differ.",
+    ),
+    "ambiguous-map": Explanation(
+        "One value of this environment that the map gives several answers for in another "
+        "environment: two entries of one key with the same value here and another there.",
+        "What goes from here to there cannot be translated by the map alone: the value is "
+        "kept as it is, with a warning, in every comparison, take and package.",
+        "None: name the entry that wins when it matters (Prefer on the Compare page, "
+        "--prefer on the command line), or put one environment right so that one entry "
+        "is left.",
+    ),
+    "suspect-map-entry": Explanation(
+        "An entry of the map that is another entry of the same key except for one "
+        "environment, which has there the value a third environment has in the other entry.",
+        "Two rules that differ in one environment are, more often than not, one rule and "
+        "one environment set up with another one's value. The map took the mistake for a "
+        "rule.",
+        "On the branch of that environment, the jobs that follow this entry get the value "
+        "of the other one (ctmchain envmap follow). The entry can be removed once the "
+        "environment's next export is in.",
+    ),
 }
 #: Every code a finding can have, in the order the report explains them.
 CODES: tuple[str, ...] = tuple(EXPLANATIONS)
@@ -495,6 +530,9 @@ def validate(repo: ChainRepo, *, write_index: bool = True) -> ValidateReport:
     rules = NameRules.of(repo)
     if rules is not None:
         _check_names(repo, links, rules, findings)
+    from controlm_chain_admin.core.mapcheck import map_findings  # it builds on this module
+
+    findings.extend(map_findings(repo))
     findings.sort(key=lambda f: (_RANK[f.severity], f.code, f.name, f.node))
     return ValidateReport(tuple(findings), links=len(links), nodes=nodes)
 

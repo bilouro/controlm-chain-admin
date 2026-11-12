@@ -13,6 +13,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
+from controlm_chain_admin.core.errors import ChainError
 from controlm_chain_admin.core.links import (
     DUPLICATE_SEPARATOR,
     Link,
@@ -21,6 +22,7 @@ from controlm_chain_admin.core.links import (
     load_links,
     standard_names,
 )
+from controlm_chain_admin.core.refactor import rename_in_condition
 from controlm_chain_admin.core.repo import ChainRepo, read_json
 from controlm_chain_admin.core.validate import (
     Finding,
@@ -412,9 +414,92 @@ def _name_fixes(finding: Finding, index: _Index) -> list[Fix]:
     return []
 
 
+def _adopting(finding: Finding, index: _Index) -> list[Fix]:
+    """The numbered name of the job becomes its JOBNAME: what `adopt-jobname` does."""
+    folder, _, job = finding.node.partition("/")
+    ref, original = NodeRef(folder, job), finding.name
+    effects = [Effect(finding.node, "change", "JOBNAME", original, job)]
+    for link in index.links.values():
+        if ref not in _users(link):
+            continue
+        renamed = rename_in_condition(link.name, original, job)
+        if renamed == link.name or index.used.get(renamed, link.id) != link.id:
+            continue  # the name does not carry the JOBNAME, or the new one is taken
+        effects += [
+            Effect(str(node), "change", "condition name", link.name, renamed)
+            for node in dict.fromkeys([ref, *_users(link)])
+        ]
+    return [
+        Fix(
+            "keep-number",
+            "Make the numbered name the JOBNAME",
+            f"JOBNAME of {finding.node}: {original} -> {job}",
+            f"Control-M gets the name the repository already calls this job, {job}, so that "
+            f"{original} is the name of one job less. The conditions that carry {original} and "
+            "belong to this job are renamed with it, in every job that uses them, other "
+            "folders included. The JOBNAME changes in Control-M when the import file of the "
+            "environment is imported there.",
+            "adopt-jobname",
+            {"node": finding.node},
+            tuple(effects),
+        )
+    ]
+
+
+def _map_fixes(finding: Finding, index: _Index) -> list[Fix]:
+    """The fixes of the findings that come from the map, on the environment checked out."""
+    from controlm_chain_admin.core import mapcheck  # it builds on the refactorings too
+
+    here = mapcheck.checked_out(index.repo) if index.repo is not None else None
+    if here is None:
+        return []
+    env, envmap = here
+    try:
+        entry = envmap.named(finding.name)
+    except ChainError:
+        return []
+    if finding.code == "foreign-value":
+        selector, value = entry.selector, entry.values.get(env)
+        if entry.inline or selector.tag is not None or value is None:
+            return []  # inside an element, or a word of a text: the job page
+        return [
+            Fix(
+                "map-value",
+                "Give it this environment's value",
+                f"{selector.attribute} of {finding.node}: {value}",
+                f"Sets {selector.attribute} to {value}, the value the map has for {env} in "
+                f"{entry.name}.",
+                "set-attributes",
+                {"node": finding.node, "changes": {selector.attribute: value}},
+                (Effect(finding.node, "change", selector.attribute, None, value),),
+            )
+        ]
+    for suspect in mapcheck.suspects(envmap):
+        if suspect.entry.name != entry.name or suspect.env != env:
+            continue
+        other, old, new = suspect.other, entry.values[env], suspect.other.values[env]
+        return [
+            Fix(
+                "follow-entry",
+                "Make its jobs follow the other entry",
+                f"{entry.name} -> {other.name} in {env}: {entry.key} {old} -> {new}",
+                f"Every job that follows {entry.name} gets, on this branch, the value "
+                f"{other.name} has for {env}. The map is not changed: {entry.name} can be "
+                f"removed once the next export of {env} is in.",
+                "follow-entry",
+                {"entry": entry.name, "other": other.name},
+            )
+        ]
+    return []
+
+
 def _fixes(finding: Finding, index: _Index) -> list[Fix]:
+    if finding.code in ("foreign-value", "suspect-map-entry"):
+        return _map_fixes(finding, index)
     if finding.code == "duplicate-jobname":
         return _numbering(finding, index)
+    if finding.code == "repeated-jobname":
+        return _adopting(finding, index)
     if finding.code == "similar-names":
         return _numbering_similar(finding, index)
     if finding.code in (

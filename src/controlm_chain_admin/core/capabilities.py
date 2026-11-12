@@ -18,6 +18,7 @@ from importlib import resources
 from typing import Any
 
 from controlm_chain_admin.core.errors import InvalidChange
+from controlm_chain_admin.core.ops import ORIGINALS_KEY
 from controlm_chain_admin.core.refactor import ChangeSet, fingerprint, run_operation
 from controlm_chain_admin.core.repo import ChainRepo
 
@@ -196,8 +197,31 @@ def changes_of(change: ChangeSet) -> list[dict[str, Any]]:
         if not isinstance(before, dict) or not isinstance(after_data, dict):
             rows.append({"where": where, "field": None, "before": None, "after": "changed"})
             continue
+        if edit.path.startswith("meta/folders/"):  # the JOBNAME Control-M has lives there
+            folder = edit.path.split("/")[2].removesuffix(".json")
+            rows.extend(_jobnames(folder, before, after_data))
+            before = {k: v for k, v in before.items() if k != ORIGINALS_KEY}
+            after_data = {k: v for k, v in after_data.items() if k != ORIGINALS_KEY}
         rows.extend({"where": where, **row} for row in _fields(before, after_data))
     return rows
+
+
+def _jobnames(
+    folder: str, before: Mapping[str, Any], after: Mapping[str, Any]
+) -> list[dict[str, Any]]:
+    """The jobs whose JOBNAME in Control-M changes: a numbered job is called by its number
+    there unless another name is kept for it."""
+    olds, news = before.get(ORIGINALS_KEY, {}), after.get(ORIGINALS_KEY, {})
+    return [
+        {
+            "where": f"{folder}/{job}",
+            "field": "JOBNAME",
+            "before": olds.get(job, job),
+            "after": news.get(job, job),
+        }
+        for job in [*olds, *(j for j in news if j not in olds)]
+        if olds.get(job, job) != news.get(job, job)
+    ]
 
 
 def _fields(before: Mapping[str, Any], after: Mapping[str, Any]) -> list[dict[str, Any]]:

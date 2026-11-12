@@ -6,6 +6,28 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- The fix of `repeated-jobname`: `ctmchain adopt-jobname FOLDER/JOB` (a fix on the
+  *Validation* page, a capability for the assistant) makes the numbered name of a job its
+  JOBNAME in Control-M too, and the conditions that carry the shared name and belong to the
+  job follow, in every job that uses them. The change travels: `compare` shows the job with
+  the JOBNAME Control-M has for it (`JOBNAME: X -> X2`), `package` writes the new name for
+  the environment that receives, and `take` carries it as an item
+  (`attr:FOLDER/JOB@JOBNAME`) or with the whole job.
+- What the map knows, said by `validate` for the environment checked out: `foreign-value`
+  (a job has the value another environment has in an entry of the map; its fix gives it
+  this environment's), `unmapped-difference` (a mapped attribute that differs in a way no
+  entry says), `ambiguous-map` (one value here, several answers in another environment) and
+  `suspect-map-entry` (an entry that is another one except for one environment, which has
+  there the value of a third).
+- `ctmchain envmap followers` and the *Followed by* column of the *Map* page: how many
+  places of the branches have exactly the values of each entry. `ctmchain envmap follow
+  ENTRY OTHER` (the *Follow…* action of the page, a capability, the fix of
+  `suspect-map-entry`): on the branch of the environment where the two entries differ, the
+  jobs that follow one get the value of the other, previewed like any change. Renaming an
+  entry still changes no job.
+
 ## [0.3.4] - 2026-11-12
 
 ### Added
@@ -35,7 +57,7 @@ All notable changes to this project are documented here. The format follows
 - `validate` sees a JOBNAME that several jobs of the export share, in one folder or in
   several: `repeated-jobname`, one finding per job the import numbered (`X2`, `X3`), with
   the jobs that share the name. Until now only two jobs of one folder were looked at, and
-  only where the import did not number them. It has no fix yet.
+  only where the import did not number them. It has no fix yet (0.4.0 brings it).
 - Every kind of finding explains itself: what it looks for, why it matters, and what its fix
   does and what follows from it. `ctmchain resolve` prints it per code, the report carries
   it (`explanations`: `validate --format json`, `GET /api/validate`, the assistant's

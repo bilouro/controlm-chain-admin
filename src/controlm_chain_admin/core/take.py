@@ -50,7 +50,7 @@ from controlm_chain_admin.core.errors import InvalidChange, TakeConflict
 from controlm_chain_admin.core.history import resolve
 from controlm_chain_admin.core.links import INDEX_FILE, LINK_KEY, collect_conditions, read_names
 from controlm_chain_admin.core.memfs import remove_tree
-from controlm_chain_admin.core.ops import JOBS_KEY
+from controlm_chain_admin.core.ops import JOBS_KEY, ORIGINALS_KEY
 from controlm_chain_admin.core.overrides import Override, load_overrides, write_overrides
 from controlm_chain_admin.core.repo import ChainRepo, load_repo, read_json, write_json
 from controlm_chain_admin.core.selection import Sides, open_sides
@@ -218,7 +218,43 @@ class _Take:
         else:
             getattr(self, f"_{kind}")(item, rest)
 
+    def _originals(self, folder: str) -> dict[str, str]:
+        meta_file = self.box.folder_meta_file(folder)
+        if not meta_file.is_file():
+            return {}
+        return dict(read_json(meta_file).get(ORIGINALS_KEY, {}))
+
+    def _set_original(self, folder: str, job: str, name: str) -> None:
+        """Make ``name`` the JOBNAME Control-M has for the job: kept aside when it is not the
+        name the repository calls it, forgotten when it is."""
+        meta_file = self.box.folder_meta_file(folder)
+        meta = dict(read_json(meta_file)) if meta_file.is_file() else {"attrs": {}, JOBS_KEY: {}}
+        originals = {j: n for j, n in meta.get(ORIGINALS_KEY, {}).items() if j != job}
+        if name != job:
+            originals[job] = name
+        if originals:
+            meta[ORIGINALS_KEY] = originals
+        else:
+            meta.pop(ORIGINALS_KEY, None)
+        write_json(meta_file, meta)
+
+    def _jobname(self, item: str, node: str) -> None:
+        """The JOBNAME Control-M has for a job the import numbered: it lives beside the job,
+        not in it."""
+        old = self.reverse.get(node, node)
+        before = self.before.originals.get(old, old.partition("/")[2])
+        theirs = self.after.originals.get(node, node.partition("/")[2])
+        target = self.target(node, item)
+        folder, _, job = target.partition("/")
+        mine = self._originals(folder).get(job, job)
+        if self.settle(item, mine, before, theirs):
+            self._set_original(folder, job, theirs)
+            self.taken.add(node)
+
     def _attr(self, item: str, node: str, name: str) -> None:
+        if name == "JOBNAME" and not node.endswith("/"):
+            self._jobname(item, node)
+            return
         before = (_node_json(self.before, self.reverse.get(node, node)) or {}).get(name)
         theirs = (_node_json(self.after, node) or {}).get(name)
         target = self.target(node, item)
@@ -353,6 +389,11 @@ class _Take:
         if meta_file.is_file():
             meta = dict(read_json(meta_file))
             meta[JOBS_KEY] = {j: v for j, v in meta.get(JOBS_KEY, {}).items() if j != job}
+            originals = {j: n for j, n in meta.get(ORIGINALS_KEY, {}).items() if j != job}
+            if originals:
+                meta[ORIGINALS_KEY] = originals
+            else:
+                meta.pop(ORIGINALS_KEY, None)
             write_json(meta_file, meta)
 
     def _add_job(
@@ -363,6 +404,8 @@ class _Take:
             raise InvalidChange(f"{item}: folder {folder} is not in the checkout: take it whole")
         mine = self.read(identity) if self.path(identity).is_file() else None
         if not self.settle(item, mine, before, after):
+            if mine == after:  # the same job: its JOBNAME in Control-M may still differ
+                self._jobname(item, identity)
             return
         self.write(identity, after)
         folder_json = dict(read_json(self.box.folder_file(folder)))
@@ -383,6 +426,8 @@ class _Take:
                 jobs[job] = theirs
             meta[JOBS_KEY] = {j: jobs[j] for j in ids if j in jobs}
             write_json(meta_file, meta)
+        if meta_file.is_file():  # with the JOBNAME Control-M has for it there
+            self._set_original(folder, job, self.after.originals.get(identity, job))
         self.bring_names(after)
         self.taken.add(identity)
 

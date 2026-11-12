@@ -1731,6 +1731,38 @@
         "title": "FolderSummary",
         "type": "object"
       },
+      "FollowersOut": {
+        "properties": {
+          "environments": {
+            "description": "the environments whose branches were read",
+            "items": {
+              "type": "string"
+            },
+            "title": "Environments",
+            "type": "array"
+          },
+          "followers": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "entry -> the places (an attribute of a job, or of an element inside it) whose values are the entry's",
+            "title": "Followers",
+            "type": "object"
+          },
+          "unmapped": {
+            "description": "places of a mapped key whose values no entry says",
+            "title": "Unmapped",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "environments",
+          "followers",
+          "unmapped"
+        ],
+        "title": "FollowersOut",
+        "type": "object"
+      },
       "GitStateOut": {
         "properties": {
           "changes": {
@@ -5160,6 +5192,47 @@
           }
         },
         "summary": "Give an entry a name that says what it is",
+        "tags": [
+          "envmap"
+        ]
+      }
+    },
+    "/api/envmap/followers": {
+      "get": {
+        "operationId": "followers_api_envmap_followers_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FollowersOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "No such entry, a name taken, an unknown environment"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "A key that cannot be read, or a git error"
+          }
+        },
+        "summary": "How many places of the environments' branches follow each entry of the map",
         "tags": [
           "envmap"
         ]

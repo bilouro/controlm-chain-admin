@@ -171,3 +171,32 @@ def test_an_entry_is_removed(derived: TestClient) -> None:
     assert HOSTS["uat"] not in str(body)
     missing = derived.delete("/api/envmap/entries/nodeid.1", headers=TOKEN)
     assert missing.status_code == 400 and "no entry called 'nodeid.1'" in missing.json()["message"]
+
+
+def test_how_many_places_follow_each_entry(derived: TestClient) -> None:
+    body = derived.get("/api/envmap/followers").json()
+
+    assert body["environments"] == ["prod", "uat", "egma", "bench"]
+    assert set(body["followers"]) == set(DERIVED)
+    assert all(count > 0 for count in body["followers"].values()) and body["unmapped"] == 0
+
+
+def test_following_another_entry_is_a_change_previewed_like_any_other(
+    derived: TestClient, root: Path
+) -> None:
+    git(root, "switch", "-q", "env/bench")
+    added = derived.post(
+        "/api/envmap/entries",
+        json={"key": "RUN_AS", "name": "run_as.9",
+              "values": {"prod": USERS["prod"], "bench": administrator("bench")}},
+        headers=TOKEN,
+    )  # fmt: skip
+    preview = derived.post(
+        "/api/changes/preview",
+        json={"op": "follow-entry", "params": {"entry": "run_as.1", "other": "run_as.9"}},
+        headers=TOKEN,
+    )
+
+    assert added.status_code == 200 and preview.status_code == 200
+    assert "of bench follow run_as.9 instead of run_as.1" in preview.json()["summary"]
+    assert preview.json()["files"]

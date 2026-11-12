@@ -104,6 +104,13 @@ export const handlers = [
     return denied ?? HttpResponse.json({ ...derived, applied: true });
   }),
   http.get("/api/envmap/suggest", () => HttpResponse.json(suggestions)),
+  http.get("/api/envmap/followers", () =>
+    HttpResponse.json({
+      environments: ["prod", "uat", "egma", "bench"],
+      followers: { "nodeid.1": 11, "run_as.1": 10, "run_as.2": 1 },
+      unmapped: 2,
+    }),
+  ),
   http.post("/api/envmap/entries", async ({ request }) => {
     const denied = await mapWrite(request, "entries");
     return denied ?? HttpResponse.json(envmap);
