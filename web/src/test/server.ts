@@ -50,6 +50,8 @@ export const calls: {
   derive: URLSearchParams[];
   /** The exports sent to be refreshed: preview or apply, the query and the bytes as text. */
   refresh: { action: string; params: URLSearchParams; type: string | null; body: string }[];
+  /** The deliveries kept or removed, and the packages asked for them. */
+  deliveries: { method: string; path: string; body: unknown }[];
 } = {
   preview: [],
   apply: [],
@@ -62,6 +64,7 @@ export const calls: {
   envmap: [],
   derive: [],
   refresh: [],
+  deliveries: [],
 };
 
 function viewedEnv(request: Request): void {
@@ -93,7 +96,56 @@ async function mapWrite(request: Request, path: string) {
   return null;
 }
 
+export const deliveriesKept = {
+  deliveries: [
+    {
+      name: "new job",
+      head: "env/uat",
+      sha: "1111111aaaaaaa",
+      items: ["job:P77_CHAIN/P77_NEW"],
+      base: "env/bench",
+      prefer: [],
+      note: "for Friday",
+      saved: "2026-11-12",
+      count: 1,
+      environment: "uat",
+      moved: false,
+    },
+    {
+      name: "weekly",
+      head: "env/uat",
+      sha: "2222222bbbbbbb",
+      items: ["folder:P77_WEEKLY_DAILY", "attr:P77_CHAIN/P77_A@CMDLINE"],
+      base: null,
+      prefer: [],
+      note: "",
+      saved: "2026-11-10",
+      count: 2,
+      environment: "uat",
+      moved: true,
+    },
+  ],
+};
+
+async function deliveryWrite(request: Request, path: string) {
+  const denied = unauthorized(request);
+  if (denied) return denied;
+  const text = await request.text();
+  calls.deliveries.push({ method: request.method, path, body: text ? JSON.parse(text) : null });
+  return HttpResponse.json(deliveriesKept);
+}
+
 export const handlers = [
+  http.get("/api/deliveries", () => HttpResponse.json(deliveriesKept)),
+  http.post("/api/deliveries", ({ request }) => deliveryWrite(request, "")),
+  http.delete("/api/deliveries/:name", ({ request, params }) =>
+    deliveryWrite(request, String(params.name)),
+  ),
+  http.get("/api/deliveries/package", ({ request }) => {
+    const query = new URL(request.url).searchParams;
+    calls.deliveries.push({ method: "GET", path: `package?${query.toString()}`, body: null });
+    return HttpResponse.json({ ...packagePreview, env: "bench", filename: "deploy_bench_x.xml" });
+  }),
   http.get("/api/envmap", () => HttpResponse.json(envmap)),
   http.get("/api/envmap/derive", ({ request }) => {
     calls.derive.push(new URL(request.url).searchParams);

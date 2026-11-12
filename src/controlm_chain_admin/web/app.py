@@ -20,6 +20,7 @@ from controlm_chain_admin.web import errors
 from controlm_chain_admin.web.routers import (
     assistant,
     changes,
+    deliveries,
     environments,
     envmap,
     folders,
@@ -95,6 +96,11 @@ TAGS = [
         "its own branch: shown, derived from the environments' branches, edited.",
     },
     {
+        "name": "deliveries",
+        "description": "Items kept for later under a name, and the import file of a target "
+        "made from one or several of them.",
+    },
+    {
         "name": "refresh",
         "description": "The full export of one environment over the branch of that environment.",
     },
@@ -138,6 +144,7 @@ def create_app(settings: Settings, *, static_dir: Path = STATIC_DIR) -> FastAPI:
         environments.router,
         intake.router,
         envmap.router,
+        deliveries.router,
         refresh.router,
         workspace.router,
         assistant.router,

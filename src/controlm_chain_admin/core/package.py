@@ -403,39 +403,57 @@ def _build(
         ) as opened,
         _chosen(opened, taken) as (sides, taking),
     ):
-        env = _target(sides, env)
-        result = comparison(sides)
-        repo = load_repo(sides.head_root)
-        repo.load_env(env)  # an unknown environment fails before anything else
-        found = _reasons(result, repo, env)
-        _exception_reasons(sides, repo, env, found)
-        reasons = found.by_folder
-        order = [str(f) for f in read_json(repo.export_meta_file).get("folder_order", [])]
-        missing = [f for f in reasons if f not in order]
-        packaged = [f for f in order if f in reasons]
-        xml = None
-        if packaged:
-            xml, _ = export_document(
-                repo, env, names=names, jobnames=jobnames, folders=set(packaged)
-            )
-        folders = tuple(
-            PackageFolder(
-                f, len(read_json(repo.folder_file(f)).get("jobs", [])), tuple(reasons[f])
-            )
-            for f in packaged
-        )
-        warnings = [*taking, *_warnings(result, sides, root, packaged)]
-        if taken is None and sides.translation is not None:
-            warnings += kept_unsure(sides.translation, sides.head_root, set(packaged))
-        warnings += [
-            f"folder {f.name} has no jobs left: the import empties it in Control-M; "
-            "delete it there if it is no longer needed"
-            for f in folders
-            if f.jobs == 0
-        ]
-        warnings += [f"folder {f} is not in meta/export.json; it is not packaged" for f in missing]
-        findings = _new_findings(sides, repo)
-        filename = _filename(env, sides, today, taken)
+        return assemble(root, sides, taking, env, names, jobnames, today, taken)
+
+
+def assemble(
+    root: Path,
+    sides: Sides,
+    taking: Sequence[str],
+    env: str | None,
+    names: str,
+    jobnames: str,
+    today: str,
+    taken: tuple[str, ...] | None,
+    *,
+    also: Sequence[str] = (),
+    filename: str | None = None,
+) -> Package:
+    """The package of two opened sides: the folders that differ, exported for ``env``.
+    ``also`` names folders to package whether they differ or not (something chosen as it is);
+    ``taking`` are the warnings of what was taken to make the head side."""
+    env = _target(sides, env)
+    result = comparison(sides)
+    repo = load_repo(sides.head_root)
+    repo.load_env(env)  # an unknown environment fails before anything else
+    found = _reasons(result, repo, env)
+    _exception_reasons(sides, repo, env, found)
+    reasons = found.by_folder
+    for folder in also:
+        if repo.folder_file(folder).is_file():
+            reasons.setdefault(folder, []).append(f"chosen: already as {sides.base.name} has it")
+    order = [str(f) for f in read_json(repo.export_meta_file).get("folder_order", [])]
+    missing = [f for f in reasons if f not in order]
+    packaged = [f for f in order if f in reasons]
+    xml = None
+    if packaged:
+        xml, _ = export_document(repo, env, names=names, jobnames=jobnames, folders=set(packaged))
+    folders = tuple(
+        PackageFolder(f, len(read_json(repo.folder_file(f)).get("jobs", [])), tuple(reasons[f]))
+        for f in packaged
+    )
+    warnings = [*taking, *_warnings(result, sides, root, packaged)]
+    if taken is None and sides.translation is not None:
+        warnings += kept_unsure(sides.translation, sides.head_root, set(packaged))
+    warnings += [
+        f"folder {f.name} has no jobs left: the import empties it in Control-M; "
+        "delete it there if it is no longer needed"
+        for f in folders
+        if f.jobs == 0
+    ]
+    warnings += [f"folder {f} is not in meta/export.json; it is not packaged" for f in missing]
+    findings = _new_findings(sides, repo)
+    filename = filename or _filename(env, sides, today, taken)
     return Package(
         sides.base, sides.head, sides.merge_base, env, sides.commits, sides.selected,
         folders, tuple(warnings), findings, filename, xml, taken,

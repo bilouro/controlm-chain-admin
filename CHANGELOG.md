@@ -6,7 +6,20 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-12
+
 ### Added
+
+- Deliveries kept for later. Items are put aside under a name, little by little, and one
+  import file is made afterwards from one or several of them for the environment that
+  receives. Kept from the *Compare* page (*Keep N items…*, now offered for any two commits),
+  or from the page of a job or of a folder, as the branch checked out has it, changed or not
+  (*Keep for a delivery…*: a job whole, one attribute of it, a folder). The *Deliveries*
+  page lists them, with where each comes from and whether its branch moved since, and makes
+  the file; `ctmchain delivery save|list|remove|package` and `/api/deliveries` do the same.
+  They are kept on the branch of the map, tied to the commit they were made from; two that
+  give one place two values are refused; an item the target already has is packaged all the
+  same.
 
 - The fix of `repeated-jobname`: `ctmchain adopt-jobname FOLDER/JOB` (a fix on the
   *Validation* page, a capability for the assistant) makes the numbered name of a job its
@@ -671,7 +684,8 @@ First release on PyPI.
 - On Windows, unknown `/api/...` paths and missing assets were answered with the app instead of
   404 (the static files handler sees `\` separators there).
 
-[Unreleased]: https://github.com/bilouro/controlm-chain-admin/compare/v0.3.4...HEAD
+[Unreleased]: https://github.com/bilouro/controlm-chain-admin/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/bilouro/controlm-chain-admin/compare/v0.3.4...v0.4.0
 [0.3.4]: https://github.com/bilouro/controlm-chain-admin/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/bilouro/controlm-chain-admin/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/bilouro/controlm-chain-admin/compare/v0.3.1...v0.3.2

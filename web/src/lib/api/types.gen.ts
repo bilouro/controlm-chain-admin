@@ -174,6 +174,75 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/deliveries": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** The deliveries kept */
+    get: operations["deliveries_api_deliveries_get"];
+    put?: never;
+    /** Keep items of a ref under a name */
+    post: operations["keep_api_deliveries_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/deliveries/package": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** What the import file of a target holds with the deliveries chosen */
+    get: operations["package_preview_api_deliveries_package_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/deliveries/package/xml": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Download the import file of the deliveries chosen */
+    get: operations["package_xml_api_deliveries_package_xml_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/deliveries/{name}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** Forget one delivery */
+    delete: operations["remove_api_deliveries__name__delete"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/environments": {
     parameters: {
       query?: never;
@@ -1142,6 +1211,98 @@ export interface components {
       values?: {
         [key: string]: string | null;
       } | null;
+    };
+    /** DeliveriesOut */
+    DeliveriesOut: {
+      /** Deliveries */
+      deliveries: components["schemas"]["DeliveryOut"][];
+    };
+    /** DeliveryOut */
+    DeliveryOut: {
+      /**
+       * Base
+       * @description the ref they were chosen against; null when they were picked from the chain
+       */
+      base?: string | null;
+      /** Count */
+      count: number;
+      /**
+       * Environment
+       * @description the environment its commit holds
+       */
+      environment?: string | null;
+      /**
+       * Head
+       * @description the ref the items come from, as it was called
+       */
+      head: string;
+      /**
+       * Items
+       * @description ids as take and package write them (job:F/J ...)
+       */
+      items: string[];
+      /**
+       * Moved
+       * @description its ref is elsewhere now: the delivery has what it had
+       */
+      moved: boolean;
+      /** Name */
+      name: string;
+      /**
+       * Note
+       * @default
+       */
+      note: string;
+      /**
+       * Prefer
+       * @default []
+       */
+      prefer: string[];
+      /**
+       * Saved
+       * @description the day it was kept
+       * @default
+       */
+      saved: string;
+      /**
+       * Sha
+       * @description its commit when the delivery was kept
+       */
+      sha: string;
+    };
+    /** DeliveryRequest */
+    DeliveryRequest: {
+      /**
+       * Base
+       * @description the ref they were chosen against, if any
+       */
+      base?: string | null;
+      /**
+       * Head
+       * @description the branch, tag or commit the items come from
+       */
+      head: string;
+      /**
+       * Items
+       * @description ids of the items (job:F/J ...)
+       */
+      items: string[];
+      /**
+       * Name
+       * @description what to call it
+       */
+      name: string;
+      /**
+       * Note
+       * @default
+       */
+      note: string;
+      /**
+       * Prefer
+       * @description entries of the map that win for these items
+       * @default []
+       */
+      prefer: string[];
     };
     /** DeriveRequest */
     DeriveRequest: {
@@ -3031,6 +3192,230 @@ export interface operations {
         };
         content: {
           "text/plain": components["schemas"]["ErrorOut"];
+        };
+      };
+    };
+  };
+  deliveries_api_deliveries_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DeliveriesOut"];
+        };
+      };
+      /** @description Unknown environment */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description No such delivery, a name taken, an unknown ref or item, two deliveries that disagree, or nothing to package */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+    };
+  };
+  keep_api_deliveries_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DeliveryRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DeliveriesOut"];
+        };
+      };
+      /** @description Missing or wrong session token */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Unknown environment */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description No such delivery, a name taken, an unknown ref or item, two deliveries that disagree, or nothing to package */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+    };
+  };
+  package_preview_api_deliveries_package_get: {
+    parameters: {
+      query: {
+        /** @description the branch that receives: main, env/bench ... */
+        target: string;
+        /** @description a delivery to put in the file (repeat the parameter) */
+        name: string[];
+        /** @description the environment, where the refs do not tell it */
+        env?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PackageOut"];
+        };
+      };
+      /** @description Unknown environment */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description No such delivery, a name taken, an unknown ref or item, two deliveries that disagree, or nothing to package */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+    };
+  };
+  package_xml_api_deliveries_package_xml_get: {
+    parameters: {
+      query: {
+        /** @description the branch that receives: main, env/bench ... */
+        target: string;
+        /** @description a delivery to put in the file (repeat the parameter) */
+        name: string[];
+        /** @description the environment, where the refs do not tell it */
+        env?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The XML file to import */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/xml": unknown;
+        };
+      };
+      /** @description Unknown environment */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description No such delivery, a name taken, an unknown ref or item, two deliveries that disagree, or nothing to package */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+    };
+  };
+  remove_api_deliveries__name__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        name: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DeliveriesOut"];
+        };
+      };
+      /** @description Missing or wrong session token */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Unknown environment */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
+        };
+      };
+      /** @description No such delivery, a name taken, an unknown ref or item, two deliveries that disagree, or nothing to package */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorOut"];
         };
       };
     };

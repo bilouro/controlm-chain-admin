@@ -251,9 +251,12 @@ export function ComparePage() {
   const canTakeHere = canTake && workspace.data?.editable !== false && !isRaw;
   // between two environments the chosen items can be packaged, whatever is checked out
   const packageFor = pair && !isRaw && head !== WORKTREE ? pair.target : null;
+  // what a comparison of two commits shows can be kept for a delivery, whatever is checked out
+  const canKeep = head !== WORKTREE && base !== WORKTREE && !isRaw;
+  const canChoose = canTakeHere || packageFor !== null || canKeep;
   const takeApi = {
-    isEnabled: canTakeHere || packageFor !== null,
-    chosen: canTakeHere || packageFor !== null ? chosen : [],
+    isEnabled: canChoose,
+    chosen: canChoose ? chosen : [],
     toggle: (item: string) =>
       setChosen((items) =>
         items.includes(item) ? items.filter((i) => i !== item) : [...items, item],
@@ -601,6 +604,7 @@ export function ComparePage() {
             <TakeBar
               into={canTakeHere ? (current ?? base) : null}
               packageFor={packageFor}
+              keep={canKeep ? { head, base, prefer } : null}
               request={takeRequest}
               onPackage={(items) => setPackaged({ items })}
               onDone={() => setChosen([])}

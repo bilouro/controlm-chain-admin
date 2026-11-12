@@ -359,7 +359,7 @@ or addresses anywhere in this public repository.
     Left: each read still asks the file system whether the file changed (no file is opened);
     a page makes a handful of git calls, a comparison some thirty. Not measured on the work
     PC: `ctmchain diagnose` there says what is left.
-27. **Deliveries kept for later — to do**, asked by the author (2026-11-12): put changes
+27. **Deliveries kept for later — DONE (2026-11-12), released in 0.4.0**, asked by the author (2026-11-12): put changes
     aside little by little, each under a name, and choose later which of them go into an
     import file. An entry is made in three ways: from a comparison (the items checked on the
     *Compare* page), from a change of one's own (a job edited in the tool), and from the
@@ -372,6 +372,10 @@ or addresses anywhere in this public repository.
     was made from, with a warning when its source moved since; an entry has no target of its
     own (the target is chosen when the file is made); two entries that give one attribute
     two values are refused and shown, not guessed.
+    Built as assumed (`DESIGN.md` §14.6). Left: deliveries for the assistant (the MCP
+    tools); a delivery from a change not committed yet; the attribute list of the job page
+    offers the job's own attributes, not those of the elements inside it (a variable, an ON
+    block: those are kept from *Compare*).
 
 Later, unordered: second-environment import with learning; `diff` of environments and XML
 files with `xmldiffreport`; mapping editor; upstream graph explorer (paused by the author);

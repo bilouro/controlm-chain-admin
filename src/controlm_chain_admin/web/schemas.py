@@ -769,6 +769,34 @@ class FollowersOut(BaseModel):
     unmapped: int = Field(description="places of a mapped key whose values no entry says")
 
 
+class DeliveryOut(BaseModel):
+    name: str
+    head: str = Field(description="the ref the items come from, as it was called")
+    sha: str = Field(description="its commit when the delivery was kept")
+    items: list[str] = Field(description="ids as take and package write them (job:F/J ...)")
+    base: str | None = Field(None, description="the ref they were chosen against; null when "
+                             "they were picked from the chain")  # fmt: skip
+    prefer: list[str] = []
+    note: str = ""
+    saved: str = Field("", description="the day it was kept")
+    count: int
+    environment: str | None = Field(None, description="the environment its commit holds")
+    moved: bool = Field(description="its ref is elsewhere now: the delivery has what it had")
+
+
+class DeliveriesOut(BaseModel):
+    deliveries: list[DeliveryOut]
+
+
+class DeliveryRequest(BaseModel):
+    name: str = Field(min_length=1, description="what to call it")
+    head: str = Field(min_length=1, description="the branch, tag or commit the items come from")
+    items: list[str] = Field(min_length=1, description="ids of the items (job:F/J ...)")
+    base: str | None = Field(None, description="the ref they were chosen against, if any")
+    prefer: list[str] = Field([], description="entries of the map that win for these items")
+    note: str = ""
+
+
 class MapEntryRequest(BaseModel):
     key: str = Field(min_length=1, description="ATTR, TAG/@ATTR or TAG[K=V]/@ATTR")
     values: dict[str, str] = Field(description="environment -> value; two or more")

@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
-import { useBaseJob, useJob } from "@/lib/api/queries";
+import { useBaseJob, useJob, useWorkspace } from "@/lib/api/queries";
 import { nodeRoute } from "@/lib/utils";
 import { useChanges } from "@/features/changes/changes-context";
 import { AttributeForm } from "@/features/editing/AttributeForm";
@@ -8,7 +9,18 @@ import { GROUP_LABELS } from "@/features/editing/labels";
 import { RawJsonEditor } from "@/features/editing/RawJsonEditor";
 import { RelationsEditor } from "@/features/editing/RelationsEditor";
 import { VariablesEditor, type Variable } from "@/features/editing/VariablesEditor";
-import { Badge, Card, ErrorBox, Kv, Loading, TabPanel, Tabs, type TabItem } from "@/components/ui";
+import { KeepDelivery } from "@/features/deliveries/KeepDelivery";
+import {
+  Badge,
+  Card,
+  ErrorBox,
+  Kv,
+  Loading,
+  SelectInput,
+  TabPanel,
+  Tabs,
+  type TabItem,
+} from "@/components/ui";
 import { exceptionCount } from "@/features/exceptions/exception-count";
 import { ExceptionsPanel } from "@/features/exceptions/ExceptionsPanel";
 import { ExceptionMark, ExceptionsStrip } from "@/features/exceptions/ExceptionMark";
@@ -91,6 +103,8 @@ export function JobPage() {
   const { env } = useEnv();
   const base = useBaseJob(folder, job, env !== null);
   const { propose } = useChanges();
+  const branch = useWorkspace().data?.branch ?? null; // what is kept is as this branch has it
+  const [kept, setKept] = useState(""); // an attribute, or "" for the whole job
 
   if (isPending) return <Loading what={`job ${job}`} />;
   if (isError) return <ErrorBox error={error} />;
@@ -139,7 +153,31 @@ export function JobPage() {
         {data.groups.identity?.TASKTYPE && <Badge>{data.groups.identity.TASKTYPE}</Badge>}
         <EnvBadge />
         {data.id !== data.name && <Badge tone="warning">repeated JOBNAME · file {data.id}</Badge>}
-        <span className="ml-auto flex gap-2">
+        <span className="ml-auto flex flex-wrap items-center gap-2">
+          {branch && (
+            <>
+              <SelectInput
+                aria-label="What to keep"
+                value={kept}
+                onChange={(e) => setKept(e.target.value)}
+                className="max-w-44 text-xs"
+              >
+                <option value="">the whole job</option>
+                {Object.keys(data.raw)
+                  .filter((key) => typeof data.raw[key] === "string" && key !== "tag")
+                  .map((key) => (
+                    <option key={key} value={key}>
+                      {key} only
+                    </option>
+                  ))}
+              </SelectInput>
+              <KeepDelivery
+                label="Keep for a delivery…"
+                head={branch}
+                items={[kept ? `attr:${node}@${kept}` : `job:${node}`]}
+              />
+            </>
+          )}
           <InlineAction
             label="Rename"
             placeholder="new JOBNAME"

@@ -67,6 +67,7 @@ def state(root: Path, refs: Sequence[str]) -> list[Any] | None:
                          "refs/heads"))  # fmt: skip
         tips = dict(line.split(" ", 1) for line in heads.splitlines() if " " in line)
         rules = hashlib.sha256((root / CHAIN_FILE).read_bytes()).hexdigest()
+        the_map = _map_blob(root, config.git_rules.map_branch) if tips else None
     except (ChainError, OSError):
         return None
     if any(sha is None for _, sha in commits):
@@ -75,9 +76,16 @@ def state(root: Path, refs: Sequence[str]) -> list[Any] | None:
         commits,
         current_branch(root),
         {env: tips.get(branch) is not None for env, branch in branches.items()},
-        tips.get(config.git_rules.map_branch),
+        the_map,  # the map itself: what else its branch keeps does not change an answer
         rules,
     ]
+
+
+def _map_blob(root: Path, branch: str) -> str | None:
+    try:
+        return str(_git(root, "rev-parse", "--verify", "--quiet", f"refs/heads/{branch}:map.json"))
+    except ChainError:
+        return None
 
 
 def _load(path: Path) -> tuple[bool, Any]:

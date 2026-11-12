@@ -917,6 +917,7 @@ Assistant
 - `diagnose [<base> <head>] [--files N] [--format text|json] [-o <file>]` — implemented: what this machine costs per small file and per git call, and where one comparison (default: the trunk with the first other environment) spends its time; numbers only (§14.4).
 - `adopt-jobname <FOLDER/JOB> [--keep-names] [--apply]` — implemented: the numbered name of a job becomes its JOBNAME in Control-M too (§8).
 - `envmap followers`, `envmap follow <entry> <other> [--apply] [--stat]` — implemented: who follows each entry of the map, and the jobs of one entry made to follow another on the branch checked out (§14.3).
+- `delivery save <name> <head> --item ID... [--base REF] [--note TEXT]`, `delivery list`, `delivery remove <name>`, `delivery package <target> <name>... [-o <file>] [--dry-run]` — implemented: items kept for later, and one import file from several (§14.6).
 - `kilo init [--repo DIR] [--dir DIR] [--force]` — implemented: `.kilo/` for Kilo (server, `controlm` agent, skill, vocabulary) at the top of the git repository.
 
 Environments as branches (§14)
@@ -1150,7 +1151,36 @@ environment. No branch and no working tree changes. Without `--take` every folde
 is packaged as the head has it. The warnings of §8 apply (a condition nobody emits there), and
 the unsettled values of §14.4 are listed for the nodes the file holds.
 
-### 14.6 From zero, and from a 0.1 repository
+### 14.6 Deliveries kept for later (story 27)
+
+A change seldom travels alone or at once: something is chosen today, something else next
+week, and the import file of an environment is made when it is time, from the ones that are
+ready. A *delivery* (`core/deliveries.py`) is that choice kept: a name, the ref and the
+commit the items come from, the items as `take` and `package` write them (`job:F/J`,
+`attr:F/J@NAME`, `folder:F`…), the ref they were chosen against when they come from a
+comparison, and a note. There are three ways to one: the items checked on the *Compare* page
+(*Keep N items…*; a change of one's own is the comparison of one's branch with the
+environment's), and a job, one attribute of it or a folder kept from its own page, as the
+branch checked out has it, whether it differs from anything or not.
+
+They live in `deliveries.json` on the branch of the map, beside `map.json`: it belongs to
+no environment, and is written by plumbing, so no checkout changes (`write_branch_file`
+keeps the other files of the branch; the cache of comparisons is keyed on the map itself,
+so keeping a delivery does not empty it). A delivery is tied to its commit: the file it
+gives is the same whenever it is made, and when its ref moved since, the list and the
+package say so.
+
+`build_delivery(target, names)` (`ctmchain delivery package`, `GET /api/deliveries/package`,
+the *Deliveries* page) makes one package for a target branch: the target as it is, with the
+items of each delivery taken onto it in order (through the map when the delivery is of
+another environment), then the usual package of the two. It is the same file as taking the
+same items at once. Two deliveries that give one place two values are refused, naming the
+second; nothing is guessed. An item the target already has as the delivery gives it is
+packaged all the same, with its folder (`chosen: already as env/bench has it`): what was
+chosen goes in the file. Not built: deliveries for the assistant (the MCP tools), and a
+delivery from a change that is not committed yet (it is kept from a commit).
+
+### 14.7 From zero, and from a 0.1 repository
 
 A repository is built from the full exports alone, in minutes:
 
@@ -1169,7 +1199,7 @@ keep the old one as an archive. Changes that were in a release branch and not ye
 environment are re-done on the environment's branch, or taken from an export of the
 environment that has them.
 
-### 14.7 What is put aside, and what is not built
+### 14.8 What is put aside, and what is not built
 
 - Releases (`release start|installed|close`), `receive` and `check` belong to the model of §5.
   They still work on a repository of that model and are not part of this one: a release is

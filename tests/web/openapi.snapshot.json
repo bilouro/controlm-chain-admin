@@ -926,6 +926,168 @@
         "title": "DecisionOut",
         "type": "object"
       },
+      "DeliveriesOut": {
+        "properties": {
+          "deliveries": {
+            "items": {
+              "$ref": "#/components/schemas/DeliveryOut"
+            },
+            "title": "Deliveries",
+            "type": "array"
+          }
+        },
+        "required": [
+          "deliveries"
+        ],
+        "title": "DeliveriesOut",
+        "type": "object"
+      },
+      "DeliveryOut": {
+        "properties": {
+          "base": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the ref they were chosen against; null when they were picked from the chain",
+            "title": "Base"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "environment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the environment its commit holds",
+            "title": "Environment"
+          },
+          "head": {
+            "description": "the ref the items come from, as it was called",
+            "title": "Head",
+            "type": "string"
+          },
+          "items": {
+            "description": "ids as take and package write them (job:F/J ...)",
+            "items": {
+              "type": "string"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "moved": {
+            "description": "its ref is elsewhere now: the delivery has what it had",
+            "title": "Moved",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "title": "Note",
+            "type": "string"
+          },
+          "prefer": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Prefer",
+            "type": "array"
+          },
+          "saved": {
+            "default": "",
+            "description": "the day it was kept",
+            "title": "Saved",
+            "type": "string"
+          },
+          "sha": {
+            "description": "its commit when the delivery was kept",
+            "title": "Sha",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "head",
+          "sha",
+          "items",
+          "count",
+          "moved"
+        ],
+        "title": "DeliveryOut",
+        "type": "object"
+      },
+      "DeliveryRequest": {
+        "properties": {
+          "base": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the ref they were chosen against, if any",
+            "title": "Base"
+          },
+          "head": {
+            "description": "the branch, tag or commit the items come from",
+            "minLength": 1,
+            "title": "Head",
+            "type": "string"
+          },
+          "items": {
+            "description": "ids of the items (job:F/J ...)",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Items",
+            "type": "array"
+          },
+          "name": {
+            "description": "what to call it",
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "title": "Note",
+            "type": "string"
+          },
+          "prefer": {
+            "default": [],
+            "description": "entries of the map that win for these items",
+            "items": {
+              "type": "string"
+            },
+            "title": "Prefer",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "head",
+          "items"
+        ],
+        "title": "DeliveryRequest",
+        "type": "object"
+      },
       "DeriveRequest": {
         "properties": {
           "keys": {
@@ -4813,6 +4975,322 @@
         ]
       }
     },
+    "/api/deliveries": {
+      "get": {
+        "operationId": "deliveries_api_deliveries_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveriesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unknown environment"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "No such delivery, a name taken, an unknown ref or item, two deliveries that disagree, or nothing to package"
+          }
+        },
+        "summary": "The deliveries kept",
+        "tags": [
+          "deliveries"
+        ]
+      },
+      "post": {
+        "operationId": "keep_api_deliveries_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeliveryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveriesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or wrong session token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unknown environment"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "No such delivery, a name taken, an unknown ref or item, two deliveries that disagree, or nothing to package"
+          }
+        },
+        "summary": "Keep items of a ref under a name",
+        "tags": [
+          "deliveries"
+        ]
+      }
+    },
+    "/api/deliveries/package": {
+      "get": {
+        "operationId": "package_preview_api_deliveries_package_get",
+        "parameters": [
+          {
+            "description": "the branch that receives: main, env/bench ...",
+            "in": "query",
+            "name": "target",
+            "required": true,
+            "schema": {
+              "description": "the branch that receives: main, env/bench ...",
+              "title": "Target",
+              "type": "string"
+            }
+          },
+          {
+            "description": "a delivery to put in the file (repeat the parameter)",
+            "in": "query",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "description": "a delivery to put in the file (repeat the parameter)",
+              "items": {
+                "type": "string"
+              },
+              "title": "Name",
+              "type": "array"
+            }
+          },
+          {
+            "description": "the environment, where the refs do not tell it",
+            "in": "query",
+            "name": "env",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "the environment, where the refs do not tell it",
+              "title": "Env"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PackageOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unknown environment"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "No such delivery, a name taken, an unknown ref or item, two deliveries that disagree, or nothing to package"
+          }
+        },
+        "summary": "What the import file of a target holds with the deliveries chosen",
+        "tags": [
+          "deliveries"
+        ]
+      }
+    },
+    "/api/deliveries/package/xml": {
+      "get": {
+        "operationId": "package_xml_api_deliveries_package_xml_get",
+        "parameters": [
+          {
+            "description": "the branch that receives: main, env/bench ...",
+            "in": "query",
+            "name": "target",
+            "required": true,
+            "schema": {
+              "description": "the branch that receives: main, env/bench ...",
+              "title": "Target",
+              "type": "string"
+            }
+          },
+          {
+            "description": "a delivery to put in the file (repeat the parameter)",
+            "in": "query",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "description": "a delivery to put in the file (repeat the parameter)",
+              "items": {
+                "type": "string"
+              },
+              "title": "Name",
+              "type": "array"
+            }
+          },
+          {
+            "description": "the environment, where the refs do not tell it",
+            "in": "query",
+            "name": "env",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "the environment, where the refs do not tell it",
+              "title": "Env"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/xml": {}
+            },
+            "description": "The XML file to import"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unknown environment"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "No such delivery, a name taken, an unknown ref or item, two deliveries that disagree, or nothing to package"
+          }
+        },
+        "summary": "Download the import file of the deliveries chosen",
+        "tags": [
+          "deliveries"
+        ]
+      }
+    },
+    "/api/deliveries/{name}": {
+      "delete": {
+        "operationId": "remove_api_deliveries__name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveriesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing or wrong session token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unknown environment"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "No such delivery, a name taken, an unknown ref or item, two deliveries that disagree, or nothing to package"
+          }
+        },
+        "summary": "Forget one delivery",
+        "tags": [
+          "deliveries"
+        ]
+      }
+    },
     "/api/environments": {
       "get": {
         "operationId": "environments_api_environments_get",
@@ -7281,6 +7759,10 @@
     {
       "description": "The map of what varies per environment (machines, users...), kept on its own branch: shown, derived from the environments' branches, edited.",
       "name": "envmap"
+    },
+    {
+      "description": "Items kept for later under a name, and the import file of a target made from one or several of them.",
+      "name": "deliveries"
     },
     {
       "description": "The full export of one environment over the branch of that environment.",

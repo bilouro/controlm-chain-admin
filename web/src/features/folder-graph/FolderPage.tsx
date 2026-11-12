@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
 import type { EdgeOut, LinkOut } from "@/lib/api/client";
-import { useBaseFolder, useFolder } from "@/lib/api/queries";
+import { useBaseFolder, useFolder, useWorkspace } from "@/lib/api/queries";
 import { nodeRoute, shortLabel } from "@/lib/utils";
 import { useChanges } from "@/features/changes/changes-context";
+import { KeepDelivery } from "@/features/deliveries/KeepDelivery";
 import { AttributeForm } from "@/features/editing/AttributeForm";
 import { RawJsonEditor } from "@/features/editing/RawJsonEditor";
 import { RelationsEditor } from "@/features/editing/RelationsEditor";
@@ -77,6 +78,7 @@ export function FolderPage() {
   const { env } = useEnv();
   const base = useBaseFolder(folder, env !== null);
   const { propose } = useChanges();
+  const branch = useWorkspace().data?.branch ?? null; // what is kept is as this branch has it
   const [selected, setSelected] = useState<EdgeOut | null>(null);
 
   if (isPending) return <Loading what={`folder ${folder}`} />;
@@ -138,7 +140,10 @@ export function FolderPage() {
         <span className="text-sm text-muted">
           {data.jobs.length} jobs · {data.graph.edges.length} edges · {data.links.length} links
         </span>
-        <span className="ml-auto">
+        <span className="ml-auto flex flex-wrap items-center gap-2">
+          {branch && (
+            <KeepDelivery label="Keep for a delivery…" head={branch} items={[`folder:${folder}`]} />
+          )}
           <InlineAction
             label="Rename folder"
             placeholder="new folder name"

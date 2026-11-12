@@ -58,6 +58,7 @@ repository of small JSON files:
 | Compare two environments by their real differences | `ctmchain compare main env/uat` (`--raw`: as stored) |
 | Give a job whose JOBNAME others share the numbered name the repository calls it, in Control-M too | `ctmchain adopt-jobname FOLDER/JOB2 --apply`, then `ctmchain package` for each environment |
 | Put right an environment set up with another one's value: its jobs follow the right entry of the map | `ctmchain envmap followers`, `ctmchain envmap follow run_as.2 run_as.1 --apply` (on that environment's branch) |
+| Put items aside under a name, today and next week, and make one import file from several when it is time | `ctmchain delivery save "new job" env/uat --item 'job:F/J' --base env/bench`, `ctmchain delivery list`, `ctmchain delivery package env/bench "new job" weekly -o bench_import.xml` |
 | See why a comparison is slow on a machine (numbers only, safe to pass on) | `ctmchain diagnose` (`-o report.txt` writes it to a file too) |
 | Take one attribute, one variable, one job, one folder or a sub-application into another environment's branch | `ctmchain take env/uat --list`, `ctmchain take env/uat --item job:F/J --apply` |
 | Get the import file of what was chosen, adapted to the target, without changing any branch | `ctmchain package main env/uat --take folder:F -o prod_import.xml` |
@@ -196,6 +197,12 @@ asks for the token the command prints):
   *Follow…* makes the jobs of one entry follow another of the same key, on the branch
   checked out, as a change you review: the cure when one environment was set up with
   another one's value and the map took it for a rule.
+- **Deliveries**: what you put aside for later. On *Compare*, the checked items are kept
+  under a name (*Keep N items…*) instead of packaged at once; on the page of a job or of a
+  folder, *Keep for a delivery…* keeps it as the branch checked out has it, changed or not
+  (a job whole, or one attribute of it). The *Deliveries* page lists them; check one or
+  several, choose the environment that receives, and one import file comes out with their
+  sum, written as that environment writes it. Each is as it was on the day it was kept.
 - **Compare**: choose two environments. Only the real differences are listed, each with a
   box. The checked items are taken into the branch that is checked out, or downloaded as the
   import file of the other environment, with those items and nothing else. A value the map

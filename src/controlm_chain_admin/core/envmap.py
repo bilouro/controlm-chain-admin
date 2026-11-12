@@ -194,13 +194,41 @@ def write_map(root: Path, config: ChainConfig, envmap: EnvMap, message: str) -> 
     text = json.dumps(envmap.to_json(), indent=2, ensure_ascii=False) + "\n"
     if _content(root, branch) == text:
         return None
+    return write_branch_file(root, branch, MAP_FILE, text, message)
+
+
+def branch_file(root: Path, branch: str, name: str) -> str | None:
+    """What the file ``name`` holds on ``branch``; None when the branch or the file is not
+    there."""
+    if not branch_exists(root, branch):
+        return None
+    try:
+        return str(_git(root, "show", f"refs/heads/{branch}:{name}"))
+    except GitError:
+        return None
+
+
+def write_branch_file(root: Path, branch: str, name: str, text: str, message: str) -> str:
+    """Commit ``text`` as the file ``name`` on ``branch`` (created when missing), beside the
+    files it has already; the commit. Neither the working tree nor the current branch changes:
+    that is how the map, and what else belongs to no environment, is kept."""
     if current_branch(root) == branch:
         raise GitError(f"{branch} is checked out: switch to another branch to change the map")
-    blob = _plumb(root, "hash-object", "-w", "--stdin", data=text.encode("utf-8"))
-    tree = _plumb(root, "mktree", data=f"100644 blob {blob}\t{MAP_FILE}\n".encode())
+    entries: dict[str, str] = {}
     parent: list[str] = []
     if branch_exists(root, branch):
         parent = ["-p", str(_git(root, "rev-parse", f"refs/heads/{branch}")).strip()]
+        for line in str(_git(root, "ls-tree", f"refs/heads/{branch}")).splitlines():
+            head, _, file = line.partition("\t")
+            entries[file] = head
+    elif name != MAP_FILE:  # the branch is the map's: it is born with one, empty
+        empty = json.dumps(EnvMap().to_json(), indent=2, ensure_ascii=False) + "\n"
+        blob = _plumb(root, "hash-object", "-w", "--stdin", data=empty.encode("utf-8"))
+        entries[MAP_FILE] = f"100644 blob {blob}"
+    blob = _plumb(root, "hash-object", "-w", "--stdin", data=text.encode("utf-8"))
+    entries[name] = f"100644 blob {blob}"
+    listing = "".join(f"{head}\t{file}\n" for file, head in sorted(entries.items()))
+    tree = _plumb(root, "mktree", data=listing.encode("utf-8"))
     commit = str(_git(root, "commit-tree", tree, *parent, "-m", message)).strip()
     _git(root, "update-ref", f"refs/heads/{branch}", commit)
     return commit

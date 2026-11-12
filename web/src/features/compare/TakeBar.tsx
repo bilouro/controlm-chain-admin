@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { ApiError, postApi, type ChangeRequest } from "@/lib/api/client";
 import { useChanges } from "@/features/changes/changes-context";
+import { KeepDelivery } from "@/features/deliveries/KeepDelivery";
 import { Button, ErrorBox } from "@/components/ui";
 import { useTake } from "./take-context";
 
@@ -98,10 +99,13 @@ function ConflictsPanel({
 export function TakeBar({
   into,
   packageFor = null,
+  keep = null,
   request,
   onPackage,
   onDone,
 }: {
+  /** Where the chosen items come from, when they can be kept for a delivery. */
+  keep?: { head: string; base: string; prefer: string[] } | null;
   /** The branch checked out, when the items can be taken into it. */
   into: string | null;
   /** Between two environments: the one the chosen items can be packaged for. */
@@ -165,6 +169,15 @@ export function TakeBar({
         <Button size="sm" variant="ghost" onClick={onDone}>
           Clear
         </Button>
+        {keep && (
+          <KeepDelivery
+            label={`Keep ${count} item${count === 1 ? "" : "s"}…`}
+            head={keep.head}
+            base={keep.base}
+            prefer={keep.prefer}
+            items={take.chosen}
+          />
+        )}
         {packageFor && onPackage && (
           <Button
             size="sm"

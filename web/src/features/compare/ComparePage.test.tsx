@@ -296,6 +296,25 @@ describe("ComparePage", () => {
       .forEach((box) => expect(box).toBeDisabled());
   });
 
+  it("keeps the items that are checked for a delivery, with the refs they come from", async () => {
+    const user = userEvent.setup();
+    renderAt(<ComparePage />, { path: "/compare?base=main&head=develop" });
+    await user.click(await screen.findByRole("button", { name: "P77_C modified" }));
+    await user.click(screen.getByRole("checkbox", { name: "Take the whole job P77_CHAIN/P77_C" }));
+
+    await user.click(screen.getByRole("button", { name: "Keep 1 item…" }));
+    await user.type(screen.getByLabelText("Name of the delivery"), "c for later");
+    await user.click(screen.getByRole("button", { name: "Keep" }));
+
+    await waitFor(() => expect(calls.deliveries.length).toBe(1));
+    expect(calls.deliveries[0]?.body).toMatchObject({
+      name: "c for later",
+      head: "develop",
+      base: "main",
+      items: ["job:P77_CHAIN/P77_C"],
+    });
+  });
+
   it("offers the package for the environment both branches hold", async () => {
     server.use(
       http.get("/api/compare", () => HttpResponse.json({ ...comparison, environment: "prod" })),
@@ -403,12 +422,16 @@ describe("ComparePage", () => {
 describe("ComparePage, taking changes into the checked-out branch", () => {
   const path = "/compare?base=feature/demo&head=develop";
 
-  it("offers a box per item only when base is the checked-out branch", async () => {
+  it("takes into the checked-out branch only when it is the base; the items can be kept anyway", async () => {
     const user = userEvent.setup();
     renderAt(<ComparePage />, { path: "/compare?base=develop&head=feature/demo" });
     await user.click(await screen.findByRole("button", { name: "P77_C modified" }));
-    expect(screen.queryByRole("checkbox", { name: /Take DESCRIPTION/ })).toBeNull();
     expect(screen.getByText(/To take changes of develop into feature\/demo/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("checkbox", { name: "Take DESCRIPTION" }));
+
+    expect(screen.getByRole("button", { name: "Keep 1 item…" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Take 1 change into/ })).toBeNull();
   });
 
   it("takes one attribute and a whole job, reviewed as one change", async () => {

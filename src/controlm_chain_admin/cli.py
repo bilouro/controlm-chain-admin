@@ -16,7 +16,13 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
-from controlm_chain_admin import __version__, cli_assistant, cli_diagnose, cli_env
+from controlm_chain_admin import (
+    __version__,
+    cli_assistant,
+    cli_delivery,
+    cli_diagnose,
+    cli_env,
+)
 from controlm_chain_admin.core import check as check_mod
 from controlm_chain_admin.core import commit as commit_mod
 from controlm_chain_admin.core import compare as compare_mod
@@ -464,6 +470,7 @@ def build_parser() -> argparse.ArgumentParser:
     cli_env.add_commands(commands)
     cli_assistant.add_commands(commands)
     cli_diagnose.add_commands(commands)
+    cli_delivery.add_commands(commands)
 
     srv = commands.add_parser(
         "serve", help="serve the local web UI and API (needs the [web] extra)"

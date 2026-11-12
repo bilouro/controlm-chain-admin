@@ -1,13 +1,31 @@
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { renderAt } from "@/test/render";
+import { calls } from "@/test/server";
 import { FolderPage } from "./FolderPage";
 
 const at = (folder: string) =>
   renderAt(<FolderPage />, { path: `/folders/${folder}`, pattern: "/folders/:folder" });
 
 describe("FolderPage", () => {
+  it("keeps the folder for a delivery, as the branch checked out has it", async () => {
+    const user = userEvent.setup();
+    at("P77_CHAIN");
+    await screen.findByRole("heading", { level: 1, name: "P77_CHAIN" });
+
+    await user.click(await screen.findByRole("button", { name: "Keep for a delivery…" }));
+    await user.type(screen.getByLabelText("Name of the delivery"), "the chain");
+    await user.click(screen.getByRole("button", { name: "Keep" }));
+
+    await waitFor(() => expect(calls.deliveries.length).toBe(1));
+    expect(calls.deliveries[0]?.body).toMatchObject({
+      name: "the chain",
+      head: "release/demo",
+      items: ["folder:P77_CHAIN"],
+    });
+  });
+
   it("opens on the chain tab with the graph and the loose ends", async () => {
     at("P77_CHAIN");
 

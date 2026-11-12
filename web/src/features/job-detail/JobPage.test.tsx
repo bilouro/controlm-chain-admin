@@ -15,6 +15,31 @@ const at = (folder: string, job: string) =>
   });
 
 describe("JobPage", () => {
+  it("keeps the job, or one attribute of it, for a delivery, as the branch checked out has it", async () => {
+    const user = userEvent.setup();
+    at("P77_CHAIN", "P77_B");
+    await screen.findByRole("heading", { level: 1, name: "P77_B" });
+
+    await user.click(await screen.findByRole("button", { name: "Keep for a delivery…" }));
+    await user.type(screen.getByLabelText("Name of the delivery"), "b as it is");
+    await user.click(screen.getByRole("button", { name: "Keep" }));
+    await waitFor(() => expect(calls.deliveries.length).toBe(1));
+    await user.selectOptions(screen.getByLabelText("What to keep"), "CMDLINE");
+    await user.click(screen.getByRole("button", { name: "Keep for a delivery…" }));
+    await user.type(screen.getByLabelText("Name of the delivery"), "command of b");
+    await user.click(screen.getByRole("button", { name: "Keep" }));
+    await waitFor(() => expect(calls.deliveries.length).toBe(2));
+
+    const [whole, one] = calls.deliveries.map((c) => c.body as Record<string, unknown>);
+    expect(whole).toMatchObject({
+      name: "b as it is",
+      head: "release/demo",
+      base: null,
+      items: ["job:P77_CHAIN/P77_B"],
+    });
+    expect(one).toMatchObject({ items: ["attr:P77_CHAIN/P77_B@CMDLINE"] });
+  });
+
   it("shows the job with its section tabs", async () => {
     at("P77_CHAIN", "P77_B");
 

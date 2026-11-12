@@ -3,6 +3,7 @@ import {
   api,
   encode,
   type ComparisonOut,
+  type DeliveriesOut,
   type DerivedOut,
   type EnvMapOut,
   type FollowersOut,
@@ -33,6 +34,7 @@ export const queryKeys = {
   workspace: ["workspace"] as const,
   environments: ["environments"] as const,
   envmap: ["envmap"] as const,
+  deliveries: ["deliveries"] as const,
   derive: (query: string) => ["envmap", "derive", query] as const,
   suggest: ["envmap", "suggest"] as const,
 };
@@ -180,6 +182,25 @@ export function useEnvironments() {
 }
 
 /** The map of what varies per environment: letters, branches and entries. */
+/** What was put aside for later, each with where it comes from. */
+export function useDeliveries() {
+  return useQuery({
+    queryKey: queryKeys.deliveries,
+    queryFn: () => api<DeliveriesOut>("/api/deliveries"),
+    retry: false,
+  });
+}
+
+/** The import file of a target with the chosen deliveries (`params`: target and each name). */
+export function useDeliveryPackage(params: URLSearchParams) {
+  const query = params.toString();
+  return useQuery({
+    queryKey: [...queryKeys.deliveries, "package", query] as const,
+    queryFn: () => api<PackageOut>(`/api/deliveries/package?${query}`),
+    retry: false,
+  });
+}
+
 /** How many places of the environments' branches follow each entry of the map. */
 export function useFollowers() {
   return useQuery({
