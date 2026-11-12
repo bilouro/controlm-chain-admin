@@ -7,7 +7,6 @@ import { ChangeProvider } from "@/features/changes/ChangeProvider";
 import { CommitButton } from "@/features/commit/CommitButton";
 import { ComparePage } from "@/features/compare/ComparePage";
 import { FolderPage } from "@/features/folder-graph/FolderPage";
-import { ImportPage } from "@/features/intake/ImportPage";
 import { EnvBadge } from "@/features/environments/EnvBadge";
 import { EnvProvider } from "@/features/environments/EnvProvider";
 import { EnvSelect } from "@/features/environments/EnvSelect";
@@ -75,7 +74,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <NavItem to="/refresh">Refresh</NavItem>
           <NavItem to="/map">Map</NavItem>
           <NavItem to="/deliveries">Deliveries</NavItem>
-          <NavItem to="/import">Import</NavItem>
           <NavItem to="/environments">Environments</NavItem>
         </nav>
         <div className="ml-auto flex items-center gap-3">
@@ -121,7 +119,6 @@ export function AppRoutes() {
       <Route path="/refresh" element={<RefreshPage />} />
       <Route path="/map" element={<MapPage />} />
       <Route path="/deliveries" element={<DeliveriesPage />} />
-      <Route path="/import" element={<ImportPage />} />
       <Route path="/environments" element={<EnvironmentsPage />} />
       <Route path="*" element={<p className="p-6 text-muted">Page not found.</p>} />
     </Routes>

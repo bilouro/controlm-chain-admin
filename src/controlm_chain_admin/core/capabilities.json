@@ -31,8 +31,7 @@
   "not_by_prompt": {
     "replace-node": "the whole JSON of a node: the Advanced tab of the job page",
     "set-variables": "every variable of a node at once: the job page; set-variable changes one",
-    "batch": "preview takes several steps already",
-    "receive": "an environment's export: ctmchain receive, or the Import page"
+    "batch": "preview takes several steps already"
   },
   "capabilities": [
     {

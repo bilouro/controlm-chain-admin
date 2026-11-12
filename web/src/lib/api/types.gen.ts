@@ -449,23 +449,6 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/intake": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** The environment of an export, the values to learn and every difference */
-    post: operations["intake_api_intake_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
   "/api/jobs/{folder}/{job}": {
     parameters: {
       query?: never;
@@ -1138,80 +1121,6 @@ export interface components {
       /** Messages */
       messages: components["schemas"]["AssistantMessageOut"][];
     };
-    /** DecisionOut */
-    DecisionOut: {
-      /** Constant */
-      constant?: string | null;
-      /**
-       * Count
-       * @default 1
-       */
-      count: number;
-      /**
-       * Current
-       * @description the repository value (neutral)
-       */
-      current?: string | null;
-      /** Default */
-      default: string;
-      /**
-       * Expected
-       * @description the value of the constant there
-       */
-      expected?: string | null;
-      /** Field */
-      field?: string | null;
-      /** Id */
-      id: string;
-      /**
-       * Incoming
-       * @description the export value (neutral)
-       */
-      incoming?: string | null;
-      /**
-       * Inline
-       * @description the new constant replaces a token inside a text
-       * @default false
-       */
-      inline: boolean;
-      /**
-       * Kind
-       * @description learn | set-value | adopt | constant | group | value | element | removed | added | absent | unmatched
-       */
-      kind: string;
-      /**
-       * Known
-       * @description already an exception of the environment: the default keeps it, change makes the base take it, ignore drops it
-       * @default false
-       */
-      known: boolean;
-      /**
-       * Members
-       * @description of a group: the decision of each job on its own, to choose apart from it
-       */
-      members?: components["schemas"]["DecisionOut"][];
-      /** Node */
-      node?: string | null;
-      /**
-       * Nodes
-       * @description of a value no constant has: the folders and jobs (only in the export) it is in
-       */
-      nodes?: string[];
-      /** Options */
-      options: string[];
-      /**
-       * Suggested
-       * @description name of a new constant (option new)
-       */
-      suggested?: string | null;
-      /**
-       * Values
-       * @description the value of the new constant in each environment (option new)
-       */
-      values?: {
-        [key: string]: string | null;
-      } | null;
-    };
     /** DeliveriesOut */
     DeliveriesOut: {
       /** Deliveries */
@@ -1658,22 +1567,6 @@ export interface components {
        */
       successors: components["schemas"]["RelationOut"][];
     };
-    /** FolderIntakeOut */
-    FolderIntakeOut: {
-      /** Jobs Added */
-      jobs_added: string[];
-      /** Jobs Changed */
-      jobs_changed: string[];
-      /** Jobs Removed */
-      jobs_removed: string[];
-      /** Name */
-      name: string;
-      /**
-       * Status
-       * @description new | changed | same
-       */
-      status: string;
-    };
     /** FolderList */
     FolderList: {
       /** Items */
@@ -1800,58 +1693,6 @@ export interface components {
        * @description the installed commit; default: the release tip
        */
       sha?: string | null;
-    };
-    /** IntakeOut */
-    IntakeOut: {
-      /** Decisions */
-      decisions: components["schemas"]["DecisionOut"][];
-      /** Env */
-      env: string;
-      /** Evidence */
-      evidence: string[];
-      /** Folders */
-      folders: components["schemas"]["FolderIntakeOut"][];
-      /**
-       * Full
-       * @description taken as every folder of the environment
-       * @default false
-       */
-      full: boolean;
-      /**
-       * Partial
-       * @description some folders of the repository are not in the export
-       */
-      partial: boolean;
-      /**
-       * Skipped
-       * @description folders of other applications
-       */
-      skipped: string[];
-      /**
-       * Unresolved
-       * @description values no constant explains: they block
-       */
-      unresolved: string[];
-      /** Warnings */
-      warnings: string[];
-    };
-    /** IntakeRequest */
-    IntakeRequest: {
-      /**
-       * Env
-       * @description its environment; default: told by the names
-       */
-      env?: string | null;
-      /**
-       * Full
-       * @description every folder of the environment; default: more than half of them
-       */
-      full?: boolean | null;
-      /**
-       * Xml
-       * @description the export, as text
-       */
-      xml: string;
     };
     /** JobDetail */
     JobDetail: {
@@ -2108,6 +1949,24 @@ export interface components {
       relations: components["schemas"]["RelationChangeOut"][];
       /** Variables */
       variables: components["schemas"]["ValueChangeOut"][];
+    };
+    /** OtherNameOut */
+    OtherNameOut: {
+      /**
+       * Base
+       * @description the name in the base's environment
+       */
+      base: string;
+      /**
+       * Head
+       * @description the name in the head's environment
+       */
+      head: string;
+      /**
+       * Link
+       * @description the base's link: link:<link> is the item that takes the name
+       */
+      link: string;
     };
     /** PackageFolderOut */
     PackageFolderOut: {
@@ -2548,6 +2407,12 @@ export interface components {
        * @description conditions called as the target calls them
        */
       links: number;
+      /**
+       * Names
+       * @description conditions the two environments call by different names (the same jobs linked the same way): each may keep its own, or the base takes the head's (link:<id>)
+       * @default []
+       */
+      names: components["schemas"]["OtherNameOut"][];
       /**
        * Source
        * @description the environment of the head
@@ -3992,55 +3857,6 @@ export interface operations {
         };
       };
       /** @description Not a git repository, or unknown ref or commit */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorOut"];
-        };
-      };
-    };
-  };
-  intake_api_intake_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["IntakeRequest"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["IntakeOut"];
-        };
-      };
-      /** @description Missing or wrong session token */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Unknown environment */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorOut"];
-        };
-      };
-      /** @description Not an export, or its environment cannot be told */
       422: {
         headers: {
           [name: string]: unknown;

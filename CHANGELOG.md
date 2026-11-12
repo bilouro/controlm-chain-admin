@@ -6,6 +6,34 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-12
+
+### Added
+
+- A condition two environments call by different names (the same jobs linked the same way)
+  is no longer only counted: `compare` lists each one with its two names, the *Compare* page
+  shows them with a box per name, and `link:ID` takes the name the other environment uses,
+  like any item (`take`, `package --take`, a delivery, the assistant). Each may also keep its
+  own: they are still read through and are no difference.
+
+### Documentation
+
+- A documentation site in English and Portuguese (`docs/`, `mkdocs.yml`): getting started,
+  the concepts, a guide per task, the web UI, the assistant, performance, the commands, the
+  Python API, security and contributing. Built with `pip install -e ".[docs]"` and
+  `mkdocs build --strict`; `.github/workflows/docs.yml` deploys it when run by hand, once
+  the maintainer's secrets exist.
+
+### Removed
+
+- The commands of a repository that keeps every environment in one tree: `ctmchain receive`,
+  `ctmchain env constants`, `ctmchain env learn` and `ctmchain release
+  status|start|switch|installed|update|close`, with the *Import* page, `POST /api/intake`
+  and the `receive` operation. With one branch per environment an export comes in through
+  `refresh`, and what travels is a `take`, a `package` or a delivery. `ctmchain check`
+  stays (it proves a branch gives its export back byte for byte), and so do the exceptions
+  of an environment, which are part of the files, and the releases of the branch dialog.
+
 ## [0.4.1] - 2026-11-12
 
 ### Added
@@ -695,7 +723,8 @@ First release on PyPI.
 - On Windows, unknown `/api/...` paths and missing assets were answered with the app instead of
   404 (the static files handler sees `\` separators there).
 
-[Unreleased]: https://github.com/bilouro/controlm-chain-admin/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/bilouro/controlm-chain-admin/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/bilouro/controlm-chain-admin/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/bilouro/controlm-chain-admin/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/bilouro/controlm-chain-admin/compare/v0.3.4...v0.4.0
 [0.3.4]: https://github.com/bilouro/controlm-chain-admin/compare/v0.3.3...v0.3.4

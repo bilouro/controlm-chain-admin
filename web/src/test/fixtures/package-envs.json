@@ -21,9 +21,7 @@
     {
       "name": "P77_CHAIN",
       "jobs": 8,
-      "reasons": [
-        "job P77_NEW added"
-      ]
+      "reasons": ["job P77_NEW added"]
     }
   ],
   "warnings": [
@@ -32,8 +30,6 @@
   "findings": [],
   "filename": "deploy_bench_env-uat_1-item_2026-11-10.xml",
   "size": 3810,
-  "taken": [
-    "job:P77_CHAIN/P77_NEW"
-  ],
+  "taken": ["job:P77_CHAIN/P77_NEW"],
   "source": "uat"
 }

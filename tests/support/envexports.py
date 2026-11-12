@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from controlm_chain_admin.core.constants import Selector, define_constant, parse_spec
@@ -70,3 +71,28 @@ def fresh_repo(tmp_path: Path, data: bytes | None = None) -> ChainRepo:
     git(root, "init", "-q", "-b", "main")
     commit_all(root, "the prod baseline")
     return load_repo(root)
+
+
+def uat_full() -> bytes:
+    """A full export of uat: without P77_E, with a job of its own, one more condition, another
+    task type and another order than production."""
+    data = re.sub(rb'\n\s*<JOB JOBISN="6".*?</JOB>', b"", both(), flags=re.S)  # no P77_E
+    data = data.replace(
+        b'<JOB JOBISN="7"',
+        b'<JOB JOBISN="9" APPLICATION="P77_RISK_ENGINE" SUB_APPLICATION="UP77_BATCH" '
+        b'MEMNAME="UP77_UATONLY" JOBNAME="UP77_UATONLY" RUN_AS="aup77proc" TASKTYPE="Dummy" '
+        b'NODEID="UP77_BATCH" PARENT_FOLDER="UP77_CHAIN" />\n        <JOB JOBISN="7"',
+    )
+    data = data.replace(
+        b'<INCOND NAME="UP77_A-UP77_B_OK" ODATE="ODAT" AND_OR="A" />',
+        b'<INCOND NAME="UP77_A-UP77_B_OK" ODATE="ODAT" AND_OR="A" />\n'
+        b'            <INCOND NAME="UP77_X-UP77_B_OK" ODATE="ODAT" AND_OR="A" />',
+    )
+    data = job(data, b"UP77_D", b'TASKTYPE="Command"', b'TASKTYPE="Dummy"')
+    c = re.search(rb'\n\s*<JOB JOBISN="4".*?</JOB>', data, flags=re.S)
+    assert c is not None
+    data = data.replace(c[0], b"", 1)  # uat lists P77_C after P77_D
+    d_end = data.index(b"</JOB>", data.index(b'<JOB JOBISN="5"')) + len(b"</JOB>")
+    data = data[:d_end] + c[0] + data[d_end:]
+    data = data.replace(b'<JOB JOBISN="2"', b'<JOB JOBISN="22"')  # volatile, uat's own
+    return data.replace(b"Exported at 01-01-2026", b"Exported at 05-05-2026")

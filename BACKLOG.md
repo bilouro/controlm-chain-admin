@@ -230,11 +230,13 @@ or addresses anywhere in this public repository.
     CLI (`technical`) and the *Environments* page. Compare marks the changes that only call a
     condition another name and shows the real ones only on request (*All / Real only*,
     `--real-only`).
-17. **Choosing the name of a condition per environment — later**, asked by the author: for a
-    name-only change of a received release, three options per condition: each environment
-    keeps its own name (an exception of the environment), every environment takes
-    production's name (the environment's package carries the fix), or the base takes the
-    environment's name (production's package carries it).
+17. **Choosing the name of a condition per environment — DONE (2026-11-12), released in
+    0.5.0**, asked by the author. Written for one tree (an exception of the environment, or
+    the base taking a name); with one branch per environment it became: the comparison of two
+    environments lists the conditions they call by different names (the same jobs linked the
+    same way), and `link:<id>` gives the base's environment the name the head's uses, as a
+    take, in a package or in a delivery. Keeping both names needs nothing: they are read
+    through (`DESIGN.md` §14.4).
 18. **Asking in plain words — DONE (2026-11-05)**, asked by the author («um lugar onde pudesse
     colocar um prompt»), with Kilo first: a capabilities file (`capabilities.json`, the menu
     and the tools come from it, every example tested), `ctmchain menu`, `ctmchain mcp` (the
@@ -282,9 +284,17 @@ or addresses anywhere in this public repository.
     is; the page links to *Compare* of the two. Also since 0.3.0: every environment's branch
     in the dialog, a *Theme* selector (day colours unless asked), the *View* selector only in
     the one-base model. The Playwright run covers it.
-23. **The commands of the one-base model — to decide**: `receive`, `check`, `release`,
-    `env constants`, `override` stay for repositories of that model; remove them, or keep
-    them, once nobody uses one.
+23. **The commands of the one-base model — the commands REMOVED (2026-11-12), released in
+    0.5.0**, the author's decision: `receive`, `env constants`, `env learn` and `release`
+    left the command line, with the *Import* page, `POST /api/intake` and the `receive`
+    operation (the core keeps `detect_env` alone of that module). Kept on purpose: `check`,
+    which the from-zero guide uses to prove that each branch gives its export back byte for
+    byte; and the exceptions of an environment (`set-exception`, `promote-exception`, the
+    *Environments* tab), which are part of the files and of the export. Still there, to
+    remove in a pass of its own: the releases inside the branch dialog and the package panel
+    (start, installed, update, close: `core/workspace.py`, `/api/workspace/*`), the
+    constants per environment (`map`, the *Environments* page, the *View* selector) and the
+    tests that run on a `release/` branch.
 24. **A branch of one's own, read as its environment — DONE (2026-11-11): A released in
     0.3.2, B in 0.3.3**, found while writing the 0.3.1 instructions. Two gaps of story 22:
     - **A. Against another environment.** Which environment a ref holds is known from its
@@ -379,5 +389,5 @@ or addresses anywhere in this public repository.
 
 Later, unordered: second-environment import with learning; `diff` of environments and XML
 files with `xmldiffreport`; mapping editor; upstream graph explorer (paused by the author);
-cycle detection in `validate`; a check for one condition name used by two links; bilingual
-docs.
+cycle detection in `validate`; a check for one condition name used by two links. The bilingual
+docs are written (`docs/`, 2026-11-12): the site is published by the author.

@@ -31,7 +31,6 @@ from controlm_chain_admin.core import fixes as fixes_mod
 from controlm_chain_admin.core import graph as graph_mod
 from controlm_chain_admin.core import guide as guide_mod
 from controlm_chain_admin.core import inspect as inspect_mod
-from controlm_chain_admin.core import intake as intake_mod
 from controlm_chain_admin.core import ops
 from controlm_chain_admin.core import package as package_mod
 from controlm_chain_admin.core import refactor as refactor_mod
@@ -226,65 +225,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     mp.set_defaults(func=cmd_map)
 
-    envp = commands.add_parser("env", help="environment helpers")
-    env_sub = envp.add_subparsers(dest="env_command", metavar="<subcommand>")
-    envc = env_sub.add_parser(
-        "constants", help="constants table; --missing lists the gaps and exits 1"
-    )
-    envc.add_argument(
-        "--repo", type=Path, default=Path("."), help="repository directory (default: .)"
-    )
-    envc.add_argument("--env", help="only this environment")
-    envc.add_argument("--missing", action="store_true", help="only constants without a value")
-    envc.add_argument("--format", choices=("text", "json"), default="text")
-    envc.set_defaults(func=cmd_env_constants)
-    envl = env_sub.add_parser(
-        "learn", help="the values of the constants in an environment, from one of its exports"
-    )
-    envl.add_argument("xml", type=Path, help="an export of that environment")
-    envl.add_argument("--env", help="the environment (default: told by the letter of the names)")
-    envl.add_argument(
-        "--only",
-        action="append",
-        default=[],
-        metavar="PREFIX",
-        help="only the constants whose name starts with it, e.g. user. (repeatable)",
-    )
-    _refactor_options(envl)
-    envl.set_defaults(func=cmd_env_learn)
-    envp.set_defaults(func=cmd_env_help)
-
-    rec = commands.add_parser(
-        "receive",
-        help="take an export of one environment (some folders, e.g. a delivery) into the release",
-    )
-    rec.add_argument("xml", type=Path, help="the export")
-    rec.add_argument("--env", help="its environment (default: told by the letter of the names)")
-    scope = rec.add_mutually_exclusive_group()
-    scope.add_argument(
-        "--full",
-        action="store_const",
-        const=True,
-        dest="full",
-        help="every folder of the environment (default: when it has more than half of them)",
-    )
-    scope.add_argument(
-        "--partial",
-        action="store_const",
-        const=False,
-        dest="full",
-        help="some folders only, e.g. a delivery",
-    )
-    rec.add_argument(
-        "--choose",
-        action="append",
-        default=[],
-        metavar="ID=OPTION",
-        help="another option than the default for one decision (repeatable)",
-    )
-    _refactor_options(rec)
-    rec.set_defaults(func=cmd_receive)
-
     chk = commands.add_parser(
         "check",
         help="an environment's export against the repository's export of it, field by field; "
@@ -465,7 +405,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     com.set_defaults(func=cmd_commit)
 
-    _add_release(commands)
     _add_refactorings(commands)
     cli_env.add_commands(commands)
     cli_assistant.add_commands(commands)
@@ -646,110 +585,6 @@ def cmd_map(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
-def cmd_env_help(args: argparse.Namespace) -> int:
-    print(
-        "usage: ctmchain env constants [--repo DIR] [--env ENV] [--missing] [--format text|json]"
-    )
-    print("       ctmchain env learn XML [--env ENV] [--repo DIR] [--apply] [--stat]")
-    return EXIT_USAGE
-
-
-_SHOWN_PER_KIND = 20
-_DECISION_ORDER = (
-    "learn", "set-value", "adopt", "group", "constant", "unmatched", "value", "element",
-    "removed", "added", "absent",
-)  # fmt: skip
-
-
-def _decision_line(decision: intake_mod.Decision) -> str:
-    options = "|".join(decision.options)
-    head = f"  {decision.id}  {decision.default} [{options}]"
-    uses = (
-        f" ({_plural(decision.count, 'use')})" if decision.kind in ("learn", "set-value") else ""
-    )
-    if decision.kind == "learn":
-        return f"{head}  {decision.constant} = {decision.incoming}{uses}"
-    if decision.kind == "set-value":
-        return f"{head}  {decision.constant}: {decision.expected} -> {decision.incoming}{uses}"
-    if decision.kind in ("value", "constant"):
-        return f"{head}  {decision.current} -> {decision.incoming}"
-    if decision.kind == "element":
-        if decision.incoming is None:
-            return f"{head}  the repository alone has it ({decision.current})".rstrip(" ()")
-        return f"{head}  the export alone has it ({decision.incoming})".rstrip(" ()")
-    if decision.kind == "adopt":
-        uses = _plural(decision.count, "use")
-        return f"{head}  {decision.incoming} where the repository has {decision.current} ({uses})"
-    if decision.kind == "unmatched":
-        uses = _plural(decision.count, "use")
-        return (
-            f"{head}  {decision.field} = {decision.incoming} ({uses}); new: {decision.suggested}"
-        )
-    if decision.kind == "group":
-        uses = _plural(decision.count, "use")
-        values = ", ".join(f"{env} {value}" for env, value in (decision.values or {}).items())
-        if decision.inline:
-            what = f"{decision.field}: the name of the environment inside the text"
-            values = f"inline: {values}"
-        else:
-            what = f"{decision.field} {decision.current} -> {decision.incoming}"
-        return f"{head}  {what} ({uses}); new: {decision.suggested} ({values})"
-    return head
-
-
-def _print_intake(intake: intake_mod.Intake) -> None:
-    print(f"{intake.env} export: {'; '.join(intake.evidence)}")
-    statuses = {
-        s: sum(1 for f in intake.folders if f.status == s) for s in ("new", "changed", "same")
-    }
-    print(
-        f"Folders: {len(intake.folders)} ({statuses['new']} new, {statuses['changed']} changed, "
-        f"{statuses['same']} unchanged)"
-        + (", full export" if intake.full else ", some folders only" if intake.partial else "")
-    )
-    if intake.decisions:
-        print(
-            "Decisions (default [options]; another one with --choose ID=OPTION, "
-            "a new constant with ID=new:NAME):"
-        )
-    for kind in _DECISION_ORDER:
-        of_kind = [d for d in intake.decisions if d.kind == kind and not d.known]
-        for decision in of_kind[:_SHOWN_PER_KIND]:
-            print(_decision_line(decision))
-        if len(of_kind) > _SHOWN_PER_KIND:
-            print(f"  ... {len(of_kind) - _SHOWN_PER_KIND} more {kind} decisions (--format json)")
-    known = sum(1 for d in intake.decisions if d.known)
-    if known:
-        print(
-            f"  {_plural(known, 'difference')} already exceptions of {intake.env}: kept "
-            "(--choose ID=change: the base takes it; ID=ignore: it goes; --format json lists them)"
-        )
-    for line in intake.unresolved:
-        print(f"unresolved: {line}")
-    for warning in intake.warnings:
-        print(f"warning: {warning}")
-    print()
-
-
-def cmd_receive(args: argparse.Namespace) -> int:
-    repo = load_repo(args.repo)
-    data = args.xml.read_bytes()
-    choices = _pairs(args.choose, "ID=OPTION", last=True)  # ids may hold "=", options do not
-    intake = intake_mod.analyze(repo, data, args.env, args.full)
-    if args.format == "text":
-        _print_intake(intake)
-    if args.apply:
-        workspace_mod.ensure_editable(repo)
-    change = intake_mod.receive(repo, data, intake.env, choices, intake.full)
-    if args.format == "json":
-        result = refactor_mod.apply(repo, change) if args.apply and change.edits else None
-        body = {"intake": intake.to_json(), "change": change.to_json(), "applied": bool(result)}
-        print(json.dumps(body, indent=2, ensure_ascii=False))
-        return EXIT_OK
-    args.build = lambda _r, _a: change
-    return cmd_refactor(args)
-
-
 def cmd_check(args: argparse.Namespace) -> int:
     check = check_mod.check_export(load_repo(args.repo), args.xml.read_bytes(), args.env)
     if args.format == "json":
@@ -785,61 +620,6 @@ def cmd_check(args: argparse.Namespace) -> int:
     if not check.clean:
         print("The nodes of each field: --format json")
     return EXIT_OK if check.clean else EXIT_FINDINGS
-
-
-def cmd_env_learn(args: argparse.Namespace) -> int:
-    repo = load_repo(args.repo)
-    intake = intake_mod.analyze(repo, args.xml.read_bytes(), args.env)
-    wanted = [
-        d
-        for d in intake.decisions
-        if d.kind in ("learn", "set-value")
-        and d.constant
-        and (not args.only or d.constant.startswith(tuple(args.only)))
-    ]
-    values = {d.constant: d.incoming for d in wanted if d.constant}
-    print(f"{intake.env} export: {'; '.join(intake.evidence)}")
-    for decision in wanted:
-        if decision.kind in ("learn", "set-value"):
-            before = decision.expected if decision.kind == "set-value" else None
-            print(
-                f"  {decision.constant}: {before or '?'} -> {decision.incoming} "
-                f"({_plural(decision.count, 'use')})"
-            )
-    disagree = sum(1 for d in intake.decisions if d.kind == "constant")
-    if disagree:
-        print(f"{_plural(disagree, 'value')} of single jobs disagree: see ctmchain receive")
-    if not values:
-        print("Nothing to learn.")
-        return EXIT_OK
-    args.build = lambda r, _a: refactor_mod.run_operation(
-        r, "set-values", {"env": intake.env, "values": values}
-    )
-    return cmd_refactor(args)
-
-
-def cmd_env_constants(args: argparse.Namespace) -> int:
-    repo = load_repo(args.repo)
-    if args.env and args.env not in repo.config.environments:
-        raise ChainError(f"unknown environment {args.env!r}")
-    table = constants_mod.constants_table(repo)
-    envs = [args.env] if args.env else list(repo.config.environments)
-    rows = {
-        name: {env: values[env] for env in envs}
-        for name, values in table.items()
-        if not args.missing or any(values[env] is None for env in envs)
-    }
-    if args.format == "json":
-        print(json.dumps(rows, indent=2, ensure_ascii=False))
-    elif not rows:
-        print("every constant has a value" if args.missing else "no constants defined")
-    else:
-        for name, values in rows.items():
-            shown = {e: v for e, v in values.items() if not args.missing or v is None}
-            cells = ", ".join(f"{e}={v if v is not None else '?'}" for e, v in shown.items())
-            print(f"{name:32} {repo.config.constants[name].spec:28} {cells}")
-    missing = any(v is None for values in rows.values() for v in values.values())
-    return EXIT_FINDINGS if args.missing and missing else EXIT_OK
 
 
 def cmd_show(args: argparse.Namespace) -> int:
@@ -1232,120 +1012,6 @@ def _build_exception(repo: Any, args: argparse.Namespace) -> Any:
     return refactor_mod.set_exception(
         repo, args.env, args.node, attributes, _pairs(args.vars, "%%NAME=VALUE"), args.drop
     )
-
-
-def _add_release(commands: Any) -> None:
-    """``release``: where edits go, from a release branch to the trunk."""
-    rel = commands.add_parser(
-        "release", help="releases: start one from the trunk, mark installations, close it"
-    )
-    sub = rel.add_subparsers(dest="release_command", metavar="<subcommand>")
-
-    def command(name: str, help_text: str) -> argparse.ArgumentParser:
-        parser: argparse.ArgumentParser = sub.add_parser(name, help=help_text)
-        parser.add_argument(
-            "--repo", type=Path, default=Path("."), help="repository directory (default: .)"
-        )
-        return parser
-
-    status = command("status", "the branch, whether it may be edited, releases and stashes")
-    status.add_argument("--format", choices=("text", "json"), default="text")
-    status.set_defaults(func=cmd_release_status)
-    start = command("start", "create release/NAME from the trunk and switch to it")
-    start.add_argument("name")
-    start.add_argument("--stash", action="store_true", help="stash uncommitted changes first")
-    start.set_defaults(func=cmd_release_start)
-    switch = command("switch", "switch to another branch (local, or on the remote)")
-    switch.add_argument("branch")
-    switch.add_argument("--stash", action="store_true", help="stash uncommitted changes first")
-    switch.set_defaults(func=cmd_release_switch)
-    installed = command("installed", "record that a release is installed in an environment")
-    installed.add_argument("env")
-    installed.add_argument("--release", help="release name (default: the checked-out one)")
-    installed.add_argument("--commit", help="the installed commit (default: the release tip)")
-    installed.set_defaults(func=cmd_release_installed)
-    update = command("update", "merge the trunk into the checked-out release")
-    update.set_defaults(func=cmd_release_update)
-    close = command("close", "merge the release into the trunk once installed in production")
-    close.set_defaults(func=cmd_release_close)
-    rel.set_defaults(func=cmd_release_help)
-
-
-def cmd_release_help(args: argparse.Namespace) -> int:
-    print("usage: ctmchain release {status,start,switch,installed,update,close} [--repo DIR]")
-    return EXIT_USAGE
-
-
-def _release_line(release: workspace_mod.Release, state: workspace_mod.Workspace) -> str:
-    parts = [release.branch, f"{release.ahead} ahead of {state.trunk}"]
-    if release.trunk_behind:
-        parts[-1] += f", {release.trunk_behind} behind"
-    installed = {i.env: i for i in release.installed}
-    for env in state.environments:
-        mark = installed.get(env)
-        text = (
-            mark.tag + (f" ({mark.behind} behind)" if mark and mark.behind else "")
-            if mark
-            else "-"
-        )
-        parts.append(f"{env}: {text}")
-    if not release.local:
-        parts.append("(on the remote only)")
-    if release.closable:
-        parts.append("ready to close")
-    return "  " + "  ".join(parts)
-
-
-def cmd_release_status(args: argparse.Namespace) -> int:
-    state = workspace_mod.workspace(load_repo(args.repo))
-    if args.format == "json":
-        print(json.dumps(state.to_json(), indent=2, ensure_ascii=False))
-        return EXIT_OK
-    where = "editable" if state.editable else f"read-only: {state.reason}"
-    changes = _plural(state.changes, "uncommitted chain file")
-    print(f"On {state.branch or 'a detached HEAD'} · {where} · {changes}")
-    remote = state.remote or "none"
-    if state.upstream:
-        remote += f" ({state.upstream}: {state.ahead} ahead, {state.behind} behind)"
-    print(f"Trunk: {state.trunk} · production: {state.production} · remote: {remote}")
-    print("Releases:" if state.releases else "No release.")
-    for release in state.releases:
-        print(_release_line(release, state))
-    if state.stashes:
-        print("Stashes:")
-    for saved in state.stashes:
-        print(f"  {saved.ref} on {saved.branch or '?'}: {saved.message}")
-    return EXIT_OK
-
-
-def cmd_release_start(args: argparse.Namespace) -> int:
-    print(workspace_mod.start_release(load_repo(args.repo), args.name, stash=args.stash))
-    return EXIT_OK
-
-
-def cmd_release_switch(args: argparse.Namespace) -> int:
-    print(workspace_mod.switch(load_repo(args.repo), args.branch, stash=args.stash))
-    return EXIT_OK
-
-
-def cmd_release_installed(args: argparse.Namespace) -> int:
-    repo = load_repo(args.repo)
-    done = workspace_mod.mark_installed(repo, args.env, args.release, args.commit)
-    branch = repo.config.git_rules.release_prefix + (
-        args.release or workspace_mod.workspace(repo).release or "?"
-    )
-    print(f"Tagged {done.tag} on {done.sha[:7]}: {branch} in {done.env}")
-    return EXIT_OK
-
-
-def cmd_release_update(args: argparse.Namespace) -> int:
-    print(workspace_mod.update_from_trunk(load_repo(args.repo)))
-    return EXIT_OK
-
-
-def cmd_release_close(args: argparse.Namespace) -> int:
-    print(workspace_mod.close_release(load_repo(args.repo)))
-    return EXIT_OK
 
 
 def cmd_commit(args: argparse.Namespace) -> int:

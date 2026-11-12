@@ -78,6 +78,19 @@ class Unsure:
 
 
 @dataclass(frozen=True)
+class OtherName:
+    """A condition the two environments call by different names: the same jobs linked the
+    same way. ``link`` is the base's link; taking ``link:<link>`` gives it the head's name."""
+
+    link: str
+    base: str  # as the target's environment calls it
+    head: str  # as the source's environment calls it
+
+    def to_json(self) -> dict[str, str]:
+        return {"link": self.link, "base": self.base, "head": self.head}
+
+
+@dataclass(frozen=True)
 class Translation:
     """What was rewritten on the head side, from the ``source`` environment to the ``target``."""
 
@@ -89,6 +102,8 @@ class Translation:
     links: int = 0  # conditions called as the target calls them
     warnings: tuple[str, ...] = ()
     unsure: tuple[Unsure, ...] = ()
+    #: the conditions of ``links`` that have another name, not only another letter
+    names: tuple[OtherName, ...] = ()
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -99,6 +114,7 @@ class Translation:
             "letters": self.letters,
             "links": self.links,
             "warnings": list(self.warnings),
+            "names": [name.to_json() for name in self.names],
         }
 
 
@@ -355,7 +371,11 @@ def _relink(copy: Path, pairs: Mapping[str, str], names: Mapping[str, str]) -> N
         write_json(path, {"links": renamed})
 
 
-def _translate_links(base_root: Path, copy: Path, shape: Callable[[str], str] | None) -> int:
+def _translate_links(
+    base_root: Path, copy: Path, shape: Callable[[str], str] | None
+) -> tuple[int, tuple[OtherName, ...]]:
+    """Call the conditions of the copy as the target calls them; how many, and the ones that
+    have another name there (the same jobs linked the same way), not only another letter."""
     base = _load(base_root)
     pairs = {} if shape is None else _letter_pairs(base, _load(copy), shape)
     _relink(copy, pairs, base.names)
@@ -364,8 +384,13 @@ def _translate_links(base_root: Path, copy: Path, shape: Callable[[str], str] | 
     job_map, _kinds = _match_jobs(base, head, folder_map)
     node_map = {f"{old}/": f"{new}/" for old, new in folder_map.items()} | job_map
     same_use = {new: old for old, new in _name_pairs(base, head, node_map).items()}
+    names = tuple(
+        OtherName(old, base.names[old], head.names[new])
+        for new, old in same_use.items()
+        if old in base.names and new in head.names
+    )
     _relink(copy, same_use, base.names)
-    return len(pairs) + len(same_use)
+    return len(pairs) + len(same_use), names
 
 
 # ---------------------------------------------------------------- the whole side
@@ -413,7 +438,7 @@ def translated(
             _translate_values(base_root, copy, rewriter)
             pair = (letters.get(source, ""), letters.get(target, ""))
             shape = _shape(config.letter_rule, letters, pair) if all(pair) else None
-            links = _translate_links(base_root, copy, shape)
+            links, names = _translate_links(base_root, copy, shape)
             kept = rewriter.kept()
         warnings = tuple(
             u.message(source, target, list(dict.fromkeys(node for node, _p, _a in u.places)))
@@ -421,5 +446,5 @@ def translated(
         )
         yield copy, Translation(
             source, target, rewriter.values, rewriter.texts, rewriter.letters, links,
-            warnings, kept,
+            warnings, kept, names,
         )  # fmt: skip

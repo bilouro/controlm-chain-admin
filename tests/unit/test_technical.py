@@ -10,11 +10,9 @@ import pytest
 
 from controlm_chain_admin.core.constants import Selector, define_constant
 from controlm_chain_admin.core.errors import InvalidChange
-from controlm_chain_admin.core.intake import analyze
 from controlm_chain_admin.core.ops import export_xml
 from controlm_chain_admin.core.refactor import apply, run_operation, set_technical
 from controlm_chain_admin.core.repo import load_repo, read_json
-from tests.support.anomalies import ANOMALY_EXPORT
 from tests.support.gitrepo import chain_git_repo, commit_all, git
 
 ING = "P77_INGEST_DAILY"
@@ -37,8 +35,6 @@ def test_a_name_added_to_the_list_moves_its_values_to_meta(tmp_path: Path) -> No
     assert meta["jobs"][LOAD]["DESCRIPTION"] == "Load positions"
     assert meta["attrs"]["DESCRIPTION"] == "Daily ingest & load"
     assert export_xml(repo, "uat") == before  # the export merges meta back: nothing moves
-    data = ANOMALY_EXPORT.replace(b'DESCRIPTION="Init', b'DESCRIPTION="Start')
-    assert analyze(repo, data).decisions == ()  # not compared any more
 
 
 def test_a_name_removed_from_the_list_comes_back_into_the_nodes(tmp_path: Path) -> None:
@@ -54,8 +50,6 @@ def test_a_name_removed_from_the_list_comes_back_into_the_nodes(tmp_path: Path) 
     assert "JOBISN" not in read_json(repo.folder_meta_file(ING))["jobs"][LOAD]
     assert read_json(repo.folder_file(ING))["JOBISN"] == "1"
     assert export_xml(repo, "uat") == before
-    data = ANOMALY_EXPORT.replace(b'<JOB JOBISN="2"', b'<JOB JOBISN="22"')
-    assert [d.field for d in analyze(repo, data).decisions] == ["JOBISN"]  # compared now
 
 
 def test_the_list_refuses_names_and_what_a_constant_replaces(tmp_path: Path) -> None:

@@ -1,8 +1,6 @@
 {
   "env": "uat",
-  "evidence": [
-    "13 folder and job names carry the letter U of uat"
-  ],
+  "evidence": ["13 folder and job names carry the letter U of uat"],
   "partial": false,
   "full": true,
   "folders": [
@@ -11,37 +9,21 @@
       "status": "changed",
       "jobs_added": [],
       "jobs_removed": [],
-      "jobs_changed": [
-        "P77_INGEST_INIT",
-        "P77_INGEST_LOAD"
-      ]
+      "jobs_changed": ["P77_INGEST_INIT", "P77_INGEST_LOAD"]
     },
     {
       "name": "P77_CHAIN",
       "status": "changed",
       "jobs_added": [],
       "jobs_removed": [],
-      "jobs_changed": [
-        "P77_A",
-        "P77_B",
-        "P77_C",
-        "P77_D",
-        "P77_E",
-        "P77_F",
-        "P77_F~2"
-      ]
+      "jobs_changed": ["P77_A", "P77_B", "P77_C", "P77_D", "P77_E", "P77_F", "P77_F~2"]
     }
   ],
   "decisions": [
     {
       "id": "group:RUN_AS=app77proc>aup77proc",
       "kind": "group",
-      "options": [
-        "new",
-        "exceptions",
-        "change",
-        "ignore"
-      ],
+      "options": ["new", "exceptions", "change", "ignore"],
       "default": "new",
       "node": null,
       "field": "RUN_AS",
@@ -62,11 +44,7 @@
         {
           "id": "P77_CHAIN/P77_A@RUN_AS",
           "kind": "value",
-          "options": [
-            "change",
-            "exception",
-            "ignore"
-          ],
+          "options": ["change", "exception", "ignore"],
           "default": "change",
           "node": "P77_CHAIN/P77_A",
           "field": "RUN_AS",
@@ -84,11 +62,7 @@
         {
           "id": "P77_CHAIN/P77_B@RUN_AS",
           "kind": "value",
-          "options": [
-            "change",
-            "exception",
-            "ignore"
-          ],
+          "options": ["change", "exception", "ignore"],
           "default": "change",
           "node": "P77_CHAIN/P77_B",
           "field": "RUN_AS",
@@ -108,12 +82,7 @@
     {
       "id": "group:VARIABLE[NAME=%%GEIENV]/@VALUE=x>u",
       "kind": "group",
-      "options": [
-        "new",
-        "exceptions",
-        "change",
-        "ignore"
-      ],
+      "options": ["new", "exceptions", "change", "ignore"],
       "default": "new",
       "node": null,
       "field": "VARIABLE[NAME=%%GEIENV]/@VALUE",
@@ -134,12 +103,7 @@
     {
       "id": "group:NODEID=PP77_BATCH>UP77_BATCH",
       "kind": "group",
-      "options": [
-        "new",
-        "exceptions",
-        "change",
-        "ignore"
-      ],
+      "options": ["new", "exceptions", "change", "ignore"],
       "default": "new",
       "node": null,
       "field": "NODEID",
@@ -160,11 +124,7 @@
     {
       "id": "group:DOMAIL/@DEST=ops-prod@example.com>ops@example.com",
       "kind": "group",
-      "options": [
-        "new",
-        "change",
-        "ignore"
-      ],
+      "options": ["new", "change", "ignore"],
       "default": "new",
       "node": null,
       "field": "DOMAIL/@DEST",
@@ -185,11 +145,7 @@
     {
       "id": "group:DOMAIL/@SUBJECT~env",
       "kind": "group",
-      "options": [
-        "new",
-        "change",
-        "ignore"
-      ],
+      "options": ["new", "change", "ignore"],
       "default": "new",
       "node": null,
       "field": "DOMAIL/@SUBJECT",
@@ -210,7 +166,5 @@
   ],
   "unresolved": [],
   "warnings": [],
-  "skipped": [
-    "UOTH_HOUSEKEEPING"
-  ]
+  "skipped": ["UOTH_HOUSEKEEPING"]
 }

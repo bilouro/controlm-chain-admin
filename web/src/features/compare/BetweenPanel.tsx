@@ -1,6 +1,7 @@
 import type { TranslationOut } from "@/lib/api/client";
 import { Button, Card } from "@/components/ui";
 import type { Pair } from "./between";
+import { TakeBox } from "./TakeBar";
 
 type Props = {
   pair: Pair;
@@ -63,6 +64,24 @@ export function BetweenPanel({
           </p>
         ) : (
           translation && <Translated pair={pair} translation={translation} />
+        )}
+        {!isRaw && (translation?.names ?? []).length > 0 && (
+          <div className="space-y-1 text-sm">
+            <p>
+              Called otherwise in {pair.source}, the same jobs linked the same way. Each may keep
+              its name; check one for {pair.target} to take the name {pair.source} uses.
+            </p>
+            <ul className="space-y-0.5">
+              {(translation?.names ?? []).map((name) => (
+                <li key={name.link} className="flex items-center gap-2 font-mono text-xs">
+                  <TakeBox item={`link:${name.link}`} label={`Take the name ${name.head}`} />
+                  <span>
+                    {name.base} is {name.head} in {pair.source}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
         <label className="flex items-center gap-1 text-xs text-muted">
           <input type="checkbox" checked={isRaw} onChange={(e) => onRaw(e.target.checked)} />

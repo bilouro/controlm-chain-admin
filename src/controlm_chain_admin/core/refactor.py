@@ -1497,9 +1497,6 @@ OPERATIONS: dict[str, Callable[..., ChangeSet]] = {
     "set-technical": set_technical,
     "rename-constant": lambda repo, old, new: rename_constant(repo, old, new),
     "set-values": lambda repo, env, values: set_values(repo, env, values),
-    "receive": lambda repo, xml, env=None, choices=None, full=None: _receive(
-        repo, xml, env, choices, full
-    ),
     "take": lambda repo, head, items, base="HEAD", **kw: _take(repo, base, head, items, **kw),
     "follow-entry": lambda repo, entry, other: _follow(repo, entry, other),
 }
@@ -1528,18 +1525,6 @@ def _take(
         repo, base, head, items, theirs=theirs, commits=commits, use_merge_base=merge_base,
         prefer=prefer,
     )  # fmt: skip
-
-
-def _receive(
-    repo: ChainRepo,
-    xml: str,
-    env: str | None,
-    choices: Mapping[str, str] | None,
-    full: bool | None = None,
-) -> ChangeSet:
-    from controlm_chain_admin.core.intake import receive  # intake builds on this module
-
-    return receive(repo, xml.encode("utf-8"), env, choices, full)
 
 
 def run_operation(repo: ChainRepo, op: str, params: Mapping[str, Any]) -> ChangeSet:

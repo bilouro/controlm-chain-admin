@@ -1,8 +1,6 @@
 {
   "env": "uat",
-  "evidence": [
-    "13 folder and job names carry the letter U of uat"
-  ],
+  "evidence": ["13 folder and job names carry the letter U of uat"],
   "partial": false,
   "full": true,
   "folders": [
@@ -11,40 +9,21 @@
       "status": "changed",
       "jobs_added": [],
       "jobs_removed": [],
-      "jobs_changed": [
-        "P77_INGEST_INIT",
-        "P77_INGEST_LOAD"
-      ]
+      "jobs_changed": ["P77_INGEST_INIT", "P77_INGEST_LOAD"]
     },
     {
       "name": "P77_CHAIN",
       "status": "changed",
-      "jobs_added": [
-        "P77_UATONLY"
-      ],
-      "jobs_removed": [
-        "P77_E"
-      ],
-      "jobs_changed": [
-        "P77_A",
-        "P77_B",
-        "P77_D",
-        "P77_C",
-        "P77_F",
-        "P77_F~2"
-      ]
+      "jobs_added": ["P77_UATONLY"],
+      "jobs_removed": ["P77_E"],
+      "jobs_changed": ["P77_A", "P77_B", "P77_D", "P77_C", "P77_F", "P77_F~2"]
     }
   ],
   "decisions": [
     {
       "id": "group:RUN_AS=app77proc>aup77proc",
       "kind": "group",
-      "options": [
-        "new",
-        "exceptions",
-        "change",
-        "ignore"
-      ],
+      "options": ["new", "exceptions", "change", "ignore"],
       "default": "new",
       "node": null,
       "field": "RUN_AS",
@@ -65,12 +44,7 @@
     {
       "id": "group:VARIABLE[NAME=%%GEIENV]/@VALUE=x>u",
       "kind": "group",
-      "options": [
-        "new",
-        "exceptions",
-        "change",
-        "ignore"
-      ],
+      "options": ["new", "exceptions", "change", "ignore"],
       "default": "new",
       "node": null,
       "field": "VARIABLE[NAME=%%GEIENV]/@VALUE",
@@ -91,12 +65,7 @@
     {
       "id": "group:NODEID=PP77_BATCH>UP77_BATCH",
       "kind": "group",
-      "options": [
-        "new",
-        "exceptions",
-        "change",
-        "ignore"
-      ],
+      "options": ["new", "exceptions", "change", "ignore"],
       "default": "new",
       "node": null,
       "field": "NODEID",
@@ -117,11 +86,7 @@
     {
       "id": "group:DOMAIL/@DEST=ops-prod@example.com>ops@example.com",
       "kind": "group",
-      "options": [
-        "new",
-        "change",
-        "ignore"
-      ],
+      "options": ["new", "change", "ignore"],
       "default": "new",
       "node": null,
       "field": "DOMAIL/@DEST",
@@ -142,11 +107,7 @@
     {
       "id": "group:DOMAIL/@SUBJECT~env",
       "kind": "group",
-      "options": [
-        "new",
-        "change",
-        "ignore"
-      ],
+      "options": ["new", "change", "ignore"],
       "default": "new",
       "node": null,
       "field": "DOMAIL/@SUBJECT",
@@ -167,11 +128,7 @@
     {
       "id": "P77_CHAIN/P77_B@INCOND[link=P77_X-P77_B_OK,ODATE=ODAT]",
       "kind": "element",
-      "options": [
-        "change",
-        "exception",
-        "ignore"
-      ],
+      "options": ["change", "exception", "ignore"],
       "default": "exception",
       "node": "P77_CHAIN/P77_B",
       "field": "INCOND[link=P77_X-P77_B_OK,ODATE=ODAT]",
@@ -187,11 +144,7 @@
     {
       "id": "P77_CHAIN/P77_D@TASKTYPE",
       "kind": "value",
-      "options": [
-        "change",
-        "exception",
-        "ignore"
-      ],
+      "options": ["change", "exception", "ignore"],
       "default": "exception",
       "node": "P77_CHAIN/P77_D",
       "field": "TASKTYPE",
@@ -207,11 +160,7 @@
     {
       "id": "P77_CHAIN/P77_E#removed",
       "kind": "removed",
-      "options": [
-        "not-here",
-        "remove",
-        "keep"
-      ],
+      "options": ["not-here", "remove", "keep"],
       "default": "not-here",
       "node": "P77_CHAIN/P77_E",
       "field": null,
@@ -227,11 +176,7 @@
     {
       "id": "P77_CHAIN/P77_UATONLY#added",
       "kind": "added",
-      "options": [
-        "only-here",
-        "everywhere",
-        "skip"
-      ],
+      "options": ["only-here", "everywhere", "skip"],
       "default": "only-here",
       "node": "P77_CHAIN/P77_UATONLY",
       "field": null,
@@ -247,10 +192,7 @@
     {
       "id": "unmatched:RUN_AS=nobody",
       "kind": "unmatched",
-      "options": [
-        "new",
-        "literal"
-      ],
+      "options": ["new", "literal"],
       "default": "literal",
       "node": null,
       "field": "RUN_AS",
@@ -263,18 +205,12 @@
       "values": null,
       "inline": false,
       "members": [],
-      "nodes": [
-        "P77_CHAIN/P77_UATONLY"
-      ]
+      "nodes": ["P77_CHAIN/P77_UATONLY"]
     },
     {
       "id": "P77_CHAIN/P77_A@OUTCOND[link=P77_A-P77_B_OK,ODATE=ODAT]/@SIGN",
       "kind": "value",
-      "options": [
-        "change",
-        "exception",
-        "ignore"
-      ],
+      "options": ["change", "exception", "ignore"],
       "default": "exception",
       "known": true,
       "node": "P77_CHAIN/P77_A",
@@ -291,7 +227,5 @@
   ],
   "unresolved": [],
   "warnings": [],
-  "skipped": [
-    "UOTH_HOUSEKEEPING"
-  ]
+  "skipped": ["UOTH_HOUSEKEEPING"]
 }

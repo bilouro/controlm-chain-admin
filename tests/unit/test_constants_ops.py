@@ -304,13 +304,3 @@ def test_cli_map_and_env_constants(tmp_path: Path, capsys: pytest.CaptureFixture
         main(["map", "RUN_AS", "aup77proc", "--as", "user.proc", "--repo", str(root)]) == 3
     )  # no values
     capsys.readouterr()
-
-    assert main(["env", "constants", "--repo", str(root)]) == 0
-    out = capsys.readouterr().out
-    assert "node.batch" in out and "PP77_BATCH" in out
-    assert main(["env", "constants", "--repo", str(root), "--missing"]) == 1
-    out = capsys.readouterr().out
-    assert "user.proc" in out and "test" in out and "node.batch" not in out
-    assert main(["env", "constants", "--repo", str(root), "--format", "json"]) == 0
-    table = json.loads(capsys.readouterr().out)
-    assert table["user.proc"]["prod"] == "app77proc" and table["user.proc"]["bench"] is None

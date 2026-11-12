@@ -25,7 +25,6 @@ from controlm_chain_admin.web.routers import (
     envmap,
     folders,
     history,
-    intake,
     jobs,
     package,
     refresh,
@@ -87,10 +86,6 @@ TAGS = [
         "description": "The constants of every environment: values, gaps, uses.",
     },
     {
-        "name": "intake",
-        "description": "What an export of one environment brings, before receiving it.",
-    },
-    {
         "name": "envmap",
         "description": "The map of what varies per environment (machines, users...), kept on "
         "its own branch: shown, derived from the environments' branches, edited.",
@@ -142,7 +137,6 @@ def create_app(settings: Settings, *, static_dir: Path = STATIC_DIR) -> FastAPI:
         history.router,
         package.router,
         environments.router,
-        intake.router,
         envmap.router,
         deliveries.router,
         refresh.router,

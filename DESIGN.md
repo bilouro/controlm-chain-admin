@@ -177,6 +177,12 @@ the long-term goal.
 
 ## 5. Environment model
 
+> **Since 0.5.0.** This section describes the first model: every environment in one tree.
+> Its files are still read, compared and exported, and the exceptions of an environment
+> still exist; its commands `receive`, `env constants`, `env learn` and `release`, the
+> *Import* page and `POST /api/intake` were removed (story 23). What is said of them below
+> is how it worked. The model in use is one branch per environment (§14).
+
 This section is the model of 0.1: every environment in one branch. The model of 0.2, one branch
 per environment and a map apart, is §14.
 
@@ -896,14 +902,12 @@ the first import.
 Quality
 - `validate [--env <env>] [--strict]` — graph, naming, overlay and resolution checks; exit code = highest severity.
 - `resolve [CODE=KIND...] [--apply] [--stat]` — implemented: fixes for the findings (see §8); without arguments, the fix kinds per code.
-- `receive <xml> [--env ENV] [--full|--partial] [--choose ID=OPTION ...] [--apply] [--stat] [--format text|json]` — implemented: an export of one environment (some folders or all) taken into the checked-out release (§5): the decisions with their defaults, then the change set. A full export of another environment makes every difference its exception by default. A group's id holds `=`: `--choose 'group:RUN_AS=a>b=new:user.batch_user_proc'`; a line's id is its locator: `--choose 'P77_CHAIN/P77_B@INCOND[link=P77_X-P77_B_OK,ODATE=ODAT]=change'`.
+- `receive`, `env learn`, `env constants`, `release ...` — removed in 0.5.0 (story 23): they served a repository that keeps every environment in one tree (§5); with one branch per environment an export is a `refresh`, and what travels is a `take`, a `package` or a delivery (§14). The *Import* page and `POST /api/intake` went with `receive`. `check` stays: it proves that a branch gives its export back byte for byte.
 - `check <xml> [--env ENV] [--format text|json]` — implemented: the export of one environment against the repository's export of it, folder by folder and job by job (paired by their names without the letter; a name twice in one folder by its place), field by field (every attribute but the volatile ones, child elements by their path such as `ON/DOMAIL`): per field, the nodes where the repository's export still differs and, for an environment other than production, how many differ from production's export; whether it is byte for byte, the nodes on one side only, the constants and exceptions of the environment. Text shows counts only (`--format json` names the nodes), never values. Exit 1 when anything but volatile attributes, order or layout differs.
-- `env learn <xml> [--env ENV] [--only PREFIX ...] [--apply]` — implemented: only the values of the constants in that environment (`--only user.` keeps some constants, e.g. when the export is anonymised).
 - `set-exception <env> <node> [--set ATTR=VALUE] [--unset ATTR] [--var %%NAME=VALUE] [--drop NAME]` — implemented: an exception of one environment for one job or folder (§5), previewed, `--apply` writes `envs/<env>/overrides.json`; `--drop` takes a line's locator too (the API's `set-exception` takes `elements`).
 - `promote-exception <env> <node> NAME...` — implemented: the base takes what the environment has as its exception (attribute, `%%variable` or line by locator); the exception goes, and the exceptions of other environments equal to the new base go too.
 - `technical [--add NAME] [--remove NAME]` — implemented: the technical attributes, listed, or changed with a preview (`--apply`): a name added moves its values to `meta/`, a name removed brings them back.
 - `rename-constant <old> <new>` — implemented: placeholders, `chain.json`, environment values and exceptions follow.
-- `release status|start <name>|switch <branch>|installed <env>|update|close` — implemented: the release flow of §8 (`--stash` to stash uncommitted files first, `installed --release --commit` to tag another commit). Stash, discard, push and pull are plain git on the command line.
 - `commit [-m <message>] [--branch <name>] [--dry-run]` — implemented: commits the chain files only (`chain.json`, `folders/`, `meta/`, `envs/`, with `git commit --only`, so other staged or untracked files are left alone). Without `-m` the message is suggested from the semantic comparison of HEAD with the working tree: a Conventional Commits subject (`feat` when jobs or folders are added, `refactor` for renames and moves only, `fix` otherwise; e.g. `fix: update job X in F`, `feat: add 1 job, rename 2 conditions, update 3 jobs`) and a body listing every change. A batch of fixes is one apply and one commit.
 
 Inspection
@@ -938,7 +942,6 @@ Refactorings
 
 Environments
 - `env add <name> --letter <L> --display <NAME> [--from <env>]` — new environment file, constants copied as to-do.
-- `env constants [--env <name>] [--missing]` — constant table, missing values per environment.
 
 MVP (phase 1): `init`, `distinct`, `map`, `override`, `import`, `export`, `validate`, `show`,
 `graph`, `diff`. Refactorings and `env` helpers follow once import/export is byte-identical on
@@ -1097,6 +1100,16 @@ history) and first rewrites the head, in a copy, in the terms of the base's envi
 5. a condition whose name differs only by the letters, or that links the same jobs with the
    same sign and ODATE under another name, is called as the base calls it.
 
+**A condition two environments call by different names (story 17).** Rule 5 reads it
+through, so it is no difference; but the two names exist, and sometimes one of them is the
+mistake. The translation keeps the list (`translation.names`: the base's link, its name in
+each environment), `compare` prints it under what was read through, the *Compare* page lists
+it with a box per name, and `link:<id>` is an item like any other: taken, packaged or kept
+for a delivery, it gives the base's environment the name the head's uses. So each of the
+three answers is at hand: each environment keeps its own name (nothing to do), this one
+takes the other's (`take`, or `package` for production), or the other takes this one's (the
+same, compared the other way round).
+
 What still differs is a real difference. The report starts with what was read through
 (`expected between prod and uat, not shown: 28 values and 2 texts of the map, 4 names with the
 letter, 0 conditions called another name`); `--raw` compares the branches as stored.
@@ -1206,9 +1219,9 @@ environment that has them.
 
 ### 14.8 What is put aside, and what is not built
 
-- Releases (`release start|installed|close`), `receive` and `check` belong to the model of §5.
-  They still work on a repository of that model and are not part of this one: a release is
-  what travels from one environment's branch to another (`take`, `package --take`).
+- Releases, `receive` and `check` belong to the model of §5; the first two left the command line in 0.5.0 (the branch dialog still has the releases).
+  `check` works on any repository. In this model a release is what travels from one
+  environment's branch to another (`take`, `package --take`, a delivery).
 - The assistant (the MCP tools) previews a refresh, onto the environment's branch or onto
   the branch checked out (`here`, `partial`), and never applies one, and does not edit
   the map; it never switches a branch or commits. The command line and the web UI do

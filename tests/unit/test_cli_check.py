@@ -8,8 +8,9 @@ from pathlib import Path
 import pytest
 
 from controlm_chain_admin.cli import main
-from tests.support.envexports import fresh_repo, prod_export
-from tests.unit.test_intake_envs import UAT
+from tests.support.envexports import fresh_repo, prod_export, uat_full
+
+UAT = uat_full()
 
 
 @pytest.fixture

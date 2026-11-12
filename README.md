@@ -10,6 +10,9 @@ differences, promoted item by item.** Export an environment from Control-M, refr
 branch, see what really differs from another environment, pick a job, a folder or a whole
 sub-application, and get the import file already written for the environment that receives it.
 
+**Documentation:** [English](docs/index.md) · [Português](docs/index.pt.md), a guide per
+task, in `docs/` (a site built with mkdocs: `pip install -e ".[docs]"`, `mkdocs serve`).
+
 ```text
    Control-M (full XML export of each environment)
         |  ctmchain refresh <export.xml>      preview first, --apply overwrites the branch
@@ -59,6 +62,7 @@ repository of small JSON files:
 | Give a job whose JOBNAME others share the numbered name the repository calls it, in Control-M too | `ctmchain adopt-jobname FOLDER/JOB2 --apply`, then `ctmchain package` for each environment |
 | Put right an environment set up with another one's value: its jobs follow the right entry of the map | `ctmchain envmap followers`, `ctmchain envmap follow run_as.2 run_as.1 --apply` (on that environment's branch) |
 | Put items aside under a name, today and next week, and make one import file from several when it is time | `ctmchain delivery save "new job" env/uat --item 'job:F/J' --base env/bench`, `ctmchain delivery list`, `ctmchain delivery package env/bench "new job" weekly -o bench_import.xml` |
+| Settle a condition two environments call by different names: keep both, or one takes the other's | `ctmchain compare main env/uat` lists them; `ctmchain package main env/uat --take link:ID -o prod_import.xml` |
 | See why a comparison is slow on a machine (numbers only, safe to pass on) | `ctmchain diagnose` (`-o report.txt` writes it to a file too) |
 | Take one attribute, one variable, one job, one folder or a sub-application into another environment's branch | `ctmchain take env/uat --list`, `ctmchain take env/uat --item job:F/J --apply` |
 | Get the import file of what was chosen, adapted to the target, without changing any branch | `ctmchain package main env/uat --take folder:F -o prod_import.xml` |
@@ -339,10 +343,11 @@ agent: the gate, then a data repository from the exports.
   The assistant's model reads the names and fields of your jobs: use one your company allows.
 - **`--format json`** wherever a report is printed, for scripts and agents; exit codes 0 (ok),
   1 (findings), 2 (usage), 3 (error).
-- **Another way to hold the environments**, from the first releases and still there: one
-  branch with a neutral base, a constant per value that differs (`@{name}`) and the
-  exceptions of each environment, with releases installed environment by environment
-  (`receive`, `check`, `release`, `env constants`). See [`DESIGN.md`](DESIGN.md) section 5.
+- **Another way to hold the environments**, from the first releases: one branch with a
+  neutral base, a constant per value that differs (`@{name}`) and the exceptions of each
+  environment. The files of such a repository are still read, compared and exported; its
+  own commands (`receive`, `env constants`, `env learn`, `release`) and the *Import* page
+  were removed in 0.5.0. See [`DESIGN.md`](DESIGN.md) section 5.
 
 ## Concepts
 

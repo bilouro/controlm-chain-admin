@@ -910,6 +910,10 @@ def _headline(result: Comparison) -> list[str]:
         f"Compare {result.base.name} ({across.target}) with {result.head.name} "
         f"({across.source}): real differences only",
         f"  expected between {across.target} and {across.source}, not shown: {_explained(across)}",
+        *(
+            f"  {name.base} is {name.head} in {across.source} (link:{name.link} takes that name)"
+            for name in across.names
+        ),
         *(f"  warning: {warning}" for warning in across.warnings),
     ]
 

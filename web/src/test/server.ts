@@ -14,7 +14,6 @@ import comparisonSelected from "./fixtures/compare-selected.json";
 import packagePreview from "./fixtures/package.json";
 import pendingChanges from "./fixtures/pending.json";
 import workspace from "./fixtures/workspace.json";
-import intake from "./fixtures/intake.json";
 import environments from "./fixtures/environments.json";
 import envmap from "./fixtures/envmap.json";
 import derived from "./fixtures/derive.json";
@@ -42,7 +41,6 @@ export const calls: {
   package: URLSearchParams[];
   commit: unknown[];
   workspace: { action: string; body: unknown }[];
-  intake: unknown[];
   /** The `env` each chain page asked for (null: the neutral base). */
   env: (string | null)[];
   /** The writes on the map: derive, entries added, renamed and removed. */
@@ -59,7 +57,6 @@ export const calls: {
   package: [],
   commit: [],
   workspace: [],
-  intake: [],
   env: [],
   envmap: [],
   derive: [],
@@ -231,12 +228,6 @@ export const handlers = [
   }),
   http.get("/api/workspace", () => HttpResponse.json(workspace)),
   http.get("/api/environments", () => HttpResponse.json(environments)),
-  http.post("/api/intake", async ({ request }) => {
-    const denied = unauthorized(request);
-    if (denied) return denied;
-    calls.intake.push(await request.json());
-    return HttpResponse.json(intake);
-  }),
   http.post("/api/workspace/:action", async ({ request, params }) => {
     const denied = unauthorized(request);
     if (denied) return denied;

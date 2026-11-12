@@ -11,14 +11,20 @@ import pytest
 
 from controlm_chain_admin.core.check import Check, FieldCheck, check_export
 from controlm_chain_admin.core.errors import ModelError
-from controlm_chain_admin.core.intake import receive
 from controlm_chain_admin.core.overrides import Override, write_overrides
-from controlm_chain_admin.core.refactor import apply
-from controlm_chain_admin.core.repo import ChainRepo, load_repo
-from tests.support.envexports import both, constants_repo, fresh_repo, job, prod_export, to_prod
-from tests.unit.test_intake_envs import UAT
+from controlm_chain_admin.core.repo import ChainRepo
+from tests.support.envexports import (
+    both,
+    constants_repo,
+    fresh_repo,
+    job,
+    prod_export,
+    to_prod,
+    uat_full,
+)
 
 C = "P77_CHAIN"
+UAT = uat_full()
 PROD = prod_export()
 
 
@@ -57,20 +63,6 @@ def test_what_the_repository_does_not_know_of_an_environment_yet(repo: ChainRepo
         "VARIABLE": (1, 1),
     }  # JOBISN is volatile, the place of P77_C is not a field
     assert fields["TASKTYPE"].differs == (f"{C}/P77_D",)
-
-
-def test_after_a_full_export_of_an_environment_nothing_differs(repo: ChainRepo) -> None:
-    apply(repo, receive(repo, UAT))
-
-    check = check_export(load_repo(repo.root), UAT, "uat")
-    fields = _fields(check)
-
-    assert fields["RUN_AS"] == FieldCheck("RUN_AS", (), 10)  # uat's own, now in the repository
-    assert fields["TASKTYPE"] == FieldCheck("TASKTYPE", (), 1)  # exceptions of uat
-    assert fields["INCOND"] == FieldCheck("INCOND", (), 1)
-    assert check.clean and check.only_export == check.only_repository == ()
-    assert check.exceptions == 2 and check.constants > 0 and check.unresolved == ()
-    assert check_export(load_repo(repo.root), PROD, "prod").identical
 
 
 def test_an_exception_makes_its_job_agree(tmp_path: Path) -> None:

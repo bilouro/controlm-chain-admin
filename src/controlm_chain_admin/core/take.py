@@ -164,6 +164,8 @@ class _Take:
     taken: set[str] = field(default_factory=set)  # nodes (head identities) taken in some way
     links: set[str] = field(default_factory=set)  # links the taken content references
     warnings: list[str] = field(default_factory=list)
+    #: link -> the name the other environment has for it, where the two call it differently
+    other_names: Mapping[str, str] = field(default_factory=dict)
 
     # ------------------------------------------------------------ helpers
 
@@ -496,7 +498,7 @@ class _Take:
                 )
 
     def _link(self, item: str, link: str) -> None:
-        theirs = self.after.names.get(link)
+        theirs = self.other_names.get(link) or self.after.names.get(link)
         if theirs is None:
             raise InvalidChange(f"{item}: the other branch has no condition {link}")
         if self.settle(item, read_names(self.box).get(link), self.before.names.get(link), theirs):
@@ -629,6 +631,14 @@ def items_of(result: Comparison) -> tuple[tuple[str, str], ...]:
         for lk in result.links
         if lk.change == "renamed"
     ]
+    if result.translation is not None:  # called otherwise there: each may keep its own name
+        items += [
+            (
+                f"link:{name.link}",
+                f"condition {name.base} -> {name.head}: the name {result.translation.source} uses",
+            )
+            for name in result.translation.names
+        ]
     items += [
         (f"const:{c.env}@{c.name}", f"{shown(c.before)} -> {shown(c.after)}")
         for c in result.constants
@@ -703,6 +713,8 @@ def take_into(
     work = _Take(
         box, before, after, sides.base_root, sides.head_root, reverse, forward, set(theirs)
     )
+    if sides.translation is not None:
+        work.other_names = {name.link: name.head for name in sides.translation.names}
     for item in dict.fromkeys(items):
         work.take(item)
     if work.conflicts:

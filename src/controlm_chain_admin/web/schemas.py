@@ -375,6 +375,12 @@ class ExceptionChangeOut(BaseModel):
     after: dict[str, Any] | None = None
 
 
+class OtherNameOut(BaseModel):
+    link: str = Field(description="the base's link: link:<link> is the item that takes the name")
+    base: str = Field(description="the name in the base's environment")
+    head: str = Field(description="the name in the head's environment")
+
+
 class TranslationOut(BaseModel):
     source: str = Field(description="the environment of the head")
     target: str = Field(description="the environment of the base, whose terms are used")
@@ -383,6 +389,11 @@ class TranslationOut(BaseModel):
     letters: int = Field(description="names with the letter of the environment")
     links: int = Field(description="conditions called as the target calls them")
     warnings: list[str] = Field(description="values the map could not turn into one of the base")
+    names: list[OtherNameOut] = Field(
+        [],
+        description="conditions the two environments call by different names (the same jobs "
+        "linked the same way): each may keep its own, or the base takes the head's (link:<id>)",
+    )
 
 
 class ComparisonOut(BaseModel):
@@ -538,69 +549,6 @@ class InstalledRequest(BaseModel):
     env: str
     release: str | None = Field(None, description="default: the checked-out release")
     sha: str | None = Field(None, description="the installed commit; default: the release tip")
-
-
-class IntakeRequest(BaseModel):
-    xml: str = Field(description="the export, as text")
-    env: str | None = Field(None, description="its environment; default: told by the names")
-    full: bool | None = Field(
-        None, description="every folder of the environment; default: more than half of them"
-    )
-
-
-class DecisionOut(BaseModel):
-    id: str
-    kind: str = Field(
-        description="learn | set-value | adopt | constant | group | value | element | removed "
-        "| added | absent | unmatched"
-    )
-    options: list[str]
-    default: str
-    known: bool = Field(
-        False,
-        description="already an exception of the environment: the default keeps it, change "
-        "makes the base take it, ignore drops it",
-    )
-    node: str | None = None
-    field: str | None = None
-    constant: str | None = None
-    current: str | None = Field(None, description="the repository value (neutral)")
-    expected: str | None = Field(None, description="the value of the constant there")
-    incoming: str | None = Field(None, description="the export value (neutral)")
-    count: int = 1
-    suggested: str | None = Field(None, description="name of a new constant (option new)")
-    values: dict[str, str | None] | None = Field(
-        None, description="the value of the new constant in each environment (option new)"
-    )
-    inline: bool = Field(False, description="the new constant replaces a token inside a text")
-    members: list[DecisionOut] = Field(
-        default_factory=list,
-        description="of a group: the decision of each job on its own, to choose apart from it",
-    )
-    nodes: list[str] = Field(
-        default_factory=list,
-        description="of a value no constant has: the folders and jobs (only in the export) it is in",
-    )
-
-
-class FolderIntakeOut(BaseModel):
-    name: str
-    status: str = Field(description="new | changed | same")
-    jobs_added: list[str]
-    jobs_removed: list[str]
-    jobs_changed: list[str]
-
-
-class IntakeOut(BaseModel):
-    env: str
-    evidence: list[str]
-    partial: bool = Field(description="some folders of the repository are not in the export")
-    full: bool = Field(False, description="taken as every folder of the environment")
-    folders: list[FolderIntakeOut]
-    decisions: list[DecisionOut]
-    unresolved: list[str] = Field(description="values no constant explains: they block")
-    warnings: list[str]
-    skipped: list[str] = Field(description="folders of other applications")
 
 
 class EnvironmentOut(BaseModel):

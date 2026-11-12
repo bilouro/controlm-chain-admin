@@ -742,6 +742,35 @@ describe("ComparePage, between the branches of two environments", () => {
     );
   }
 
+  it("lists the conditions the two environments call otherwise, each with a box to take the name", async () => {
+    server.use(
+      http.get("/api/git", () => HttpResponse.json({ ...gitEnvs, current: "env/bench" })),
+      http.get("/api/workspace", () =>
+        HttpResponse.json({ ...workspaceEnvs, branch: "env/bench" }),
+      ),
+      http.get("/api/compare", () =>
+        HttpResponse.json({
+          ...comparisonEnvs,
+          translation: {
+            ...comparisonEnvs.translation,
+            links: 1,
+            names: [{ link: "L42", base: "P77_A-P77_B_OK", head: "P77_ALPHA-P77_B_OK" }],
+          },
+        }),
+      ),
+    );
+    const { user } = await shown();
+    const panel = screen.getByRole("region", { name: "Between environments" });
+
+    expect(panel).toHaveTextContent("P77_A-P77_B_OK is P77_ALPHA-P77_B_OK in uat");
+    await user.click(
+      within(panel).getByRole("checkbox", { name: "Take the name P77_ALPHA-P77_B_OK" }),
+    );
+
+    expect(screen.getByRole("button", { name: "Keep 1 item…" })).toBeInTheDocument();
+    expect(screen.getByText("link:L42")).toBeInTheDocument();
+  });
+
   it("says how the head is read in the terms of the base and what the map cannot settle", async () => {
     between();
     const { container } = await shown();

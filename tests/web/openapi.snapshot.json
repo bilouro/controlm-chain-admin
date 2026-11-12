@@ -758,174 +758,6 @@
         "title": "ConversationOut",
         "type": "object"
       },
-      "DecisionOut": {
-        "properties": {
-          "constant": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Constant"
-          },
-          "count": {
-            "default": 1,
-            "title": "Count",
-            "type": "integer"
-          },
-          "current": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "the repository value (neutral)",
-            "title": "Current"
-          },
-          "default": {
-            "title": "Default",
-            "type": "string"
-          },
-          "expected": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "the value of the constant there",
-            "title": "Expected"
-          },
-          "field": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Field"
-          },
-          "id": {
-            "title": "Id",
-            "type": "string"
-          },
-          "incoming": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "the export value (neutral)",
-            "title": "Incoming"
-          },
-          "inline": {
-            "default": false,
-            "description": "the new constant replaces a token inside a text",
-            "title": "Inline",
-            "type": "boolean"
-          },
-          "kind": {
-            "description": "learn | set-value | adopt | constant | group | value | element | removed | added | absent | unmatched",
-            "title": "Kind",
-            "type": "string"
-          },
-          "known": {
-            "default": false,
-            "description": "already an exception of the environment: the default keeps it, change makes the base take it, ignore drops it",
-            "title": "Known",
-            "type": "boolean"
-          },
-          "members": {
-            "description": "of a group: the decision of each job on its own, to choose apart from it",
-            "items": {
-              "$ref": "#/components/schemas/DecisionOut"
-            },
-            "title": "Members",
-            "type": "array"
-          },
-          "node": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Node"
-          },
-          "nodes": {
-            "description": "of a value no constant has: the folders and jobs (only in the export) it is in",
-            "items": {
-              "type": "string"
-            },
-            "title": "Nodes",
-            "type": "array"
-          },
-          "options": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Options",
-            "type": "array"
-          },
-          "suggested": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "name of a new constant (option new)",
-            "title": "Suggested"
-          },
-          "values": {
-            "anyOf": [
-              {
-                "additionalProperties": {
-                  "anyOf": [
-                    {
-                      "type": "string"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ]
-                },
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "the value of the new constant in each environment (option new)",
-            "title": "Values"
-          }
-        },
-        "required": [
-          "id",
-          "kind",
-          "options",
-          "default"
-        ],
-        "title": "DecisionOut",
-        "type": "object"
-      },
       "DeliveriesOut": {
         "properties": {
           "deliveries": {
@@ -1784,49 +1616,6 @@
         "title": "FolderDetail",
         "type": "object"
       },
-      "FolderIntakeOut": {
-        "properties": {
-          "jobs_added": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Jobs Added",
-            "type": "array"
-          },
-          "jobs_changed": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Jobs Changed",
-            "type": "array"
-          },
-          "jobs_removed": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Jobs Removed",
-            "type": "array"
-          },
-          "name": {
-            "title": "Name",
-            "type": "string"
-          },
-          "status": {
-            "description": "new | changed | same",
-            "title": "Status",
-            "type": "string"
-          }
-        },
-        "required": [
-          "name",
-          "status",
-          "jobs_added",
-          "jobs_removed",
-          "jobs_changed"
-        ],
-        "title": "FolderIntakeOut",
-        "type": "object"
-      },
       "FolderList": {
         "properties": {
           "items": {
@@ -2139,119 +1928,6 @@
           "env"
         ],
         "title": "InstalledRequest",
-        "type": "object"
-      },
-      "IntakeOut": {
-        "properties": {
-          "decisions": {
-            "items": {
-              "$ref": "#/components/schemas/DecisionOut"
-            },
-            "title": "Decisions",
-            "type": "array"
-          },
-          "env": {
-            "title": "Env",
-            "type": "string"
-          },
-          "evidence": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Evidence",
-            "type": "array"
-          },
-          "folders": {
-            "items": {
-              "$ref": "#/components/schemas/FolderIntakeOut"
-            },
-            "title": "Folders",
-            "type": "array"
-          },
-          "full": {
-            "default": false,
-            "description": "taken as every folder of the environment",
-            "title": "Full",
-            "type": "boolean"
-          },
-          "partial": {
-            "description": "some folders of the repository are not in the export",
-            "title": "Partial",
-            "type": "boolean"
-          },
-          "skipped": {
-            "description": "folders of other applications",
-            "items": {
-              "type": "string"
-            },
-            "title": "Skipped",
-            "type": "array"
-          },
-          "unresolved": {
-            "description": "values no constant explains: they block",
-            "items": {
-              "type": "string"
-            },
-            "title": "Unresolved",
-            "type": "array"
-          },
-          "warnings": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Warnings",
-            "type": "array"
-          }
-        },
-        "required": [
-          "env",
-          "evidence",
-          "partial",
-          "folders",
-          "decisions",
-          "unresolved",
-          "warnings",
-          "skipped"
-        ],
-        "title": "IntakeOut",
-        "type": "object"
-      },
-      "IntakeRequest": {
-        "properties": {
-          "env": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "its environment; default: told by the names",
-            "title": "Env"
-          },
-          "full": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "every folder of the environment; default: more than half of them",
-            "title": "Full"
-          },
-          "xml": {
-            "description": "the export, as text",
-            "title": "Xml",
-            "type": "string"
-          }
-        },
-        "required": [
-          "xml"
-        ],
-        "title": "IntakeRequest",
         "type": "object"
       },
       "JobDetail": {
@@ -2848,6 +2524,32 @@
           "diff"
         ],
         "title": "NodeChangeOut",
+        "type": "object"
+      },
+      "OtherNameOut": {
+        "properties": {
+          "base": {
+            "description": "the name in the base's environment",
+            "title": "Base",
+            "type": "string"
+          },
+          "head": {
+            "description": "the name in the head's environment",
+            "title": "Head",
+            "type": "string"
+          },
+          "link": {
+            "description": "the base's link: link:<link> is the item that takes the name",
+            "title": "Link",
+            "type": "string"
+          }
+        },
+        "required": [
+          "link",
+          "base",
+          "head"
+        ],
+        "title": "OtherNameOut",
         "type": "object"
       },
       "PackageFolderOut": {
@@ -3919,6 +3621,15 @@
             "description": "conditions called as the target calls them",
             "title": "Links",
             "type": "integer"
+          },
+          "names": {
+            "default": [],
+            "description": "conditions the two environments call by different names (the same jobs linked the same way): each may keep its own, or the base takes the head's (link:<id>)",
+            "items": {
+              "$ref": "#/components/schemas/OtherNameOut"
+            },
+            "title": "Names",
+            "type": "array"
           },
           "source": {
             "description": "the environment of the head",
@@ -6074,60 +5785,6 @@
         ]
       }
     },
-    "/api/intake": {
-      "post": {
-        "operationId": "intake_api_intake_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/IntakeRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/IntakeOut"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "description": "Missing or wrong session token"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorOut"
-                }
-              }
-            },
-            "description": "Unknown environment"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorOut"
-                }
-              }
-            },
-            "description": "Not an export, or its environment cannot be told"
-          }
-        },
-        "summary": "The environment of an export, the values to learn and every difference",
-        "tags": [
-          "intake"
-        ]
-      }
-    },
     "/api/jobs/{folder}/{job}": {
       "get": {
         "operationId": "job_detail_api_jobs__folder___job__get",
@@ -7751,10 +7408,6 @@
     {
       "description": "The constants of every environment: values, gaps, uses.",
       "name": "environments"
-    },
-    {
-      "description": "What an export of one environment brings, before receiving it.",
-      "name": "intake"
     },
     {
       "description": "The map of what varies per environment (machines, users...), kept on its own branch: shown, derived from the environments' branches, edited.",

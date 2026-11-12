@@ -1,27 +1,11 @@
 {
   "application": "P77_RISK_ENGINE",
-  "environments": [
-    "test",
-    "uat",
-    "bench",
-    "prod"
-  ],
+  "environments": ["test", "uat", "bench", "prod"],
   "folders": 2,
   "jobs": 9,
   "letter_rule": {
-    "prefixes": [
-      "P77",
-      "RQ_",
-      "RC_"
-    ],
-    "attributes": [
-      "FOLDER_NAME",
-      "JOBNAME",
-      "MEMNAME",
-      "PARENT_FOLDER",
-      "SUB_APPLICATION",
-      "NAME"
-    ]
+    "prefixes": ["P77", "RQ_", "RC_"],
+    "attributes": ["FOLDER_NAME", "JOBNAME", "MEMNAME", "PARENT_FOLDER", "SUB_APPLICATION", "NAME"]
   },
   "root": "/tmp/repo",
   "volatile_attributes": [
