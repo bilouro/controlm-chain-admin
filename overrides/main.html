@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+<!--
+  Theme override: inject JSON-LD structured data so search engines can render a
+  software rich result. Scoped to the home page (one canonical entity per site).
+  No softwareVersion here on purpose: it would go stale; PyPI is the source of truth.
+-->
+{% block extrahead %}
+  {{ super() }}
+  {% if page and page.is_homepage %}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "controlm-chain-admin",
+    "description": "Control-M job chains as JSON in git: one branch per environment, a map of what varies between them, real differences only, and the import file already written for the environment that receives it. Command line, local web UI and MCP tools.",
+    "url": "https://ctmchain.bilouro.com/",
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": "OS Independent",
+    "programmingLanguage": "Python",
+    "license": "https://opensource.org/licenses/MIT",
+    "downloadUrl": "https://pypi.org/project/controlm-chain-admin/",
+    "codeRepository": "https://github.com/bilouro/controlm-chain-admin",
+    "author": {
+      "@type": "Person",
+      "name": "Victor Bilouro"
+    },
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "EUR"
+    }
+  }
+  </script>
+  {% endif %}
+{% endblock %}

@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://ctmchain.bilouro.com/sitemap.xml
+Sitemap: https://ctmchain.bilouro.com/sitemap-ctmchain.xml

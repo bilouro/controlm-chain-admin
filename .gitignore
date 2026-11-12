@@ -35,3 +35,6 @@ src/controlm_chain_admin/web/static/
 
 # Local-only: patterns of real data used by the verify gate (never commit)
 .claude/no-real-data.patterns
+
+# the built documentation site (mkdocs build)
+site/
