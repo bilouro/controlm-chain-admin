@@ -372,8 +372,8 @@ or addresses anywhere in this public repository.
     was made from, with a warning when its source moved since; an entry has no target of its
     own (the target is chosen when the file is made); two entries that give one attribute
     two values are refused and shown, not guessed.
-    Built as assumed (`DESIGN.md` §14.6). Left: deliveries for the assistant (the MCP
-    tools); a delivery from a change not committed yet; the attribute list of the job page
+    Built as assumed (`DESIGN.md` §14.6). Deliveries for the assistant (the
+    MCP tools) came in 0.4.1. Left: a delivery from a change not committed yet; the attribute list of the job page
     offers the job's own attributes, not those of the elements inside it (a variable, an ON
     block: those are kept from *Compare*).
 

@@ -653,7 +653,9 @@ tool besides `apply` that writes, and asked like it) and `refresh` (what a full 
 change in its branch, or with `here` in the branch checked out when that is somebody's work,
 `partial` for some folders only (§14.2): a preview either way, since applying it commits,
 and on the environment's branch switches to it, which the assistant never does; the answer
-ends with the command the user runs). `take` is a capability, so taking is a step previewed and applied like
+ends with the command the user runs); and, for the deliveries kept for later (§14.6),
+`deliveries`, `delivery_package`, `keep_delivery`, `remove_delivery` and
+`write_delivery_package`. `take` is a capability, so taking is a step previewed and applied like
 any change, into the branch checked out. A request is a list of
 steps `{do: <capability>, params}`, checked against the schema with a message that says what
 the capability takes, and run in order as one change set (`batch` when there are several
@@ -1177,8 +1179,11 @@ another environment), then the usual package of the two. It is the same file as 
 same items at once. Two deliveries that give one place two values are refused, naming the
 second; nothing is guessed. An item the target already has as the delivery gives it is
 packaged all the same, with its folder (`chosen: already as env/bench has it`): what was
-chosen goes in the file. Not built: deliveries for the assistant (the MCP tools), and a
-delivery from a change that is not committed yet (it is kept from a commit).
+chosen goes in the file. The assistant has them too (0.4.1): `deliveries` and
+`delivery_package` read, `keep_delivery`, `remove_delivery` and `write_delivery_package`
+write and are asked like `apply` (keeping one writes on the branch of the map, never on an
+environment's, which is why the assistant may). Not built: a delivery from a change that is
+not committed yet (it is kept from a commit).
 
 ### 14.7 From zero, and from a 0.1 repository
 

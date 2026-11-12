@@ -33,9 +33,10 @@ SKILL_DESCRIPTION = (
 )
 QUESTIONS = (
     "menu", "find", "show", "condition", "validate", "compare", "envmap", "takeable",
-    "package", "refresh", "preview",
+    "package", "refresh", "preview", "deliveries", "delivery_package",
 )  # fmt: skip
-ASKED = ("apply", "write_package")  # the tools that write: Kilo asks the user first
+#: the tools that write: Kilo asks the user first
+ASKED = ("apply", "write_package", "keep_delivery", "remove_delivery", "write_delivery_package")
 
 VOCABULARY = """# Local words
 
@@ -190,6 +191,14 @@ them: what is left is what really differs.
    the branch checked out, and the branch of the environment stays as it is; add
    partial=true when the export holds some folders only (the others stay). The user applies
    it: ctmchain refresh FILE --here --apply, with --partial for some folders only.
+6. What the user wants to send later is kept as a delivery: ctmchain_keep_delivery with a
+   name, the branch the items come from (head) and their ids, as ctmchain_takeable gives
+   them or as the user names them (job:FOLDER/JOB, attr:FOLDER/JOB@NAME, folder:FOLDER).
+   ctmchain_deliveries lists what is kept. ctmchain_delivery_package with the target branch
+   and the names says what one import file with several of them would hold;
+   ctmchain_write_delivery_package writes it and ctmchain_remove_delivery forgets one (Kilo
+   asks the user before each of the three that write). A delivery is as its branch was on
+   the day it was kept.
 
 ## Local words
 

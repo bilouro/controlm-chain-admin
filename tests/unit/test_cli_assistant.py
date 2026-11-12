@@ -86,6 +86,9 @@ def test_kilo_init_writes_the_server_the_agent_and_the_skill(
         ("ctmchain_*", "allow"),
         ("ctmchain_apply", "ask"),
         ("ctmchain_write_package", "ask"),
+        ("ctmchain_keep_delivery", "ask"),
+        ("ctmchain_remove_delivery", "ask"),
+        ("ctmchain_write_delivery_package", "ask"),
     ]
     agent = (kilo / "agents" / "controlm.md").read_text("utf-8")
     assert agent.startswith("---\ndescription: ")

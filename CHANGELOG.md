@@ -6,6 +6,17 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-11-12
+
+### Added
+
+- Deliveries for the assistant: the MCP tools `deliveries` (what is kept) and
+  `delivery_package` (what one import file with several of them would hold for a target),
+  and, asked before they run, `keep_delivery`, `remove_delivery` and
+  `write_delivery_package`. The `controlm` agent of Kilo and the rules the assistant reads
+  say how they are used. An agent written by an earlier version needs
+  `ctmchain kilo init --force` once (`vocabulary.md` is kept).
+
 ## [0.4.0] - 2026-11-12
 
 ### Added
@@ -684,7 +695,8 @@ First release on PyPI.
 - On Windows, unknown `/api/...` paths and missing assets were answered with the app instead of
   404 (the static files handler sees `\` separators there).
 
-[Unreleased]: https://github.com/bilouro/controlm-chain-admin/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/bilouro/controlm-chain-admin/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/bilouro/controlm-chain-admin/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/bilouro/controlm-chain-admin/compare/v0.3.4...v0.4.0
 [0.3.4]: https://github.com/bilouro/controlm-chain-admin/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/bilouro/controlm-chain-admin/compare/v0.3.2...v0.3.3

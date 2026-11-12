@@ -32,6 +32,12 @@ from controlm_chain_admin.core.capabilities import (
 from controlm_chain_admin.core.capabilities import preview_id as id_of
 from controlm_chain_admin.core.compare import compare as compare_refs
 from controlm_chain_admin.core.compare import render_text
+from controlm_chain_admin.core.deliveries import (
+    build_delivery,
+    remove_delivery,
+    save_delivery,
+)
+from controlm_chain_admin.core.deliveries import listed as listed_deliveries
 from controlm_chain_admin.core.environments import branch_of_env
 from controlm_chain_admin.core.envmap import show_map
 from controlm_chain_admin.core.errors import ChainError, ChangeConflict, TakeConflict
@@ -50,7 +56,10 @@ from controlm_chain_admin.core.workspace import ensure_editable
 
 READS = ToolAnnotations(read_only_hint=True, open_world_hint=False)
 WRITES = ToolAnnotations(read_only_hint=False, destructive_hint=False, open_world_hint=False)
-WRITERS = frozenset({"apply", "write_package"})  # every other tool only reads
+#: every other tool only reads
+WRITERS = frozenset(
+    {"apply", "write_package", "keep_delivery", "remove_delivery", "write_delivery_package"}
+)
 APPLIED_NOTE = (
     "Written, not committed: the user reviews it (the Workspace page, or git) and commits."
 )
@@ -59,6 +68,11 @@ REFRESH_NOTE = (
     "branch of the environment out, overwrites it and commits).\n"
 )
 PACKAGE_NOTE = "Nothing in the repository changed: the file is what the user imports in Control-M."
+DELIVERY_NOTE = (
+    "Kept on the branch of the map, beside the map: no environment's branch and no file of "
+    "the working tree changed. The Deliveries page, or delivery_package, makes the import file."
+)
+DELIVERIES_SHOWN = 100
 FINDINGS_SHOWN = 20
 
 _Tool = TypeVar("_Tool", bound=Callable[..., Any])
@@ -186,6 +200,40 @@ class ChainTools:
         path = save(package, self.root / (output or package.filename))
         return {"path": str(path), **_package_summary(package), "note": PACKAGE_NOTE}
 
+    def deliveries(self) -> dict[str, Any]:
+        rows = listed_deliveries(load_repo(self.root))
+        return {"deliveries": rows[:DELIVERIES_SHOWN], "total": len(rows)}
+
+    def keep_delivery(
+        self,
+        name: str,
+        head: str,
+        items: list[str],
+        base: str | None = None,
+        prefer: list[str] | None = None,
+        note: str = "",
+    ) -> dict[str, Any]:
+        kept = save_delivery(
+            load_repo(self.root), name, head, items, base=base, prefer=prefer or (), note=note
+        )
+        return {"kept": kept.to_json(), "note": DELIVERY_NOTE}
+
+    def remove_delivery(self, name: str) -> dict[str, Any]:
+        remove_delivery(load_repo(self.root), name)
+        return self.deliveries()
+
+    def delivery_package(
+        self, target: str, names: list[str], env: str | None = None
+    ) -> dict[str, Any]:
+        return _package_summary(build_delivery(self.root, target, names, env=env))
+
+    def write_delivery_package(
+        self, target: str, names: list[str], env: str | None = None, output: str | None = None
+    ) -> dict[str, Any]:
+        package = build_delivery(self.root, target, names, env=env)
+        path = save(package, self.root / (output or package.filename))
+        return {"path": str(path), **_package_summary(package), "note": PACKAGE_NOTE}
+
     def refresh(
         self,
         xml: str,
@@ -252,6 +300,22 @@ class ChainTools:
                              "as package; output names the file (default: its own name, in the "
                              "repository directory). Never over an existing file; nothing in "
                              "the repository changes.",
+            "deliveries": "The deliveries kept for later: items put aside under a name, with "
+                          "the branch and the commit they come from and whether that branch "
+                          "moved since. Read only.",
+            "keep_delivery": "Keep items for later under a name, once the user agreed: head is "
+                             "the branch (tag, commit) they come from, items their ids as "
+                             "takeable gives them (job:FOLDER/JOB, attr:FOLDER/JOB@NAME, "
+                             "folder:FOLDER ...), base the ref they were chosen against, if "
+                             "any. Written on the branch of the map; no environment changes.",
+            "remove_delivery": "Forget one delivery by its name, once the user agreed.",
+            "delivery_package": "What the import file of target (a branch: main, env/bench) "
+                                "would hold with the deliveries names on what it has, in that "
+                                "order: folders and why, warnings, the file name. Two "
+                                "deliveries that disagree are refused. Writes nothing.",
+            "write_delivery_package": "Write that import file, once the user agreed: the same "
+                                      "arguments as delivery_package; output names the file. "
+                                      "Never over an existing file.",
             "refresh": "What the full export of one environment (xml: the path of the file) "
                        "would change in the branch of that environment. here=true: in the "
                        "branch checked out instead, a branch of the user's own, and the "

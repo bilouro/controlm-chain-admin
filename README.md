@@ -329,7 +329,9 @@ agent: the gate, then a data repository from the exports.
   that prod has not?", "take the new job of uat into bench", "the import file for production
   with that folder" (it compares, lists what can be taken, takes into the branch checked out,
   and writes the import file once you agree; it never switches a branch, commits or applies
-  an export). On a branch of your own it also says what an export, whole or some folders
+  an export). It keeps what you want to send later as a delivery ("keep the new job of
+  uat as a delivery called friday"), lists them, and makes one import file from several
+  when you ask. On a branch of your own it also says what an export, whole or some folders
   only, would change there ("what does delivery.xml change on this branch?"), and tells you
   the `refresh --here` command that applies it. `ctmchain kilo init` sets Kilo up with an
   agent that may use those tools only; after an upgrade, `ctmchain kilo init --force` gives

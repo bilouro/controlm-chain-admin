@@ -12,7 +12,8 @@
     "Where the environments share one branch instead, the base is what every environment has, and a change for one environment only (\"only in prod\") is change-in-env, never change-fields.",
     "Never write the repository files yourself, never switch branches, and never commit or push: the user does that (the Workspace page, or git). refresh only shows what an export brings; the user applies it (the Refresh page, or ctmchain refresh FILE --apply).",
     "With one branch per environment, any other branch is the user's own work: it holds the environment of the last export put onto it, else of the branch it started from, and compare, takeable and package read it like that environment's branch (a package of two branches of one environment is for that environment). refresh with here=true shows what an export brings to the branch checked out, not to the environment's, which stays as it is; partial=true with it when the export holds some folders only (the others stay). The user applies it with ctmchain refresh FILE --here --apply, adding --partial for some folders only.",
-    "Answer questions with find, show, condition, validate, compare, envmap, takeable, package and refresh, quoting the values as the tools give them."
+    "What is to be sent later is a delivery: keep_delivery keeps items of a branch under a name (on the branch of the map: no environment's branch changes, which is why it may write there), deliveries lists them, delivery_package says what one import file with several of them would hold for a target branch and write_delivery_package writes it, remove_delivery forgets one. The user is asked before each of the three that write.",
+    "Answer questions with find, show, condition, validate, compare, envmap, takeable, package, refresh and deliveries, quoting the values as the tools give them."
   ],
   "groups": ["Fields", "Environments", "Conditions", "Jobs and folders", "Repository"],
   "questions": [
@@ -24,7 +25,8 @@
     {"tool": "envmap", "title": "The environments, their branches and the map of what varies between them (machines, users, datacenters)", "say": "Which environments are there, and what differs between them?"},
     {"tool": "takeable", "title": "What another branch or environment has that the branch checked out can take, item by item", "say": "What can bench take from uat?"},
     {"tool": "package", "title": "The import file for Control-M: everything a branch has more than another, or only the items chosen", "say": "What goes to prod if I package the new job of uat?"},
-    {"tool": "refresh", "title": "What the export of an environment brings to its branch, or to the branch checked out (here), before anything is written", "say": "What does the export uat.xml change?"}
+    {"tool": "refresh", "title": "What the export of an environment brings to its branch, or to the branch checked out (here), before anything is written", "say": "What does the export uat.xml change?"},
+    {"tool": "deliveries", "title": "What was put aside for later (deliveries), and one import file from several of them", "say": "Keep the new job of uat as a delivery called friday; which deliveries are kept?"}
   ],
   "not_by_prompt": {
     "replace-node": "the whole JSON of a node: the Advanced tab of the job page",

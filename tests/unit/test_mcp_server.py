@@ -29,10 +29,11 @@ from tests.support.fourenvs import (
 )
 from tests.support.gitrepo import chain_git_repo, commit_all, git, plain_git_identity
 
-WRITERS = {"apply", "write_package"}
+WRITERS = {"apply", "write_package", "keep_delivery", "remove_delivery",
+           "write_delivery_package"}  # fmt: skip
 TOOLS = {
     "menu", "find", "show", "condition", "validate", "compare", "envmap", "takeable",
-    "package", "refresh", "preview", *WRITERS,
+    "package", "refresh", "preview", "deliveries", "delivery_package", *WRITERS,
 }  # fmt: skip
 BENCH, UAT = "env/bench", "env/uat"
 NEW_JOB = f"job:{CHAIN}/P77_NEW"
@@ -457,6 +458,47 @@ def test_the_assistant_is_told_about_a_branch_of_one_s_own(envs: ChainRepo) -> N
         flat = " ".join(text.split())
         assert "here=true" in flat and "partial=true" in flat
         assert "the environment of the last export" in flat
+
+
+def test_deliveries_are_kept_listed_packaged_and_removed(envs: ChainRepo) -> None:
+    item = f"job:{CHAIN}/P77_NEW"
+    none = _data(_call(envs.root, "deliveries"))
+    kept = _data(_call(envs.root, "keep_delivery", {
+        "name": "new job", "head": UAT, "items": [item], "base": BENCH, "note": "for Friday",
+    }))  # fmt: skip
+    listed = _data(_call(envs.root, "deliveries"))
+    preview = _data(_call(envs.root, "delivery_package", {"target": BENCH, "names": ["new job"]}))
+    chosen = {"target": BENCH, "names": ["new job"], "output": "out/bench.xml"}
+    written = _data(_call(envs.root, "write_delivery_package", chosen))
+    twice = _call(envs.root, "keep_delivery", {"name": "new job", "head": UAT, "items": [item]})
+    gone = _data(_call(envs.root, "remove_delivery", {"name": "new job"}))
+
+    assert none == {"deliveries": [], "total": 0}
+    assert kept["kept"]["name"] == "new job" and "branch of the map" in kept["note"]
+    (row,) = listed["deliveries"]
+    assert (row["name"], row["head"], row["items"], row["moved"]) == (
+        "new job",
+        UAT,
+        [item],
+        False,
+    )
+    assert preview["env"] == "bench" and preview["taken"] == [item]
+    assert [f["name"] for f in preview["folders"]] == [CHAIN]
+    path = Path(written["path"])
+    assert path == envs.root / "out" / "bench.xml" and b'JOBNAME="BP77_NEW"' in path.read_bytes()
+    assert twice.is_error and "already" in twice.content[0].text
+    assert gone == {"deliveries": [], "total": 0}
+    assert git(envs.root, "branch", "--show-current") == BENCH  # no branch was switched
+
+
+def test_the_assistant_is_told_about_deliveries(envs: ChainRepo) -> None:
+    server = build_server(envs.root)
+    agent = kilo_files(envs.root, sys.executable)[AGENT_FILE]
+    menu = _data(_call(envs.root, "menu"))
+
+    assert "keep_delivery" in (server.instructions or "")
+    assert "ctmchain_keep_delivery" in agent and "ctmchain_write_delivery_package" in agent
+    assert "  deliveries: " in menu
 
 
 def test_the_server_runs_over_stdio(repo: ChainRepo) -> None:
