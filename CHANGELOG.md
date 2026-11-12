@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.4] - 2026-11-12
+
 ### Added
 
 - Fast where small files are slow (an antivirus that inspects every file, a network drive):
@@ -647,7 +649,8 @@ First release on PyPI.
 - On Windows, unknown `/api/...` paths and missing assets were answered with the app instead of
   404 (the static files handler sees `\` separators there).
 
-[Unreleased]: https://github.com/bilouro/controlm-chain-admin/compare/v0.3.3...HEAD
+[Unreleased]: https://github.com/bilouro/controlm-chain-admin/compare/v0.3.4...HEAD
+[0.3.4]: https://github.com/bilouro/controlm-chain-admin/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/bilouro/controlm-chain-admin/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/bilouro/controlm-chain-admin/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/bilouro/controlm-chain-admin/compare/v0.3.0...v0.3.1
