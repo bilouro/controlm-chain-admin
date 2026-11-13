@@ -6,6 +6,25 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-11-13
+
+### Changed
+
+- The *Technical attributes* box is on the *Map* page.
+
+### Fixed
+
+- Saving a change no longer fails when an empty directory under `folders/` cannot be removed
+  (a folder synchronised by OneDrive, a scanner holding it): the directory stays, the change
+  is written whole and the links are rebuilt. Before, the error came after the files were
+  written and before the links were rebuilt.
+
+### Removed
+
+- The *Environments* page of the web UI: where each environment has its branch there is no
+  constant to show, and the page was empty. `/environments` leads to *Map*. The constants
+  stay on the command line (`ctmchain map`) and in `GET /api/environments`.
+
 ## [0.6.0] - 2026-11-13
 
 ### Added
@@ -738,7 +757,8 @@ First release on PyPI.
 - On Windows, unknown `/api/...` paths and missing assets were answered with the app instead of
   404 (the static files handler sees `\` separators there).
 
-[Unreleased]: https://github.com/bilouro/controlm-chain-admin/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/bilouro/controlm-chain-admin/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/bilouro/controlm-chain-admin/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/bilouro/controlm-chain-admin/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/bilouro/controlm-chain-admin/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/bilouro/controlm-chain-admin/compare/v0.4.0...v0.4.1

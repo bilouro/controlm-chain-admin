@@ -293,7 +293,8 @@ or addresses anywhere in this public repository.
     *Environments* tab), which are part of the files and of the export. Still there, to
     remove in a pass of its own: the releases inside the branch dialog and the package panel
     (start, installed, update, close: `core/workspace.py`, `/api/workspace/*`), the
-    constants per environment (`map`, the *Environments* page, the *View* selector) and the
+    constants per environment (`map`, `GET /api/environments`, the *View* selector; the
+    *Environments* page left on 2026-11-13, its technical attributes now on *Map*) and the
     tests that run on a `release/` branch.
 24. **A branch of one's own, read as its environment — DONE (2026-11-11): A released in
     0.3.2, B in 0.3.3**, found while writing the 0.3.1 instructions. Two gaps of story 22:

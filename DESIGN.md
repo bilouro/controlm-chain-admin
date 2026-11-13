@@ -341,7 +341,7 @@ release an environment carries whole is promoted (*All N: Change the base* on a 
 branch), and how the author wanted it (everything an exception first, promoted when it goes
 on). The technical attributes (`volatile_attributes`,
 kept in `meta/`, never compared, never an exception) are edited with `ctmchain technical` and
-the *Technical attributes* box of the *Environments* page (`set-technical`): a name added moves
+the *Technical attributes* box of the *Map* page (`set-technical`): a name added moves
 its values to `meta/`, a name removed brings them back, the exports do not change. A value of
 a new job that no constant has stays as it is by default (`literal`), a constant only when it
 carries the environment's letter. Rehearsed on the real exports (2026-11-05), production first and then
@@ -786,7 +786,9 @@ stop; `run` turns it into `SystemExit` so the cleanup runs).
   the default checked: values to learn, jobs that differ from a constant, differences,
   children, jobs not in the export. Unresolved values block the review. *Review change* sends
   the `receive` change with the choices that differ from the defaults to the usual review.
-- **Environments page (implemented 2026-11-02).** Every constant (agents, users, e-mail
+- **Environments page (implemented 2026-11-02, removed 2026-11-13: where each environment
+  has its branch there is no constant to show, the page was empty; its *Technical
+  attributes* box went to the *Map* page, `/environments` leads there).** Every constant (agents, users, e-mail
   addresses, variables) with what it replaces, how many times it is used (the nodes, linked)
   and its value in each environment, missing values marked and counted, *Only missing values*
   and a text filter; a value is given in place (the `set-values` change) and a constant renamed

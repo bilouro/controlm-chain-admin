@@ -10,7 +10,6 @@ import { FolderPage } from "@/features/folder-graph/FolderPage";
 import { EnvBadge } from "@/features/environments/EnvBadge";
 import { EnvProvider } from "@/features/environments/EnvProvider";
 import { EnvSelect } from "@/features/environments/EnvSelect";
-import { EnvironmentsPage } from "@/features/environments/EnvironmentsPage";
 import { DeliveriesPage } from "@/features/deliveries/DeliveriesPage";
 import { MapPage } from "@/features/envmap/MapPage";
 import { ResourcesPage } from "@/features/resources/ResourcesPage";
@@ -76,7 +75,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <NavItem to="/map">Map</NavItem>
           <NavItem to="/deliveries">Deliveries</NavItem>
           <NavItem to="/resources">Resources</NavItem>
-          <NavItem to="/environments">Environments</NavItem>
         </nav>
         <div className="ml-auto flex items-center gap-3">
           <EnvSelect />
@@ -122,7 +120,7 @@ export function AppRoutes() {
       <Route path="/map" element={<MapPage />} />
       <Route path="/deliveries" element={<DeliveriesPage />} />
       <Route path="/resources" element={<ResourcesPage />} />
-      <Route path="/environments" element={<EnvironmentsPage />} />
+      <Route path="/environments" element={<Navigate to="/map" replace />} />
       <Route path="*" element={<p className="p-6 text-muted">Page not found.</p>} />
     </Routes>
   );

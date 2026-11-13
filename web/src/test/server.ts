@@ -14,7 +14,6 @@ import comparisonSelected from "./fixtures/compare-selected.json";
 import packagePreview from "./fixtures/package.json";
 import pendingChanges from "./fixtures/pending.json";
 import workspace from "./fixtures/workspace.json";
-import environments from "./fixtures/environments.json";
 import envmap from "./fixtures/envmap.json";
 import derived from "./fixtures/derive.json";
 import suggestions from "./fixtures/suggest.json";
@@ -247,7 +246,6 @@ export const handlers = [
     });
   }),
   http.get("/api/workspace", () => HttpResponse.json(workspace)),
-  http.get("/api/environments", () => HttpResponse.json(environments)),
   http.post("/api/workspace/:action", async ({ request, params }) => {
     const denied = unauthorized(request);
     if (denied) return denied;

@@ -234,3 +234,44 @@ describe("MapPage", () => {
     );
   });
 });
+
+describe("MapPage, technical attributes", () => {
+  it("lists them, removes one and adds one through the review", async () => {
+    const { user } = await shown();
+
+    const section = screen.getByRole("region", { name: "Technical attributes" });
+    const names = within(section).getByRole("list", { name: "Technical attribute names" });
+    expect(within(names).getByText("JOBISN")).toBeInTheDocument();
+    expect(within(names).getByText("CHANGE_TIME")).toBeInTheDocument();
+    await user.click(
+      within(names).getByRole("button", { name: "Remove JOBISN from the technical attributes" }),
+    );
+    await waitFor(() =>
+      expect(calls.preview.at(-1)).toEqual({ op: "set-technical", params: { remove: ["JOBISN"] } }),
+    );
+
+    const form = within(section).getByRole("form", { name: "New technical attribute" });
+    await user.type(within(form).getByLabelText("Attribute"), "last_upload");
+    await user.click(within(form).getByRole("button", { name: "Add" }));
+
+    await waitFor(() =>
+      expect(calls.preview.at(-1)).toEqual({
+        op: "set-technical",
+        params: { add: ["LAST_UPLOAD"] },
+      }),
+    );
+  });
+
+  it("stay there when the map cannot be read", async () => {
+    server.use(
+      http.get("/api/envmap", () =>
+        HttpResponse.json({ error: "ChainError", message: "no map" }, { status: 422 }),
+      ),
+    );
+    renderAt(<MapPage />, { path: "/map" });
+
+    const names = await screen.findByRole("list", { name: "Technical attribute names" });
+    expect(await within(names).findByText("JOBISN")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("no map");
+  });
+});

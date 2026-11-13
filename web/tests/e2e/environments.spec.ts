@@ -16,6 +16,10 @@ test("the map: the environments, their branches and the entries", async ({ page 
   await expect(environments.getByRole("row", { name: /bench/ })).toContainText("env/bench");
   const entries = page.getByRole("table", { name: "Map entries" });
   await expect(entries.getByRole("row", { name: /run_as\.2/ })).toContainText("abp77adm");
+  const technical = page.getByRole("region", { name: "Technical attributes" });
+  await expect(technical.getByRole("list", { name: "Technical attribute names" })).toContainText(
+    "JOBISN",
+  );
 
   await page.getByRole("button", { name: "Look at the branches" }).click();
   await expect(page.getByText(/Nothing new/)).toBeVisible();

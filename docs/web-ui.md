@@ -20,10 +20,9 @@ the session token the command printed (open the address it gives, token included
 | **Validate** | the findings, by severity and type; choose a type to read what it means; *Resolve* a finding or a selection |
 | **Compare** | two branches or environments; check items to take them, package them, or keep them for a delivery |
 | **Refresh** | the export of an environment onto its branch, or onto a branch of your own |
-| **Map** | the entries, who follows each, *Follow…*, and what the branches show that the map lacks |
+| **Map** | the letter and branch of each environment, the entries, who follows each, *Follow…*, what the branches show that the map lacks, and the technical attributes |
 | **Deliveries** | what was kept for later; one import file from one or several |
 | **Resources** | every CONTROL and QUANTITATIVE resource with the jobs that use it; give one to several jobs |
-| **Environments** | the letter of each environment and its constants |
 
 Every change is previewed first, field by field, and written only when you confirm. Nothing
 is committed for you: the *Commit* button proposes a message from what changed.

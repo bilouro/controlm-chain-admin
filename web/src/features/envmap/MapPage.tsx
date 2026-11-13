@@ -19,6 +19,7 @@ import {
   Th,
 } from "@/components/ui";
 import { DerivePanel } from "./DerivePanel";
+import { TechnicalAttributes } from "./TechnicalAttributes";
 import type { MapWrite, Submit } from "./writes";
 
 function Environments({ map }: { map: EnvMapOut }) {
@@ -385,6 +386,7 @@ export function MapPage() {
           <DerivePanel submit={submit} isPending={write.isPending} />
         </>
       )}
+      <TechnicalAttributes />
     </div>
   );
 }

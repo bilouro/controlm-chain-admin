@@ -201,7 +201,9 @@ asks for the token the command prints):
   *Followed by* says how many places of the branches have exactly an entry's values, and
   *Follow…* makes the jobs of one entry follow another of the same key, on the branch
   checked out, as a change you review: the cure when one environment was set up with
-  another one's value and the map took it for a rule.
+  another one's value and the map took it for a rule. *Technical attributes*, at the
+  bottom, is the list of what Control-M writes by itself (kept apart, never compared): add
+  or remove a name, through the review.
 - **Deliveries**: what you put aside for later. On *Compare*, the checked items are kept
   under a name (*Keep N items…*) instead of packaged at once; on the page of a job or of a
   folder, *Keep for a delivery…* keeps it as the branch checked out has it, changed or not
