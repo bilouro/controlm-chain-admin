@@ -33,7 +33,7 @@ WRITERS = {"apply", "write_package", "keep_delivery", "remove_delivery",
            "write_delivery_package"}  # fmt: skip
 TOOLS = {
     "menu", "find", "show", "condition", "validate", "compare", "envmap", "takeable",
-    "package", "refresh", "preview", "deliveries", "delivery_package", *WRITERS,
+    "package", "refresh", "preview", "deliveries", "delivery_package", "resources", *WRITERS,
 }  # fmt: skip
 BENCH, UAT = "env/bench", "env/uat"
 NEW_JOB = f"job:{CHAIN}/P77_NEW"
@@ -458,6 +458,22 @@ def test_the_assistant_is_told_about_a_branch_of_one_s_own(envs: ChainRepo) -> N
         flat = " ".join(text.split())
         assert "here=true" in flat and "partial=true" in flat
         assert "the environment of the last export" in flat
+
+
+def test_resources_lists_who_uses_each_and_a_capability_gives_one_to_several_jobs(
+    repo: ChainRepo,
+) -> None:
+    before = _data(_call(repo.root, "resources"))
+    nodes = ["P77_CHAIN/P77_A", "P77_CHAIN/P77_B"]
+    steps = [{"do": "set-resource", "params": {"nodes": nodes, "name": "RQ_AM"}}]
+    preview = _data(_call(repo.root, "preview", {"steps": steps}))
+    _call(repo.root, "apply", {"steps": steps, "preview_id": preview["preview_id"]})
+    after = _data(_call(repo.root, "resources", {"name": "rq_am"}))
+
+    assert before["total"] == 1 and before["resources"][0]["count"] == 1
+    assert after["resources"][0]["nodes"] == [
+        "P77_CHAIN/P77_A", "P77_CHAIN/P77_B", "P77_INGEST_DAILY/P77_INGEST_INIT",
+    ]  # fmt: skip
 
 
 def test_deliveries_are_kept_listed_packaged_and_removed(envs: ChainRepo) -> None:

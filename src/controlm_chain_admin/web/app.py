@@ -28,6 +28,7 @@ from controlm_chain_admin.web.routers import (
     jobs,
     package,
     refresh,
+    resources,
     repo,
     table,
     validate,
@@ -91,6 +92,10 @@ TAGS = [
         "its own branch: shown, derived from the environments' branches, edited.",
     },
     {
+        "name": "resources",
+        "description": "The CONTROL and QUANTITATIVE resources, with the jobs that use each.",
+    },
+    {
         "name": "deliveries",
         "description": "Items kept for later under a name, and the import file of a target "
         "made from one or several of them.",
@@ -140,6 +145,7 @@ def create_app(settings: Settings, *, static_dir: Path = STATIC_DIR) -> FastAPI:
         envmap.router,
         deliveries.router,
         refresh.router,
+        resources.router,
         workspace.router,
         assistant.router,
     ):

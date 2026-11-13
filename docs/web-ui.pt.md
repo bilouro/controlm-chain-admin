@@ -22,6 +22,7 @@ token de sessão que o comando imprimiu (abre o endereço que ele dá, com o tok
 | **Refresh** | o export de um ambiente para o branch dele, ou para um branch teu |
 | **Map** | os itens, quem segue cada um, *Follow…*, e o que os branches mostram e o mapa não tem |
 | **Deliveries** | o que ficou guardado; um ficheiro de import com uma ou várias |
+| **Resources** | cada recurso CONTROL e QUANTITATIVE com os jobs que o usam; dar um a vários jobs |
 | **Environments** | a letra de cada ambiente e as suas constantes |
 
 Cada alteração é pré-visualizada primeiro, campo a campo, e só é escrita quando confirmas.

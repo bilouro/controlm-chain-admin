@@ -1499,7 +1499,27 @@ OPERATIONS: dict[str, Callable[..., ChangeSet]] = {
     "set-values": lambda repo, env, values: set_values(repo, env, values),
     "take": lambda repo, head, items, base="HEAD", **kw: _take(repo, base, head, items, **kw),
     "follow-entry": lambda repo, entry, other: _follow(repo, entry, other),
+    "set-resource": lambda repo, node, name, tag=None, attributes=None: _resource(
+        repo, node, name, tag, attributes
+    ),
+    "remove-resource": lambda repo, node, name: _resource(repo, node, name, remove=True),
 }
+
+
+def _resource(
+    repo: ChainRepo,
+    node: str,
+    name: str,
+    tag: str | None = None,
+    attributes: Mapping[str, str | None] | None = None,
+    *,
+    remove: bool = False,
+) -> ChangeSet:
+    from controlm_chain_admin.core import resources  # it builds on this module
+
+    if remove:
+        return resources.remove_resource(repo, node, name)
+    return resources.set_resource(repo, node, name, tag=tag, attributes=attributes)
 
 
 def _follow(repo: ChainRepo, entry: str, other: str) -> ChangeSet:

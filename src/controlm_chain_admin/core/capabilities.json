@@ -26,6 +26,7 @@
     {"tool": "takeable", "title": "What another branch or environment has that the branch checked out can take, item by item", "say": "What can bench take from uat?"},
     {"tool": "package", "title": "The import file for Control-M: everything a branch has more than another, or only the items chosen", "say": "What goes to prod if I package the new job of uat?"},
     {"tool": "refresh", "title": "What the export of an environment brings to its branch, or to the branch checked out (here), before anything is written", "say": "What does the export uat.xml change?"},
+    {"tool": "resources", "title": "The CONTROL and QUANTITATIVE resources, with the jobs that use each", "say": "Which jobs use the resource RQ_AM?"},
     {"tool": "deliveries", "title": "What was put aside for later (deliveries), and one import file from several of them", "say": "Keep the new job of uat as a delivery called friday; which deliveries are kept?"}
   ],
   "not_by_prompt": {
@@ -93,6 +94,44 @@
       },
       "rules": [],
       "example": {"say": "Put /opt/p77/bin of the ingest folder in %%BIN", "params": {"target": "P77_INGEST_DAILY/", "literal": "/opt/p77/bin", "variable": "%%BIN"}}
+    },
+    {
+      "id": "set-resource",
+      "op": "set-resource",
+      "each": "nodes",
+      "group": "Fields",
+      "title": "Give one or several jobs a resource, or change the one they have",
+      "when": "a CONTROL or QUANTITATIVE resource for one job, a few, or a folder: one another job has comes with the attributes it has there, so that all ask for the same",
+      "params": {
+        "type": "object",
+        "properties": {
+          "nodes": {"type": "array", "items": {"type": "string"}, "description": "FOLDER/JOB of each job, FOLDER/ of a folder"},
+          "name": {"type": "string", "description": "the resource, without the letter of the environment (RC_P77_X, RQ_AM)"},
+          "tag": {"type": "string", "description": "CONTROL or QUANTITATIVE: needed only when no job uses the resource yet"},
+          "attributes": {"type": "object", "x-key": "attribute", "additionalProperties": {"type": ["string", "null"]}, "description": "attributes to set on it (TYPE E or S of a CONTROL, QUANT of a QUANTITATIVE, ONFAIL, ONOK); null removes one"}
+        },
+        "required": ["nodes", "name"]
+      },
+      "rules": ["resources (the tool) lists every resource with the jobs that use it: look there for the name and the kind before adding one."],
+      "example": {"say": "P77_A and P77_B should also take the resource RQ_AM", "params": {"nodes": ["P77_CHAIN/P77_A", "P77_CHAIN/P77_B"], "name": "RQ_AM"}}
+    },
+    {
+      "id": "remove-resource",
+      "op": "remove-resource",
+      "each": "nodes",
+      "group": "Fields",
+      "title": "Take a resource off one or several jobs",
+      "when": "a CONTROL or QUANTITATIVE resource a job should no longer ask for",
+      "params": {
+        "type": "object",
+        "properties": {
+          "nodes": {"type": "array", "items": {"type": "string"}, "description": "FOLDER/JOB of each job, FOLDER/ of a folder"},
+          "name": {"type": "string", "description": "the resource's name"}
+        },
+        "required": ["nodes", "name"]
+      },
+      "rules": [],
+      "example": {"say": "P77_INGEST_INIT no longer needs RQ_AM", "params": {"nodes": ["P77_INGEST_DAILY/P77_INGEST_INIT"], "name": "RQ_AM"}}
     },
     {
       "id": "rename-resource",

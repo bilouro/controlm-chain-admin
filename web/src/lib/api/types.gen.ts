@@ -568,6 +568,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/resources": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Every resource of the repository with the folders and jobs that use it */
+    get: operations["resources_api_resources_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/table": {
     parameters: {
       query?: never;
@@ -2258,6 +2275,38 @@ export interface components {
        * @description the technical attributes: kept in meta, never compared, never an exception
        */
       volatile_attributes?: string[];
+    };
+    /** ResourceOut */
+    ResourceOut: {
+      /**
+       * Attributes
+       * @description as its first use has them (TYPE, QUANT...)
+       */
+      attributes: {
+        [key: string]: string;
+      };
+      /** Count */
+      count: number;
+      /**
+       * Name
+       * @description without the letter of the environment
+       */
+      name: string;
+      /**
+       * Nodes
+       * @description FOLDER/JOB of each job, FOLDER/ of a folder
+       */
+      nodes: string[];
+      /**
+       * Tag
+       * @description CONTROL or QUANTITATIVE
+       */
+      tag: string;
+    };
+    /** ResourcesOut */
+    ResourcesOut: {
+      /** Resources */
+      resources: components["schemas"]["ResourceOut"][];
     };
     /** StartBranchRequest */
     StartBranchRequest: {
@@ -4253,6 +4302,38 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["RepoInfo"];
+        };
+      };
+    };
+  };
+  resources_api_resources_get: {
+    parameters: {
+      query?: {
+        /** @description only the resources whose name has this text */
+        name?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ResourcesOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
         };
       };
     };

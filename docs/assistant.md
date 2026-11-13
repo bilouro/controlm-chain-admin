@@ -25,13 +25,14 @@ rewrites the agent and keeps your `vocabulary.md`.
 - "The import file for production with the folder P77_WEEKLY_DAILY of uat."
 - "Keep the new job of uat as a delivery called friday." and "Which deliveries are kept?"
 - "What would the export ../exports/uat.xml change?"
+- "Which jobs use the resource RQ_AM?" and "P77_A and P77_B should take it too."
 - "Is anything wrong with the chains?"
 
 ## What it does and never does
 
 | Reads, without asking | Writes, after you approve |
 |---|---|
-| find, show, condition, validate, compare, envmap, takeable, package, refresh, deliveries, delivery_package | apply (a change to the checked-out branch), write_package, keep_delivery, remove_delivery, write_delivery_package |
+| find, show, condition, validate, compare, envmap, takeable, package, refresh, deliveries, delivery_package, resources | apply (a change to the checked-out branch), write_package, keep_delivery, remove_delivery, write_delivery_package |
 
 It never switches a branch, never commits or pushes, and never applies an export: it
 previews one and tells you the command that applies it.

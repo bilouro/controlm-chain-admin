@@ -132,7 +132,27 @@ async function deliveryWrite(request: Request, path: string) {
   return HttpResponse.json(deliveriesKept);
 }
 
+export const resourcesUsed = {
+  resources: [
+    {
+      tag: "CONTROL",
+      name: "RC_SHARED",
+      nodes: ["P77_CHAIN/P77_A", "P77_CHAIN/P77_B"],
+      count: 2,
+      attributes: { TYPE: "E", ONFAIL: "R" },
+    },
+    {
+      tag: "QUANTITATIVE",
+      name: "RQ_AM",
+      nodes: ["P77_INGEST_DAILY/P77_INGEST_INIT"],
+      count: 1,
+      attributes: { QUANT: "1", ONFAIL: "R", ONOK: "R" },
+    },
+  ],
+};
+
 export const handlers = [
+  http.get("/api/resources", () => HttpResponse.json(resourcesUsed)),
   http.get("/api/deliveries", () => HttpResponse.json(deliveriesKept)),
   http.post("/api/deliveries", ({ request }) => deliveryWrite(request, "")),
   http.delete("/api/deliveries/:name", ({ request, params }) =>

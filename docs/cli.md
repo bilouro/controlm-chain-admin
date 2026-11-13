@@ -44,6 +44,7 @@ Exit codes: `0` ok, `1` findings, `2` usage, `3` error.
 |---|---|
 | `ctmchain rename-job NODE NEW`, `rename-folder`, `rename-subapp`, `move-job`, `insert-job` | refactorings; condition names follow |
 | `ctmchain adopt-jobname NODE` | the numbered name of a job becomes its JOBNAME |
+| `ctmchain resources [--name TEXT]`, `set-resource NAME NODE... [--kind ...] [--set ATTR=VALUE]`, `remove-resource NAME NODE...`, `rename-resource NODE OLD NEW` | the CONTROL and QUANTITATIVE resources: who uses each, give one to several jobs, take it off, rename |
 | `ctmchain extract-variable`, `ctmchain technical` | a literal into a variable; the technical attributes |
 | `ctmchain set-exception`, `promote-exception`, `map`, `rename-constant` | for a repository that keeps every environment in one tree |
 

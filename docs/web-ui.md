@@ -22,6 +22,7 @@ the session token the command printed (open the address it gives, token included
 | **Refresh** | the export of an environment onto its branch, or onto a branch of your own |
 | **Map** | the entries, who follows each, *Follow…*, and what the branches show that the map lacks |
 | **Deliveries** | what was kept for later; one import file from one or several |
+| **Resources** | every CONTROL and QUANTITATIVE resource with the jobs that use it; give one to several jobs |
 | **Environments** | the letter of each environment and its constants |
 
 Every change is previewed first, field by field, and written only when you confirm. Nothing

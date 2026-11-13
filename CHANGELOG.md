@@ -6,6 +6,21 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-13
+
+### Added
+
+- The resources of a job (CONTROL, QUANTITATIVE), which until now showed in the raw JSON
+  only. `ctmchain resources` and the *Resources* page list every resource with the jobs
+  that use it and how; `ctmchain set-resource NAME NODE...` gives one to a job or to
+  several at once, with the attributes the jobs that have it already use (a new one says
+  its kind and gets the usual ones; `--set ATTR=VALUE` changes them);
+  `ctmchain remove-resource` takes it off and `ctmchain rename-resource` renames it. The
+  pages of a job and of a folder have a *Resources* tab (add, how it is held or how many
+  units, rename, remove), the API `GET /api/resources`, and the assistant a `resources`
+  tool with the capabilities `set-resource` and `remove-resource`. An agent written by an
+  earlier version needs `ctmchain kilo init --force` once.
+
 ## [0.5.0] - 2026-11-12
 
 ### Added
@@ -723,7 +738,8 @@ First release on PyPI.
 - On Windows, unknown `/api/...` paths and missing assets were answered with the app instead of
   404 (the static files handler sees `\` separators there).
 
-[Unreleased]: https://github.com/bilouro/controlm-chain-admin/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/bilouro/controlm-chain-admin/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/bilouro/controlm-chain-admin/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/bilouro/controlm-chain-admin/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/bilouro/controlm-chain-admin/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/bilouro/controlm-chain-admin/compare/v0.3.4...v0.4.0

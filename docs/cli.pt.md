@@ -44,6 +44,7 @@ com `--help`. Os comandos que alteram alguma coisa pré-visualizam primeiro e s�
 |---|---|
 | `ctmchain rename-job NÓ NOVO`, `rename-folder`, `rename-subapp`, `move-job`, `insert-job` | refatorações; os nomes das condições seguem |
 | `ctmchain adopt-jobname NÓ` | o nome numerado de um job passa a ser o JOBNAME |
+| `ctmchain resources [--name TEXTO]`, `set-resource NOME NÓ... [--kind ...] [--set ATRIBUTO=VALOR]`, `remove-resource NOME NÓ...`, `rename-resource NÓ ANTIGO NOVO` | os recursos CONTROL e QUANTITATIVE: quem usa cada um, dar um a vários jobs, tirar, renomear |
 | `ctmchain extract-variable`, `ctmchain technical` | um literal para uma variável; os atributos técnicos |
 | `ctmchain set-exception`, `promote-exception`, `map`, `rename-constant` | para um repositório que guarda todos os ambientes numa só árvore |
 

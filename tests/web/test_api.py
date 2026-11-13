@@ -92,6 +92,20 @@ def test_unknown_job_is_404(client: TestClient) -> None:
     assert client.get("/api/jobs/P77_INGEST_DAILY/NOPE").status_code == 404
 
 
+def test_the_resources_with_the_jobs_that_use_each(client: TestClient) -> None:
+    body = client.get("/api/resources").json()
+    none = client.get("/api/resources", params={"name": "nothing"}).json()
+
+    assert body["resources"] == [
+        {
+            "tag": "QUANTITATIVE", "name": "RQ_AM", "count": 1,
+            "nodes": ["P77_INGEST_DAILY/P77_INGEST_INIT"],
+            "attributes": {"QUANT": "1", "ONFAIL": "R", "ONOK": "R"},
+        }
+    ]  # fmt: skip
+    assert none == {"resources": []}
+
+
 def test_validate_report(client: TestClient) -> None:
     response = client.get("/api/validate")
 

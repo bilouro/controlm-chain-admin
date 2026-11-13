@@ -10,6 +10,8 @@ import { RawJsonEditor } from "@/features/editing/RawJsonEditor";
 import { RelationsEditor } from "@/features/editing/RelationsEditor";
 import { VariablesEditor, type Variable } from "@/features/editing/VariablesEditor";
 import { KeepDelivery } from "@/features/deliveries/KeepDelivery";
+import { ResourcesEditor } from "@/features/resources/ResourcesEditor";
+import { resourceRows } from "@/features/resources/resource-rows";
 import {
   Badge,
   Card,
@@ -122,6 +124,7 @@ export function JobPage() {
       label: `Predecessors & successors (${data.predecessors?.length ?? 0}/${data.successors?.length ?? 0})`,
     },
     { id: "on", label: "ON blocks" },
+    { id: "resources", label: `Resources (${resourceRows(data.raw).length})` },
     {
       id: "environments",
       label: exceptionCount(data.exceptions)
@@ -241,6 +244,11 @@ export function JobPage() {
         {active === "on" && (
           <TabPanel id="on">
             <OnBlocks blocks={data.on as OnBlock[]} marks={marks} />
+          </TabPanel>
+        )}
+        {active === "resources" && (
+          <TabPanel id="resources">
+            <ResourcesEditor key={JSON.stringify(data.raw)} node={node} raw={data.raw} />
           </TabPanel>
         )}
         {active === "environments" && (

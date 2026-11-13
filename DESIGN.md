@@ -924,6 +924,7 @@ Assistant
 - `adopt-jobname <FOLDER/JOB> [--keep-names] [--apply]` — implemented: the numbered name of a job becomes its JOBNAME in Control-M too (§8).
 - `envmap followers`, `envmap follow <entry> <other> [--apply] [--stat]` — implemented: who follows each entry of the map, and the jobs of one entry made to follow another on the branch checked out (§14.3).
 - `delivery save <name> <head> --item ID... [--base REF] [--note TEXT]`, `delivery list`, `delivery remove <name>`, `delivery package <target> <name>... [-o <file>] [--dry-run]` — implemented: items kept for later, and one import file from several (§14.6).
+- `resources [--name TEXT]`, `set-resource <name> <node>... [--kind control|quantitative] [--set ATTR=VALUE ...]`, `remove-resource <name> <node>...`, `rename-resource <node> <old> <new>` — implemented (story 28): the CONTROL and QUANTITATIVE resources by resource; one given to several jobs at once comes with the attributes the jobs that have it use (`core/resources.py`).
 - `kilo init [--repo DIR] [--dir DIR] [--force]` — implemented: `.kilo/` for Kilo (server, `controlm` agent, skill, vocabulary) at the top of the git repository.
 
 Environments as branches (§14)

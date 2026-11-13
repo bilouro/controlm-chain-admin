@@ -49,6 +49,7 @@ from controlm_chain_admin.core.refresh import Refresh
 from controlm_chain_admin.core.refresh import refresh as refresh_env
 from controlm_chain_admin.core.refresh import render_text as render_refresh
 from controlm_chain_admin.core.repo import ChainRepo, load_repo
+from controlm_chain_admin.core.resources import usage as resource_usage
 from controlm_chain_admin.core.take import conflict_line
 from controlm_chain_admin.core.take import takeable as takeable_items
 from controlm_chain_admin.core.validate import validate as validate_repo
@@ -200,6 +201,12 @@ class ChainTools:
         path = save(package, self.root / (output or package.filename))
         return {"path": str(path), **_package_summary(package), "note": PACKAGE_NOTE}
 
+    def resources(self, name: str | None = None, limit: int = 100) -> dict[str, Any]:
+        uses = [use.to_json() for use in resource_usage(load_repo(self.root))]
+        if name:
+            uses = [use for use in uses if name.upper() in str(use["name"]).upper()]
+        return {"resources": uses[:limit], "total": len(uses)}
+
     def deliveries(self) -> dict[str, Any]:
         rows = listed_deliveries(load_repo(self.root))
         return {"deliveries": rows[:DELIVERIES_SHOWN], "total": len(rows)}
@@ -300,6 +307,10 @@ class ChainTools:
                              "as package; output names the file (default: its own name, in the "
                              "repository directory). Never over an existing file; nothing in "
                              "the repository changes.",
+            "resources": "The CONTROL and QUANTITATIVE resources with the jobs and folders that "
+                         "use each, and the attributes it has there; name: only those whose "
+                         "name has this text. set-resource and remove-resource (capabilities) "
+                         "change them. Read only.",
             "deliveries": "The deliveries kept for later: items put aside under a name, with "
                           "the branch and the commit they come from and whether that branch "
                           "moved since. Read only.",

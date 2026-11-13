@@ -33,7 +33,7 @@ SKILL_DESCRIPTION = (
 )
 QUESTIONS = (
     "menu", "find", "show", "condition", "validate", "compare", "envmap", "takeable",
-    "package", "refresh", "preview", "deliveries", "delivery_package",
+    "package", "refresh", "preview", "deliveries", "delivery_package", "resources",
 )  # fmt: skip
 #: the tools that write: Kilo asks the user first
 ASKED = ("apply", "write_package", "keep_delivery", "remove_delivery", "write_delivery_package")
@@ -165,6 +165,9 @@ description: {SKILL_DESCRIPTION}
    before -> after; tell the user.
 4. ctmchain_apply with the same steps and the preview_id writes it once the user approves it
    (Kilo asks them). Nothing is committed: the user commits.
+5. ctmchain_resources lists the CONTROL and QUANTITATIVE resources with the jobs that use
+   each; the capabilities set-resource and remove-resource give one to several jobs at
+   once, or take it off.
 
 ## Between environments
 

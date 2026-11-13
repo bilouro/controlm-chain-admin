@@ -3227,6 +3227,65 @@
         "title": "RepoInfo",
         "type": "object"
       },
+      "ResourceOut": {
+        "properties": {
+          "attributes": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "as its first use has them (TYPE, QUANT...)",
+            "title": "Attributes",
+            "type": "object"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "name": {
+            "description": "without the letter of the environment",
+            "title": "Name",
+            "type": "string"
+          },
+          "nodes": {
+            "description": "FOLDER/JOB of each job, FOLDER/ of a folder",
+            "items": {
+              "type": "string"
+            },
+            "title": "Nodes",
+            "type": "array"
+          },
+          "tag": {
+            "description": "CONTROL or QUANTITATIVE",
+            "title": "Tag",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tag",
+          "name",
+          "nodes",
+          "count",
+          "attributes"
+        ],
+        "title": "ResourceOut",
+        "type": "object"
+      },
+      "ResourcesOut": {
+        "properties": {
+          "resources": {
+            "items": {
+              "$ref": "#/components/schemas/ResourceOut"
+            },
+            "title": "Resources",
+            "type": "array"
+          }
+        },
+        "required": [
+          "resources"
+        ],
+        "title": "ResourcesOut",
+        "type": "object"
+      },
       "StartBranchRequest": {
         "properties": {
           "name": {
@@ -6591,6 +6650,57 @@
         ]
       }
     },
+    "/api/resources": {
+      "get": {
+        "operationId": "resources_api_resources_get",
+        "parameters": [
+          {
+            "description": "only the resources whose name has this text",
+            "in": "query",
+            "name": "name",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "only the resources whose name has this text",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResourcesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Every resource of the repository with the folders and jobs that use it",
+        "tags": [
+          "resources"
+        ]
+      }
+    },
     "/api/table": {
       "get": {
         "operationId": "table_api_table_get",
@@ -7412,6 +7522,10 @@
     {
       "description": "The map of what varies per environment (machines, users...), kept on its own branch: shown, derived from the environments' branches, edited.",
       "name": "envmap"
+    },
+    {
+      "description": "The CONTROL and QUANTITATIVE resources, with the jobs that use each.",
+      "name": "resources"
     },
     {
       "description": "Items kept for later under a name, and the import file of a target made from one or several of them.",

@@ -63,6 +63,7 @@ repository of small JSON files:
 | Put right an environment set up with another one's value: its jobs follow the right entry of the map | `ctmchain envmap followers`, `ctmchain envmap follow run_as.2 run_as.1 --apply` (on that environment's branch) |
 | Put items aside under a name, today and next week, and make one import file from several when it is time | `ctmchain delivery save "new job" env/uat --item 'job:F/J' --base env/bench`, `ctmchain delivery list`, `ctmchain delivery package env/bench "new job" weekly -o bench_import.xml` |
 | Settle a condition two environments call by different names: keep both, or one takes the other's | `ctmchain compare main env/uat` lists them; `ctmchain package main env/uat --take link:ID -o prod_import.xml` |
+| See the CONTROL and QUANTITATIVE resources by resource, and give one to several jobs at once | `ctmchain resources`, `ctmchain set-resource RQ_AM FOLDER/JOB1 FOLDER/JOB2 --apply` |
 | See why a comparison is slow on a machine (numbers only, safe to pass on) | `ctmchain diagnose` (`-o report.txt` writes it to a file too) |
 | Take one attribute, one variable, one job, one folder or a sub-application into another environment's branch | `ctmchain take env/uat --list`, `ctmchain take env/uat --item job:F/J --apply` |
 | Get the import file of what was chosen, adapted to the target, without changing any branch | `ctmchain package main env/uat --take folder:F -o prod_import.xml` |

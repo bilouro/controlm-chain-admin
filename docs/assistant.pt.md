@@ -25,13 +25,14 @@ Depois de uma atualização que traga ferramentas novas, corre
 - "O ficheiro de import para produção com a pasta P77_WEEKLY_DAILY de uat."
 - "Guarda o job novo de uat como entrega com o nome sexta." e "Que entregas tenho guardadas?"
 - "O que mudaria o export ../exports/uat.xml?"
+- "Que jobs usam o recurso RQ_AM?" e "o P77_A e o P77_B também o devem tomar."
 - "Há alguma coisa errada nas cadeias?"
 
 ## O que faz e o que nunca faz
 
 | Lê, sem perguntar | Escreve, depois de aprovares |
 |---|---|
-| find, show, condition, validate, compare, envmap, takeable, package, refresh, deliveries, delivery_package | apply (uma alteração no branch aberto), write_package, keep_delivery, remove_delivery, write_delivery_package |
+| find, show, condition, validate, compare, envmap, takeable, package, refresh, deliveries, delivery_package, resources | apply (uma alteração no branch aberto), write_package, keep_delivery, remove_delivery, write_delivery_package |
 
 Nunca muda de branch, nunca faz commit nem push, e nunca aplica um export: pré-visualiza-o e
 diz-te o comando que o aplica.

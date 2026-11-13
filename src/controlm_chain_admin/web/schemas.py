@@ -717,6 +717,18 @@ class FollowersOut(BaseModel):
     unmapped: int = Field(description="places of a mapped key whose values no entry says")
 
 
+class ResourceOut(BaseModel):
+    tag: str = Field(description="CONTROL or QUANTITATIVE")
+    name: str = Field(description="without the letter of the environment")
+    nodes: list[str] = Field(description="FOLDER/JOB of each job, FOLDER/ of a folder")
+    count: int
+    attributes: dict[str, str] = Field(description="as its first use has them (TYPE, QUANT...)")
+
+
+class ResourcesOut(BaseModel):
+    resources: list[ResourceOut]
+
+
 class DeliveryOut(BaseModel):
     name: str
     head: str = Field(description="the ref the items come from, as it was called")

@@ -386,6 +386,16 @@ or addresses anywhere in this public repository.
     MCP tools) came in 0.4.1. Left: a delivery from a change not committed yet; the attribute list of the job page
     offers the job's own attributes, not those of the elements inside it (a variable, an ON
     block: those are kept from *Compare*).
+28. **The resources of a job, seen and set — DONE (2026-11-13), released in 0.6.0**, asked by
+    the author: the CONTROL and QUANTITATIVE resources showed in the raw JSON only, with no
+    way to add one or to give the same to several jobs. `core/resources.py`: who uses each
+    resource (`usage`), `set_resource` (a resource another job has comes with its
+    attributes; a new one says its kind), `remove_resource`; the commands `resources`,
+    `set-resource`, `remove-resource`, `rename-resource`; `GET /api/resources`; a
+    *Resources* tab on the pages of a job and of a folder and a *Resources* page; the
+    `resources` tool and two capabilities for the assistant. Left: choosing the jobs for
+    *Add to jobs…* from the chains table instead of typing them; a resource kept in an
+    ordered child list (`children`) is listed by `validate` but not edited here.
 
 Later, unordered: second-environment import with learning; `diff` of environments and XML
 files with `xmldiffreport`; mapping editor; upstream graph explorer (paused by the author);

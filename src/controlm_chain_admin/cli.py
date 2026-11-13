@@ -12,7 +12,7 @@ import json
 import os
 import secrets
 import sys
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -34,12 +34,13 @@ from controlm_chain_admin.core import inspect as inspect_mod
 from controlm_chain_admin.core import ops
 from controlm_chain_admin.core import package as package_mod
 from controlm_chain_admin.core import refactor as refactor_mod
+from controlm_chain_admin.core import resources as resources_mod
 from controlm_chain_admin.core import take as take_mod
 from controlm_chain_admin.core import workspace as workspace_mod
 from controlm_chain_admin.core.errors import ChainError, NotAChainRepo, TakeConflict
 from controlm_chain_admin.core.history import WORKTREE
 from controlm_chain_admin.core.links import NodeRef, folder_names
-from controlm_chain_admin.core.repo import init_repo, load_repo, read_json, write_json
+from controlm_chain_admin.core.repo import ChainRepo, init_repo, load_repo, read_json, write_json
 from controlm_chain_admin.core.validate import (
     EXPLANATIONS,
     render_markdown,
@@ -886,6 +887,59 @@ def _add_refactorings(commands: Any) -> None:
         build=lambda r, a: refactor_mod.adopt_jobname(r, a.node, update_names=not a.keep_names),
     )
 
+    res = commands.add_parser(
+        "resources", help="the CONTROL and QUANTITATIVE resources, with the jobs that use each"
+    )
+    res.add_argument("--name", help="only the resources whose name has this text")
+    res.add_argument("--format", choices=("text", "json"), default="text")
+    res.add_argument(
+        "--repo", type=Path, default=Path("."), help="repository directory (default: .)"
+    )
+    res.set_defaults(func=cmd_resources)
+
+    sr = commands.add_parser(
+        "set-resource",
+        help="give one or several jobs a resource, with the attributes the jobs that have it "
+        "use; or change the one they have",
+    )
+    sr.add_argument("name", metavar="RESOURCE", help="without the letter of the environment")
+    sr.add_argument("nodes", nargs="+", metavar="FOLDER/JOB")
+    sr.add_argument(
+        "--kind", choices=("control", "quantitative"),
+        help="needed only when no job uses the resource yet",
+    )  # fmt: skip
+    sr.add_argument(
+        "--set", action="append", default=[], metavar="ATTR=VALUE", dest="attributes",
+        help="an attribute of the resource, e.g. TYPE=S or QUANT=2 (repeatable)",
+    )  # fmt: skip
+    _refactor_options(sr)
+    sr.set_defaults(
+        func=cmd_refactor,
+        build=lambda r, a: _each_node(
+            r, "set-resource", a.nodes,
+            {"name": a.name, "tag": a.kind, "attributes": _pairs(a.attributes, "ATTR=VALUE")},
+        ),
+    )  # fmt: skip
+
+    rr = commands.add_parser("remove-resource", help="take a resource off one or several jobs")
+    rr.add_argument("name", metavar="RESOURCE")
+    rr.add_argument("nodes", nargs="+", metavar="FOLDER/JOB")
+    _refactor_options(rr)
+    rr.set_defaults(
+        func=cmd_refactor,
+        build=lambda r, a: _each_node(r, "remove-resource", a.nodes, {"name": a.name}),
+    )
+
+    rn = commands.add_parser("rename-resource", help="rename a resource of one job or folder")
+    rn.add_argument("node", metavar="FOLDER/JOB")
+    rn.add_argument("old", metavar="RESOURCE")
+    rn.add_argument("new", metavar="NEW_NAME")
+    _refactor_options(rn)
+    rn.set_defaults(
+        func=cmd_refactor,
+        build=lambda r, a: refactor_mod.rename_resource(r, a.node, a.old, a.new),
+    )
+
     rf = commands.add_parser("rename-folder", help="rename a folder and everything that names it")
     rf.add_argument("folder")
     rf.add_argument("new_name", metavar="NEW_FOLDER_NAME")
@@ -1085,6 +1139,34 @@ def cmd_technical(args: argparse.Namespace) -> int:
         return EXIT_OK
     args.build = lambda r, a: refactor_mod.set_technical(r, a.add, a.remove)
     return cmd_refactor(args)
+
+
+def _each_node(
+    repo: ChainRepo, op: str, nodes: Sequence[str], params: Mapping[str, Any]
+) -> refactor_mod.ChangeSet:
+    """One operation for each node, as one change."""
+    each = [{"node": node, **params} for node in dict.fromkeys(nodes)]
+    if len(each) == 1:
+        return refactor_mod.run_operation(repo, op, each[0])
+    steps = [{"op": op, "params": one} for one in each]
+    return refactor_mod.run_operation(repo, "batch", {"changes": steps})
+
+
+def cmd_resources(args: argparse.Namespace) -> int:
+    uses = resources_mod.usage(load_repo(args.repo))
+    if args.name:
+        uses = tuple(use for use in uses if args.name.upper() in use.name.upper())
+    if args.format == "json":
+        print(json.dumps({"resources": [u.to_json() for u in uses]}, indent=2, ensure_ascii=False))
+        return EXIT_OK
+    if not uses:
+        print("No resource.")
+    for use in uses:
+        said = " ".join(f"{key}={value}" for key, value in use.attributes.items())
+        print(f"{use.tag}  {use.name}  {_plural(len(use.nodes), 'job')}  {said}")
+        for node in use.nodes:
+            print(f"    {node}")
+    return EXIT_OK
 
 
 def cmd_refactor(args: argparse.Namespace) -> int:

@@ -81,6 +81,7 @@ plugins:
             Deliveries kept for later: Entregas guardadas
             A branch of your own: Um branch teu
             Validate and fix: Validar e corrigir
+            Resources: Recursos
             Web UI: Página web
             Assistant: Assistente
             Performance: Desempenho
@@ -111,6 +112,7 @@ nav:
     - Deliveries kept for later: guide/deliveries.md
     - A branch of your own: guide/own-branch.md
     - Validate and fix: guide/validate.md
+    - Resources: guide/resources.md
   - Web UI: web-ui.md
   - Assistant: assistant.md
   - Performance: performance.md

@@ -12,6 +12,7 @@ import {
   type GitStateOut,
   type JobDetail,
   type PackageOut,
+  type ResourcesOut,
   type PendingOut,
   type RepoInfo,
   type SuggestionsOut,
@@ -35,6 +36,7 @@ export const queryKeys = {
   environments: ["environments"] as const,
   envmap: ["envmap"] as const,
   deliveries: ["deliveries"] as const,
+  resources: ["resources"] as const,
   derive: (query: string) => ["envmap", "derive", query] as const,
   suggest: ["envmap", "suggest"] as const,
 };
@@ -182,6 +184,15 @@ export function useEnvironments() {
 }
 
 /** The map of what varies per environment: letters, branches and entries. */
+/** Every CONTROL and QUANTITATIVE resource with the jobs that use it. */
+export function useResources() {
+  return useQuery({
+    queryKey: queryKeys.resources,
+    queryFn: () => api<ResourcesOut>("/api/resources"),
+    retry: false,
+  });
+}
+
 /** What was put aside for later, each with where it comes from. */
 export function useDeliveries() {
   return useQuery({

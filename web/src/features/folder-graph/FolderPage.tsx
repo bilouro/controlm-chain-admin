@@ -5,6 +5,7 @@ import { useBaseFolder, useFolder, useWorkspace } from "@/lib/api/queries";
 import { nodeRoute, shortLabel } from "@/lib/utils";
 import { useChanges } from "@/features/changes/changes-context";
 import { KeepDelivery } from "@/features/deliveries/KeepDelivery";
+import { ResourcesEditor } from "@/features/resources/ResourcesEditor";
 import { AttributeForm } from "@/features/editing/AttributeForm";
 import { RawJsonEditor } from "@/features/editing/RawJsonEditor";
 import { RelationsEditor } from "@/features/editing/RelationsEditor";
@@ -113,6 +114,7 @@ export function FolderPage() {
         ? `Environments (${exceptionCount(data.exceptions)})`
         : "Environments",
     },
+    { id: "resources", label: "Resources" },
     { id: "raw", label: "Raw JSON" },
   ];
   const active = tabs.some((t) => t.id === params.get("tab"))
@@ -309,6 +311,11 @@ export function FolderPage() {
         {active === "environments" && (
           <TabPanel id="environments">
             <ExceptionsPanel node={node} exceptions={data.exceptions ?? {}} />
+          </TabPanel>
+        )}
+        {active === "resources" && (
+          <TabPanel id="resources">
+            <ResourcesEditor key={JSON.stringify(raw)} node={node} raw={raw} />
           </TabPanel>
         )}
         {active === "raw" && (
