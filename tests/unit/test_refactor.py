@@ -320,6 +320,31 @@ def test_apply_refuses_when_a_file_changed_since_the_preview(tmp_path: Path) -> 
     assert snapshot(tmp_path) == before
 
 
+def test_apply_survives_an_empty_directory_the_system_does_not_let_go(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A synchronised folder (or a scanner) can hold an empty directory: the change is
+    written whole all the same, and what can be removed still is."""
+    repo = _repo(tmp_path)
+    held, free = tmp_path / "folders" / "P77_HELD", tmp_path / "folders" / "P77_FREE"
+    held.mkdir()
+    free.mkdir()
+    rmdir = Path.rmdir
+
+    def guarded(self: Path) -> None:
+        if self.name == "P77_HELD":
+            raise PermissionError(13, "Access is denied", str(self))
+        rmdir(self)
+
+    monkeypatch.setattr(Path, "rmdir", guarded)
+
+    result = apply(repo, rename_job(repo, "P77_CHAIN/P77_B", "P77_BETA"))
+
+    assert result.written == 4 and result.deleted == 1
+    assert _names(tmp_path)["P77_A-P77_B_OK"] == "P77_A-P77_BETA_OK"  # the links were rebuilt
+    assert held.is_dir() and not free.exists()
+
+
 def test_change_set_json_shape(tmp_path: Path) -> None:
     repo = _repo(tmp_path)
 

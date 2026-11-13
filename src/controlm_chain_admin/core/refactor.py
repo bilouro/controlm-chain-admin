@@ -9,6 +9,7 @@ and the change set is the difference between the two trees. Nothing touches the 
 
 from __future__ import annotations
 
+import contextlib
 import copy
 import difflib
 import hashlib
@@ -232,7 +233,10 @@ def apply(repo: ChainRepo, change: ChangeSet) -> ApplyResult:
 
 
 def _prune(folders: Path) -> None:
-    """Remove folder directories left without folder.json (and the derived files inside)."""
+    """Remove folder directories left without folder.json (and the derived files inside).
+
+    An empty directory the system does not let go (held by a synchronised folder, a scanner)
+    stays: it holds nothing, and the change is already written."""
     if not folders.is_dir():
         return
     for directory in folders.iterdir():
@@ -240,7 +244,8 @@ def _prune(folders: Path) -> None:
             (directory / INDEX_FILE).unlink(missing_ok=True)
     for directory in sorted(folders.rglob("*"), key=lambda p: len(p.parts), reverse=True):
         if directory.is_dir() and not any(directory.iterdir()):
-            directory.rmdir()
+            with contextlib.suppress(OSError):
+                directory.rmdir()
 
 
 # ---------------------------------------------------------------- helpers
