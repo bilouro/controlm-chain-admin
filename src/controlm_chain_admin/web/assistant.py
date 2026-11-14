@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import base64
 import json
+import shlex
 import os
 import secrets
 import shutil
@@ -27,11 +28,14 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from controlm_chain_admin.core import previews
 from controlm_chain_admin.core.capabilities import preview_steps
 from controlm_chain_admin.core.errors import AssistantUnavailable, ChainError, ModelError
 from controlm_chain_admin.core.repo import ChainRepo
 
 TOOL_PREFIX = "ctmchain_"
+#: the module an agent runs where an MCP server is not allowed
+SERVICE = "ctmadmin_service"
 OUTPUT_LIMIT = 2000
 NO_ASSISTANT = (
     "no assistant: start the server with ctmchain serve --assistant (it runs Kilo), or set "
@@ -163,9 +167,12 @@ def kilo_executable() -> str | None:
     return os.environ.get("CTMCHAIN_KILO") or next((path for path in found if path), None)
 
 
-def start_kilo(directory: Path, *, timeout: float = 60) -> KiloProcess:
+def start_kilo(
+    directory: Path, repo_root: Path | None = None, *, timeout: float = 60
+) -> KiloProcess:
     """Start ``kilo serve`` in the Kilo project ``directory``, on a free port of 127.0.0.1 with
-    a password of its own, and wait until it answers."""
+    a password of its own, and wait until it answers. The commands of its agent find this
+    Python first on the PATH and the chain repository in ``CTMCHAIN_REPO``."""
     executable = kilo_executable()
     if not executable:
         raise AssistantUnavailable(
@@ -183,6 +190,8 @@ def start_kilo(directory: Path, *, timeout: float = 60) -> KiloProcess:
                 "KILO_DISABLE_CLAUDE_CODE_PROMPT": "1",
                 **os.environ,
                 "KILO_SERVER_PASSWORD": password,
+                "PATH": os.pathsep.join([str(Path(sys.executable).parent), os.environ["PATH"]]),
+                **({"CTMCHAIN_REPO": str(repo_root.resolve())} if repo_root else {}),
             },
             stdin=subprocess.DEVNULL,
             stdout=out,
@@ -237,13 +246,33 @@ def _part(raw: Mapping[str, Any]) -> dict[str, Any] | None:
         return None
     state = raw.get("state", {})
     output = state.get("error") if state.get("status") == "error" else state.get("output")
+    tool, data = str(raw.get("tool", "")).removeprefix(TOOL_PREFIX), state.get("input")
+    called = _service_call(data) if tool == "bash" else None
+    if called is not None:
+        tool, data = called[0], {"args": " ".join(called[1])}
     return {
         "kind": "tool",
-        "tool": str(raw.get("tool", "")).removeprefix(TOOL_PREFIX),
+        "tool": tool,
         "status": state.get("status"),
-        "input": state.get("input"),
+        "input": data,
         "output": _short(output),
     }
+
+
+def _service_call(data: Any) -> tuple[str, list[str]] | None:
+    """The tool and the values of a command that runs the service; None for any other."""
+    command = data.get("command") if isinstance(data, Mapping) else None
+    if not isinstance(command, str) or SERVICE not in command:
+        return None
+    try:
+        words = shlex.split(command.split(SERVICE, 1)[1])
+    except ValueError:
+        return None
+    if words[:1] == ["--repo"]:
+        words = words[2:]
+    elif words[:1] and words[0].startswith("--repo="):
+        words = words[1:]
+    return (words[0].replace("-", "_"), words[1:]) if words else None
 
 
 def _short(output: Any) -> str | None:
@@ -270,6 +299,11 @@ def _approval(repo: ChainRepo, request: Mapping[str, Any]) -> dict[str, Any]:
     metadata = request.get("metadata") or {}
     data = metadata.get("mcpInput", metadata)
     tool = str(request.get("permission", "")).removeprefix(TOOL_PREFIX)
+    called = _service_call(data) if tool == "bash" else None
+    if called is not None:
+        tool, data = called[0], {"args": " ".join(called[1])}
+        if tool == "apply" and called[1]:
+            return _command_apply(repo, request, called[1][0])
     approval: dict[str, Any] = {"id": request.get("id"), "tool": tool, "input": data,
                                 "preview": None, "problem": None}  # fmt: skip
     steps = data.get("steps") if isinstance(data, Mapping) else None
@@ -282,6 +316,25 @@ def _approval(repo: ChainRepo, request: Mapping[str, Any]) -> dict[str, Any]:
         return approval
     asked = data.get("preview_id")
     if asked and asked != approval["preview"]["preview_id"]:
+        approval["problem"] = (
+            "this is not the change the assistant previewed: the repository changed since; "
+            "reject it and ask again"
+        )
+    return approval
+
+
+def _command_apply(repo: ChainRepo, request: Mapping[str, Any], preview_id: str) -> dict[str, Any]:
+    """An apply by command names its preview only: the steps kept for it, previewed again."""
+    approval: dict[str, Any] = {"id": request.get("id"), "tool": "apply",
+                                "input": {"preview_id": preview_id},
+                                "preview": None, "problem": None}  # fmt: skip
+    try:
+        steps = previews.recall(repo.root, preview_id)
+        approval["preview"] = preview_steps(repo, steps)
+    except ChainError as exc:
+        approval["problem"] = str(exc)
+        return approval
+    if approval["preview"]["preview_id"] != preview_id:
         approval["problem"] = (
             "this is not the change the assistant previewed: the repository changed since; "
             "reject it and ask again"

@@ -15,18 +15,22 @@ from controlm_chain_admin.core.capabilities import load_catalogue, render_menu
 from controlm_chain_admin.core.errors import ChainError
 from controlm_chain_admin.core.kilo import (
     AGENT,
+    AGENT_FILE,
     CONFIG,
+    VIA_MCP,
+    VIA_SERVICE,
     VOCABULARY_FILE,
     kilo_files,
     project_dir,
     repair_command,
+    service_command,
     write_files,
 )
 from controlm_chain_admin.core.repo import ChainRepo, load_repo
 
 EXIT_OK = 0  # the codes of cli.py
 EXIT_USAGE = 2
-KILO_USAGE = "usage: ctmchain kilo init [--repo DIR] [--dir DIR] [--force]"
+KILO_USAGE = "usage: ctmchain kilo init [--repo DIR] [--dir DIR] [--via service|mcp] [--force]"
 
 
 def add_commands(commands: Any) -> None:
@@ -46,12 +50,17 @@ def add_commands(commands: Any) -> None:
     kilo.set_defaults(func=cmd_kilo_help)
     kilo_commands = kilo.add_subparsers(dest="kilo_command", metavar="<command>")
     init = kilo_commands.add_parser(
-        "init", help="write .kilo/: the ctmchain MCP server, the controlm agent, the skill"
+        "init", help="write .kilo/: the controlm agent, with the tools as a command or over MCP"
     )
     _repo_option(init)
     init.add_argument(
         "--dir", type=Path, help="where Kilo is opened (default: the top of the git repository)"
     )
+    init.add_argument(
+        "--via", choices=(VIA_SERVICE, VIA_MCP), default=VIA_SERVICE,
+        help="service (default): the agent runs python -m ctmadmin_service, which works where "
+        "MCP servers are blocked; mcp: Kilo starts ctmchain mcp (the [mcp] extra)",
+    )  # fmt: skip
     init.add_argument("--force", action="store_true", help="rewrite the files that are there")
     init.set_defaults(func=cmd_kilo_init)
 
@@ -108,12 +117,13 @@ def start_assistant(repo: ChainRepo, model: str | None) -> Any:
     from controlm_chain_admin.web.assistant import start_kilo  # the [web] extra
 
     target = project_dir(repo.root)
-    if not (target / CONFIG).exists():
-        for written in write_files(target, kilo_files(repo.root, sys.executable)):
+    if not (target / AGENT_FILE).exists():
+        files = kilo_files(repo.root, sys.executable, project=target)
+        for written in write_files(target, files):
             print(f"{written.action} {written.path}")
     elif repair_command(target, repo.root, sys.executable):
         print(f"updated {CONFIG}: the MCP server pointed at another folder or Python")
-    kilo = start_kilo(target)
+    kilo = start_kilo(target, repo.root)
     shown = model or "Kilo's own"
     print(f"Assistant: Kilo (agent {AGENT}, model {shown}) at {kilo.url}")
     return kilo
@@ -122,7 +132,7 @@ def start_assistant(repo: ChainRepo, model: str | None) -> Any:
 def cmd_kilo_init(args: argparse.Namespace) -> int:
     repo = load_repo(args.repo)
     target = (args.dir or project_dir(repo.root)).resolve()
-    files = kilo_files(repo.root, sys.executable)
+    files = kilo_files(repo.root, sys.executable, via=args.via, project=target)
     for written in write_files(target, files, force=args.force):
         note = ""
         if written.action == "kept":
@@ -131,8 +141,17 @@ def cmd_kilo_init(args: argparse.Namespace) -> int:
         print(f"{written.action} {written.path}{note}")
     print(f"Kilo project: {target}")
     print(f"Open Kilo there with the agent: kilo --agent {AGENT}")
+    if args.via == VIA_MCP:
+        print(
+            "Kilo asks before anything is written (ctmchain_apply and ctmchain_write_package: "
+            "ask in .kilo/kilo.json)."
+        )
+        return EXIT_OK
+    command = service_command(repo.root, target)
     print(
-        "Kilo asks before anything is written (ctmchain_apply and ctmchain_write_package: ask "
-        "in .kilo/kilo.json)."
+        f"The agent runs {command} and no other command; Kilo asks before each call that "
+        f"writes (ask in {AGENT_FILE}). Start Kilo with this Python's environment active, or "
+        "with ctmchain serve --assistant, so that python is this one. Where MCP servers are "
+        "allowed, --via mcp gives the tools over MCP instead."
     )
     return EXIT_OK

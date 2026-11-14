@@ -53,4 +53,6 @@ Exit codes: `0` ok, `1` findings, `2` usage, `3` error.
 | Command | What it does |
 |---|---|
 | `ctmchain serve [--port N] [--assistant]` | the local web UI and API (`[web]`) |
-| `ctmchain mcp`, `ctmchain menu`, `ctmchain kilo init [--force]` | the tools for an assistant (`[mcp]`) |
+| `ctmchain kilo init [--via service\|mcp] [--force]`, `ctmchain menu` | set Kilo up for the assistant: by command (default) or over MCP |
+| `python -m ctmadmin_service <tool> ...` | the assistant's tools as commands, JSON out (`help` lists them) |
+| `ctmchain mcp` | the same tools over MCP (`[mcp]`) |

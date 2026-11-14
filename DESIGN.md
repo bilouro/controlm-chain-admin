@@ -583,8 +583,8 @@ restores the export byte for byte (verified on the real export). Not yet: `remov
 ## 11. Architecture: one core, thin adapters
 
 All logic, including every mutation, lives in the `core` package (stdlib only). The CLI, the
-web API and the MCP server are thin adapters that translate input and output; none contains
-business rules.
+web API, the MCP server and the assistant's command are thin adapters that translate input
+and output; none contains business rules.
 
 ```python
 # controlm_chain_admin/core/ops.py
@@ -633,11 +633,13 @@ Server-side concerns (not in the core):
    `ctmchain serve` and placed in the opened URL, so that another website open in the browser
    cannot POST to the local server.
 
-### Assistant (MCP)
+### Assistant (MCP, or a command)
 
-A third adapter, `mcpserver.py` (`ctmchain mcp`, the `[mcp]` extra: the official `mcp`
-package), gives an assistant (Kilo, Claude, any MCP client) the repository as tools over
-stdio. What can be asked lives in one file, `core/capabilities.json`, read by
+The assistant's tools are one class, `tools.ChainTools` (standard library only), carried two
+ways: `mcpserver.py` (`ctmchain mcp`, the `[mcp]` extra: the official `mcp` package) serves
+them over stdio to any MCP client, and `service.py` (`python -m ctmadmin_service`, a
+top-level module of the same distribution) runs one per command, for where a company policy
+blocks MCP servers but an agent may still run commands (see *By command* below). What can be asked lives in one file, `core/capabilities.json`, read by
 `core/capabilities.py`:
 
 - a **capability** names the operation it runs (`OPERATIONS` of `refactor.py`), its group,
@@ -673,22 +675,46 @@ protected branches refuse as in the web API (`ensure_editable`), a moved reposit
 fingerprint differ. Nothing is committed. Core errors reach the assistant as tool errors
 with their message.
 
-`ctmchain kilo init` writes, at the top of the git repository holding the chains:
+**By command** (implemented 2026-11-14, found at work: the company's Kilo disables every
+MCP server by policy, while its agents run commands). `python -m ctmadmin_service <tool>
+[value ...] [--name value ...]` prints the tool's answer as JSON (text for `menu`, `compare`,
+`refresh`); exit codes 0, 2 (a call to correct, with the `help` to read) and 3 (a core error,
+its message). The flags come from the signature of each `ChainTools` method and, for
+`preview <capability>`, from the capability's JSON Schema: plain values fill the parameters
+in order, a list repeats its flag, a map takes `KEY=VALUE` per entry, `null` is null; no JSON
+on the command line, which PowerShell mangles (`--steps-file` and `--steps -` take raw steps
+for the rare case). `preview` keeps its steps by `preview_id` in the git directory
+(`core/previews.py`, the last 50), so `apply <preview_id>` needs the id alone and is still
+checked against the fingerprint; `--after <preview_id>` makes one change of several
+previews. `help`, `help <tool>` and `help <capability>` give how to call, the rules
+(`kilo.command_rules`: the capabilities' workflow in command terms) and a command to copy;
+the repository is `--repo`, else `CTMCHAIN_REPO`, else the current directory.
+
+`ctmchain kilo init [--via service|mcp]` writes, at the top of the git repository holding the
+chains, by command (the default): `.kilo/agents/controlm.md`, whose bash permission is
+`"*": deny`, `"python -m ctmadmin_service *": allow` and `ask` for each tool that writes
+(Kilo: the last matching rule wins, and a chained command is checked part by part), edit and
+web denied, the rules in its prompt; and `vocabulary.md`. No absolute path is written:
+`python` is the one of the environment Kilo runs in (`serve --assistant` puts this Python's
+directory first on Kilo's PATH and the repository in `CTMCHAIN_REPO`); a chain repository
+below the Kilo project gets `--repo <its path>` in the command. Over MCP (`--via mcp`):
 `.kilo/kilo.json` (the server with this machine's Python and repository; `ctmchain_*` allowed,
-`ctmchain_apply` and `ctmchain_write_package` asked), `.kilo/agents/controlm.md` (edit, bash, web denied: the ctmchain
-tools only), `.kilo/skills/ctmchain/SKILL.md` and `vocabulary.md` (the team's words, never
-overwritten).
+`ctmchain_apply` and `ctmchain_write_package` asked), `.kilo/agents/controlm.md` (edit, bash,
+web denied: the ctmchain tools only), `.kilo/skills/ctmchain/SKILL.md` and `vocabulary.md`
+(the team's words, never overwritten).
 
 The web UI talks to the same assistant (`web/assistant.py`, `routers/assistant.py`): a
 client of `kilo serve` (standard library HTTP, Basic auth with Kilo's password, every call in
 the Kilo project's directory) opens a session with the `controlm` agent, sends the prompt
 (`prompt_async`, the model of `--assistant-model`), and reads the messages back as text, tool
-calls (the `ctmchain_` prefix dropped, outputs cut) and errors. What the assistant waits to
+calls (the `ctmchain_` prefix dropped, a command of the service shown as the tool it runs,
+outputs cut) and errors. What the assistant waits to
 be allowed to do (Kilo's pending permissions of the session) is listed as approvals; an
-`apply` carries this repository's preview of its steps (`preview_steps`), and a problem when
-the preview's id is not the assistant's (the repository moved) or the steps fail. *Apply* /
+`apply` carries this repository's preview of its steps (`preview_steps`; by command, the
+steps kept for its `preview_id`), and a problem when the preview's id is not the assistant's
+(the repository moved) or the steps fail. *Apply* /
 *Reject* reply `once` / `reject`; nothing is written by the web server itself: the MCP server
-writes after the approval. The UI polls the conversation while the assistant has the floor
+(or the command) writes after the approval. The UI polls the conversation while the assistant has the floor
 (busy, an approval pending, or the message it took not stored yet) and invalidates every
 other query after an `apply` completes. `ctmchain serve --assistant` starts `kilo serve` in
 its own process group on a free port with a random password and waits for it; the server
@@ -921,13 +947,14 @@ Inspection
 Assistant
 - `menu [<capability>] [--format text|json]` — implemented: what can be asked in plain words, from `core/capabilities.json` (§11, *Assistant*).
 - `mcp [--repo DIR]` — implemented: the MCP server over stdio for an assistant (the `[mcp]` extra).
+- `python -m ctmadmin_service [--repo DIR] <tool> [value ...] [--name value ...]` — implemented: the same tools as commands, JSON out, for where MCP servers are blocked (§11, *Assistant*).
 - `serve --assistant [--assistant-model PROVIDER/MODEL]` — implemented: the web UI with its *Assistant* panel; starts and stops Kilo; repairs the MCP command of `.kilo/kilo.json` when it points at another folder or Python (`kilo.repair_command`). The panel renders the Markdown of an answer (tables, lists, code; `components/Markdown.tsx`, no dependency) and follows its last line. `find` reads a name given with an environment letter without it (`read_as`).
 - `diagnose [<base> <head>] [--files N] [--format text|json] [-o <file>]` — implemented: what this machine costs per small file and per git call, and where one comparison (default: the trunk with the first other environment) spends its time; numbers only (§14.4).
 - `adopt-jobname <FOLDER/JOB> [--keep-names] [--apply]` — implemented: the numbered name of a job becomes its JOBNAME in Control-M too (§8).
 - `envmap followers`, `envmap follow <entry> <other> [--apply] [--stat]` — implemented: who follows each entry of the map, and the jobs of one entry made to follow another on the branch checked out (§14.3).
 - `delivery save <name> <head> --item ID... [--base REF] [--note TEXT]`, `delivery list`, `delivery remove <name>`, `delivery package <target> <name>... [-o <file>] [--dry-run]` — implemented: items kept for later, and one import file from several (§14.6).
 - `resources [--name TEXT]`, `set-resource <name> <node>... [--kind control|quantitative] [--set ATTR=VALUE ...]`, `remove-resource <name> <node>...`, `rename-resource <node> <old> <new>` — implemented (story 28): the CONTROL and QUANTITATIVE resources by resource; one given to several jobs at once comes with the attributes the jobs that have it use (`core/resources.py`).
-- `kilo init [--repo DIR] [--dir DIR] [--force]` — implemented: `.kilo/` for Kilo (server, `controlm` agent, skill, vocabulary) at the top of the git repository.
+- `kilo init [--repo DIR] [--dir DIR] [--via service|mcp] [--force]` — implemented: `.kilo/` for Kilo at the top of the git repository: the `controlm` agent running `python -m ctmadmin_service` (default) or the MCP server, agent and skill (`--via mcp`); the vocabulary either way.
 
 Environments as branches (§14)
 - `refresh <export.xml> [--env ENV] [--apply] [--no-commit] [--stat] [--format text|json]` — implemented: what the full export of one environment changes on its branch (`main` for production, `env/<name>` else; the environment is read from the letter of the names). Nothing is written without `--apply`, which checks the branch out (created from the rules of the trunk when missing), overwrites its chain files and commits `refresh(<env>): <file>`. `--here` puts the export onto the checked-out branch instead (a branch of your own; commit `import(<env>): <file>`), `--partial` with it leaves the folders the export does not have.

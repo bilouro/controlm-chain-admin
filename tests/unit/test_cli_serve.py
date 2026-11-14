@@ -101,7 +101,11 @@ def test_serve_with_the_assistant_starts_kilo_in_the_project_and_stops_it(
     assert started["args"][:1] == ["serve"] and "--hostname" in started["args"]
     assert started["args"][started["args"].index("--hostname") + 1] == "127.0.0.1"
     assert started["cwd"] == str(root.resolve()) and started["password"] is True
-    assert (root / ".kilo" / "kilo.json").is_file() and "wrote .kilo/kilo.json" in out
+    assert "wrote .kilo/agents/controlm.md" in out
+    assert "python -m ctmadmin_service" in (root / ".kilo" / "agents" / "controlm.md").read_text()
+    # the agent's commands find this Python (its directory first on the PATH) and this repository
+    assert started["path_first"] == str(Path(sys.executable).parent)
+    assert started["repo"] == str(root.resolve())
     line = next(row for row in out.splitlines() if row.startswith("Assistant:"))
     assert line.startswith("Assistant: Kilo (agent controlm, model openai/gpt-5-mini) at http")
     assert not _answers(line.rsplit(" at ", 1)[1])  # stopped with the server
@@ -147,7 +151,7 @@ def test_serve_with_the_assistant_points_the_mcp_server_at_a_repository_that_mov
 ) -> None:
     root = _repo(tmp_path)
     _fake_kilo(tmp_path, monkeypatch)
-    assert main(["kilo", "init", "--repo", str(root)]) == 0
+    assert main(["kilo", "init", "--repo", str(root), "--via", "mcp"]) == 0
     path = root / ".kilo" / "kilo.json"
     config = json.loads(path.read_text("utf-8"))
     config["mcp"]["ctmchain"]["command"][-1] = str(tmp_path / "where-it-was")

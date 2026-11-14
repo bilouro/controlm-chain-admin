@@ -18,7 +18,7 @@ def test_the_command_follows_a_repository_that_moved(tmp_path: Path) -> None:
     server would be started on a repository that is not there."""
     old, new = tmp_path / "old" / "chains", tmp_path / "new" / "chains"
     new.mkdir(parents=True)
-    write_files(new, kilo_files(old, "/old/venv/python"))
+    write_files(new, kilo_files(old, "/old/venv/python", via="mcp"))
     config = json.loads((new / CONFIG).read_text("utf-8"))
     config["permission"]["ctmchain_find"] = "ask"  # somebody's own choice: it stays
     (new / CONFIG).write_text(json.dumps(config), "utf-8")
@@ -34,7 +34,7 @@ def test_the_command_follows_a_repository_that_moved(tmp_path: Path) -> None:
 
 
 def test_a_command_that_is_right_is_left_alone(tmp_path: Path) -> None:
-    write_files(tmp_path, kilo_files(tmp_path, "/venv/python"))
+    write_files(tmp_path, kilo_files(tmp_path, "/venv/python", via="mcp"))
     before = (tmp_path / CONFIG).read_bytes()
 
     assert repair_command(tmp_path, tmp_path, "/venv/python") is False

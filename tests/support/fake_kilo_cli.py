@@ -27,7 +27,9 @@ def main(argv: list[str]) -> int:
         Path(record).write_text(
             json.dumps({"args": argv, "cwd": os.getcwd(),
                         "password": bool(os.environ.get("KILO_SERVER_PASSWORD")),
-                        "claude_prompt_off": os.environ.get("KILO_DISABLE_CLAUDE_CODE_PROMPT")}),
+                        "claude_prompt_off": os.environ.get("KILO_DISABLE_CLAUDE_CODE_PROMPT"),
+                        "path_first": os.environ.get("PATH", "").split(os.pathsep)[0],
+                        "repo": os.environ.get("CTMCHAIN_REPO")}),
             "utf-8",
         )  # fmt: skip
     FakeKilo(password=os.environ.get("KILO_SERVER_PASSWORD"), port=port).start()

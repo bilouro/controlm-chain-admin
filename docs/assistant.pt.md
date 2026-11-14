@@ -1,37 +1,68 @@
 ---
-description: "Perguntar pelas cadeias Control-M por palavras tuas: as ferramentas MCP do controlm-chain-admin para um assistente como o Kilo ou o Claude."
+description: "Perguntar pelas cadeias Control-M por palavras tuas: as ferramentas do controlm-chain-admin para um assistente como o Kilo, por comando ou por MCP."
 ---
 
 # Assistente
 
-O `ctmchain mcp` dá a um assistente (Kilo, Claude, qualquer cliente MCP) o repositório como
-ferramentas. Ele responde a perguntas e propõe alterações, pré-visualizadas campo a campo,
-e só escreve quando concordas.
+Um assistente (o Kilo, ou qualquer assistente que corra comandos ou fale MCP) recebe o
+repositório como ferramentas. Ele responde a perguntas e propõe alterações,
+pré-visualizadas campo a campo, e só escreve quando concordas.
+
+As mesmas ferramentas chegam-lhe de uma de duas formas:
+
+| | Por comando (por omissão) | Por MCP |
+|---|---|---|
+| O que o agente corre | `python -m ctmadmin_service <ferramenta> ...` | as ferramentas do servidor MCP `ctmchain mcp` |
+| Precisa de | nada além do pacote | o extra `[mcp]`, e servidores MCP permitidos |
+| Funciona onde os servidores MCP estão bloqueados | sim | não |
 
 ```bash
-pip install "controlm-chain-admin[mcp]"
-ctmchain kilo init --repo .       # escreve .kilo/: o servidor, o agente controlm, a skill
-kilo --agent controlm             # ou: ctmchain serve --assistant
+pip install "controlm-chain-admin[web]"
+ctmchain kilo init --repo .       # escreve .kilo/agents/controlm.md e o vocabulary.md
+ctmchain serve --assistant        # a página web com o painel Assistant; ou: kilo --agent controlm
 ```
+
+Arranca o `kilo` com o ambiente do pacote ativo, para que o `python` seja o que o tem; o
+`ctmchain serve --assistant` trata disso sozinho. Onde os servidores MCP são permitidos, o
+`ctmchain kilo init --repo . --via mcp` (com `pip install "controlm-chain-admin[mcp]"`)
+prepara o agente por MCP.
 
 Depois de uma atualização que traga ferramentas novas, corre
 `ctmchain kilo init --repo . --force`: reescreve o agente e mantém o teu `vocabulary.md`.
 
-## Quando o assistente não tem ferramentas
+## O comando
 
-O `.kilo/kilo.json` arranca o servidor com o caminho completo do repositório e do Python.
-Uma pasta que mudou de sítio, ou um ambiente virtual refeito, deixa-o a apontar para lado
-nenhum: o assistente diz então que as ferramentas ctmchain não estão disponíveis e procura
-nos ficheiros à mão. O `ctmchain serve --assistant` corrige o caminho sozinho ao arrancar;
-só com o `kilo`, corre `ctmchain kilo init --repo . --force`. Para ver o erro, arranca o
-servidor à mão: tem de ficar à espera, em silêncio.
+O `python -m ctmadmin_service help` diz como chamar cada ferramenta e como trabalhar;
+`help <ferramenta>` e `help <capacidade>` dão os parâmetros e um comando para copiar. Cada
+ferramenta escreve JSON (`menu`, `compare` e `refresh`: texto).
 
 ```bash
-python -m controlm_chain_admin mcp --repo .
+python -m ctmadmin_service find P77_LOAD
+python -m ctmadmin_service show P77_CHAIN/P77_B
+python -m ctmadmin_service preview set-resource --nodes P77_CHAIN/P77_A --nodes P77_CHAIN/P77_B --name RQ_AM
+python -m ctmadmin_service apply <preview_id>
 ```
 
-Pede "chama ctmchain_menu e diz-me o que devolve": a lista de capacidades quer dizer que as
-ferramentas estão lá.
+Os valores nunca vão como JSON na linha de comandos, que as shells estragam: uma lista
+repete a opção, um mapa leva `CHAVE=VALOR` por entrada (`--changes MAXWAIT=3`), e `null`
+quer dizer nenhum. O `preview` escreve o `preview_id`; o `apply` leva só esse id e é
+recusado se o repositório mudou entretanto. Alterações que vão juntas: faz o `preview` da
+seguinte com `--after <preview_id>` e aplica o último id.
+
+O agente pode correr este comando e nenhum outro, e não pode editar ficheiros; o Kilo
+pergunta-te antes de cada chamada que escreve (`apply`, `write_package`, `keep_delivery`,
+`remove_delivery`, `write_delivery_package`). As regras estão em `.kilo/agents/controlm.md`.
+
+## Quando o assistente não tem ferramentas
+
+- **Por comando.** O agente diz `No module named ctmadmin_service`: o Kilo foi arrancado
+  sem o ambiente do pacote. Ativa-o e arranca o Kilo de novo, ou usa o
+  `ctmchain serve --assistant`.
+- **Por MCP.** Uma política da empresa pode bloquear os servidores MCP: o `kilo mcp list`
+  mostra então `ctmchain disabled`, e o `kilo mcp list --print-logs --log-level DEBUG` diz
+  porquê. Prepara o agente por comando (`ctmchain kilo init --repo . --force`). O
+  `.kilo/kilo.json` guarda também o caminho completo do repositório e do Python: o
+  `ctmchain serve --assistant` corrige-os quando a pasta mudou de sítio.
 
 Um job pode ser dito como o Control-M o mostra, com a letra do ambiente (`UP77_LOAD`): é
 encontrado como `P77_LOAD`, o nome guardado aqui.
@@ -60,5 +91,6 @@ diz-te o comando que o aplica.
     O modelo do assistente lê os nomes e os campos dos teus jobs. Usa um que a tua
     organização permita.
 
-O `vocabulary.md`, ao lado do agente, guarda as palavras da tua equipa e o que significam
-no Control-M: o assistente lê-o quando uma palavra do pedido não é um nome do Control-M.
+O `vocabulary.md` (`.kilo/skills/ctmchain/`) guarda as palavras da tua equipa e o que
+significam no Control-M: o assistente lê-o quando uma palavra do pedido não é um nome do
+Control-M.

@@ -8,6 +8,13 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- The assistant's tools as commands: `python -m ctmadmin_service <tool> ...` prints each
+  answer as JSON, for where a company policy blocks MCP servers but an agent may run
+  commands. `help`, `help <tool>` and `help <capability>` say how to call and how to work,
+  with a command to copy. A change is `preview <capability> --param value ...` then
+  `apply <preview_id>` (the id alone); values never travel as JSON on the command line: a
+  list repeats its flag, a map takes `KEY=VALUE`, `null` is null. Standard library only:
+  no extra needed.
 - The assistant's answers are shown formatted: tables as tables, lists, headings, blocks of
   code, bold and inline code. Your own messages stay as you wrote them.
 - A job named as Control-M shows it, with the letter of its environment (`UP77_LOAD`), is
@@ -22,6 +29,13 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- `ctmchain kilo init` sets the `controlm` agent up by command by default: it may run
+  `python -m ctmadmin_service` and no other command, Kilo asks before each call that writes,
+  and no MCP server is needed. `--via mcp` gives the setup of before (the MCP server, its
+  agent and skill). After the upgrade: `ctmchain kilo init --repo . --force`.
+- `ctmchain serve --assistant` starts Kilo with this Python first on its PATH and the
+  repository in `CTMCHAIN_REPO`, and shows a command of the service in the *Assistant* panel
+  as the tool it runs, an `apply` with the change it writes.
 - The assistant's conversation follows its last line: what arrives is scrolled to while you
   are at the end, stays put once you scroll up to read, and follows again when you scroll
   back down or send a message.

@@ -217,8 +217,9 @@ asks for the token the command prints):
   compares nothing until you press *Compare*, and the last comparison stays in view while
   the next one is worked out.
 
-`ctmchain serve --assistant` adds an assistant to the page, and `ctmchain mcp` gives the
-same tools to Kilo, Claude or any MCP client: "what does uat have that prod has not?",
+`ctmchain serve --assistant` adds an assistant to the page; its agent runs
+`python -m ctmadmin_service`, which works where MCP servers are blocked, and `ctmchain mcp`
+gives the same tools to any MCP client where they are allowed: "what does uat have that prod has not?",
 "take the new job of uat into bench", "the import file for production with that folder".
 It previews every change and writes only when you agree.
 
@@ -239,7 +240,7 @@ It previews every change and writes only when you agree.
 ```bash
 pip install controlm-chain-admin          # core + ctmchain CLI (standard library only)
 pip install "controlm-chain-admin[web]"   # + the local web UI (ctmchain serve)
-pip install "controlm-chain-admin[mcp]"   # + the tools for an assistant (Kilo, Claude)
+pip install "controlm-chain-admin[mcp]"   # + the same tools over MCP (where MCP is allowed)
 ```
 
 Requires Python 3.11 or newer and git.
@@ -297,9 +298,10 @@ the repeated ones a numeric suffix; `package` and `export` give the original nam
 `ctmchain serve --assistant` starts `kilo serve` itself, with the model Kilo is set to
 (`--assistant-model provider/model` for another one, `kilo models` lists them) and stops it
 with the server. A `kilo` that is not on the PATH: `$env:CTMCHAIN_KILO = "C:\path\to\kilo.cmd"`.
-`.kilo/kilo.json` holds the full path of the repository and of Python: when the folder moved,
-`serve --assistant` repairs it as it starts (with `kilo` alone: `ctmchain kilo init --force`).
-The panel shows the answer's tables, lists and code as such and follows its last line.
+`ctmchain kilo init` gives the agent `python -m ctmadmin_service` and no other command, so
+start `kilo` yourself with this environment active (`serve --assistant` does it for you);
+`--via mcp` sets it up over MCP instead, where MCP servers are allowed. The panel shows the
+answer's tables, lists and code as such and follows its last line.
 
 ### Where only PyPI is reachable
 
@@ -333,8 +335,9 @@ agent: the gate, then a data repository from the exports.
   to try it first), *Map* (what varies per
   environment, derived from the branches and edited), and *Compare* of two environments with
   a box per item to take it or to package it for the other environment.
-- **Ask in plain words.** `ctmchain mcp` gives an assistant (Kilo, Claude, any MCP client)
-  the repository as tools: it answers questions and proposes changes, previewed field by
+- **Ask in plain words.** An assistant gets the repository as tools, as a command
+  (`python -m ctmadmin_service help`, standard library only, for where MCP servers are
+  blocked) or over MCP (`ctmchain mcp`): it answers questions and proposes changes, previewed field by
   field, and writes one only when you agree. Between environments too: "what does uat have
   that prod has not?", "take the new job of uat into bench", "the import file for production
   with that folder" (it compares, lists what can be taken, takes into the branch checked out,
@@ -344,7 +347,7 @@ agent: the gate, then a data repository from the exports.
   when you ask. On a branch of your own it also says what an export, whole or some folders
   only, would change there ("what does delivery.xml change on this branch?"), and tells you
   the `refresh --here` command that applies it. `ctmchain kilo init` sets Kilo up with an
-  agent that may use those tools only; after an upgrade, `ctmchain kilo init --force` gives
+  agent that may use those tools only (by command; `--via mcp` over MCP); after an upgrade, `ctmchain kilo init --force` gives
   the agent the rules of the new version (your `vocabulary.md` is kept).
   The assistant's model reads the names and fields of your jobs: use one your company allows.
 - **`--format json`** wherever a report is printed, for scripts and agents; exit codes 0 (ok),

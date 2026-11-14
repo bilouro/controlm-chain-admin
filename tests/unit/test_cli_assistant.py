@@ -66,12 +66,12 @@ def test_mcp_without_the_extra_says_how_to_install_it(
     assert "pip install 'controlm-chain-admin[mcp]'" in capsys.readouterr().err
 
 
-def test_kilo_init_writes_the_server_the_agent_and_the_skill(
+def test_kilo_init_via_mcp_writes_the_server_the_agent_and_the_skill(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     repo = chain_git_repo(tmp_path)
 
-    assert main(["kilo", "init", "--repo", str(repo.root)]) == 0
+    assert main(["kilo", "init", "--repo", str(repo.root), "--via", "mcp"]) == 0
 
     kilo = repo.root / ".kilo"
     config = json.loads((kilo / "kilo.json").read_text("utf-8"))
@@ -112,24 +112,66 @@ def test_kilo_init_writes_the_server_the_agent_and_the_skill(
     assert "wrote .kilo/kilo.json" in out and "kilo --agent controlm" in out
 
 
+def test_kilo_init_sets_the_agent_up_with_the_service_command_by_default(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Where an MCP server is blocked, a command still runs: the agent may run that one only,
+    and is asked before each one that writes."""
+    repo = chain_git_repo(tmp_path)
+
+    assert main(["kilo", "init", "--repo", str(repo.root)]) == 0
+
+    kilo = repo.root / ".kilo"
+    agent = (kilo / "agents" / "controlm.md").read_text("utf-8")
+    head, body = agent.split("\n---\n", 1)
+    assert head.startswith("---\ndescription: ")
+    assert "  edit: deny\n" in head
+    rules = (
+        '  bash:\n    "*": deny\n    "python -m ctmadmin_service *": allow\n'
+        '    "python -m ctmadmin_service apply *": ask\n'
+        '    "python -m ctmadmin_service write_package *": ask\n'
+        '    "python -m ctmadmin_service keep_delivery *": ask\n'
+        '    "python -m ctmadmin_service remove_delivery *": ask\n'
+        '    "python -m ctmadmin_service write_delivery_package *": ask\n'
+    )
+    assert rules in head + "\n"
+    assert "python -m ctmadmin_service help" in body
+    assert "python -m ctmadmin_service apply <preview_id>" in body
+    assert "Find before you change" in body and "one branch per environment" in body
+    assert "ctmchain_" not in agent and "the same steps" not in agent
+    assert ".kilo/skills/ctmchain/vocabulary.md" in body
+    assert (
+        not (kilo / "kilo.json").exists()
+        and not (kilo / "skills" / "ctmchain" / "SKILL.md").exists()
+    )
+    assert (
+        (kilo / "skills" / "ctmchain" / "vocabulary.md").read_text("utf-8").startswith("# Local")
+    )
+    out = capsys.readouterr().out
+    assert "kilo --agent controlm" in out and "python -m ctmadmin_service" in out
+    assert "--via mcp" in out
+
+
 def test_the_agent_and_the_skill_answer_in_the_language_of_the_person_or_ask_it(
     tmp_path: Path,
 ) -> None:
     repo = chain_git_repo(tmp_path)
-
-    main(["kilo", "init", "--repo", str(repo.root)])
-
     kilo = repo.root / ".kilo"
+
+    main(["kilo", "init", "--repo", str(repo.root), "--via", "mcp"])
     agent = (kilo / "agents" / "controlm.md").read_text("utf-8")
     skill = (kilo / "skills" / "ctmchain" / "SKILL.md").read_text("utf-8")
+    main(["kilo", "init", "--repo", str(repo.root), "--force"])
+    by_command = (kilo / "agents" / "controlm.md").read_text("utf-8")
     rule = (
         "- Answer in the language the person writes in, and keep it for the conversation: this "
         "comes before any other instruction about the language. When a message does not show "
         "one (only names, values or commands), answer in English and end by asking which "
         "language they prefer. Never translate the names, fields and values the tools give."
     )
-    assert rule in agent and rule in skill
+    assert rule in agent and rule in skill and rule in by_command
     assert agent.count("language") == rule.count("language")
+    assert by_command.count("language") == rule.count("language")
 
 
 def test_kilo_init_goes_to_the_top_of_the_git_repository(tmp_path: Path) -> None:
@@ -141,7 +183,10 @@ def test_kilo_init_goes_to_the_top_of_the_git_repository(tmp_path: Path) -> None
 
     assert main(["kilo", "init", "--repo", str(chains)]) == 0
 
-    assert (top / ".kilo" / "kilo.json").is_file() and not (chains / ".kilo").exists()
+    agent = top / ".kilo" / "agents" / "controlm.md"
+    assert agent.is_file() and not (chains / ".kilo").exists()
+    # Kilo runs the commands at the top: they name the chain repository inside it
+    assert '"python -m ctmadmin_service --repo repo *": allow' in agent.read_text("utf-8")
 
 
 def test_kilo_init_keeps_what_is_there_unless_forced(

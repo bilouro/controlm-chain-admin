@@ -10,9 +10,9 @@ description: "How controlm-chain-admin keeps your Control-M data on your machine
   repository. The web server listens on `127.0.0.1` only.
 - **Writing needs a token.** Every request that changes something needs the session token
   `ctmchain serve` prints at start; reading does not.
-- **The assistant is the exception you choose.** With `ctmchain mcp` or
-  `ctmchain serve --assistant`, the model of your assistant reads the names and fields of
-  your jobs. Use a model your organisation allows; without the assistant, no model is
+- **The assistant is the exception you choose.** With the assistant
+  (`ctmchain serve --assistant`, `python -m ctmadmin_service`, `ctmchain mcp`), the model of
+  your assistant reads the names and fields of your jobs. Use a model your organisation allows; without the assistant, no model is
   involved.
 - **Reports with numbers only.** `ctmchain diagnose` holds timings, counts and versions: no
   name of a job, of a folder or of a directory.

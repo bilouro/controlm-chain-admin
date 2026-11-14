@@ -9,6 +9,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
+from controlm_chain_admin.core import previews
 from controlm_chain_admin.core.capabilities import preview_steps
 from controlm_chain_admin.core.repo import load_repo
 from controlm_chain_admin.web.app import create_app
@@ -141,6 +142,48 @@ def test_the_messages_keep_the_text_the_tools_and_the_errors_only(
     assert [(p["kind"], p["text"]) for p in second["parts"]] == [
         ("error", "ProviderAuthError: bad key")
     ]
+
+
+def test_a_command_of_the_service_shows_as_the_tool_it_runs(
+    chat: TestClient, kilo: FakeKilo
+) -> None:
+    """Where MCP is blocked the agent runs python -m ctmadmin_service: the panel names the
+    tool, not the shell."""
+    session = _session(chat)
+    kilo.say(
+        session,
+        {"type": "tool", "tool": "bash", "state": {"status": "completed", "input": {
+            "command": 'python -m ctmadmin_service --repo chains find "P77 B" --env uat',
+            "description": "Find the job"}, "output": "{}"}},
+        {"type": "tool", "tool": "bash",
+         "state": {"status": "completed", "input": {"command": "ls"}, "output": ""}},
+    )  # fmt: skip
+
+    (message,) = chat.get(f"/api/assistant/sessions/{session}").json()["messages"]
+
+    find, other = message["parts"]
+    assert (find["tool"], find["input"]) == ("find", {"args": "P77 B --env uat"})
+    assert (other["tool"], other["input"]) == ("bash", {"command": "ls"})
+
+
+def test_an_approval_of_an_apply_by_command_shows_the_change_it_writes(
+    chat: TestClient, kilo: FakeKilo, repo_root: Path
+) -> None:
+    session = _session(chat)
+    expected = preview_steps(load_repo(repo_root), STEPS)
+    previews.remember(repo_root, expected["preview_id"], STEPS)
+    command = f"python -m ctmadmin_service apply {expected['preview_id']}"
+    kilo.ask(session, "bash", {"command": command})
+    kilo.ask(session, "bash", {"command": "python -m ctmadmin_service apply never00seen"})
+    kilo.ask(session, "bash", {"command": "python -m ctmadmin_service write_package main"})
+
+    known, unknown, written = chat.get(f"/api/assistant/sessions/{session}").json()["approvals"]
+
+    assert known["tool"] == "apply" and known["problem"] is None
+    assert known["input"] == {"preview_id": expected["preview_id"]}
+    assert known["preview"]["changes"] == expected["changes"]
+    assert unknown["preview"] is None and "preview again" in unknown["problem"]
+    assert (written["tool"], written["input"]) == ("write_package", {"args": "main"})
 
 
 def test_an_approval_shows_the_change_as_this_repository_previews_it(

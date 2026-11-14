@@ -146,24 +146,29 @@ When the person uses Kilo (with the model the company allows), once the data rep
 there:
 
 1. In the data repository: `ctmchain kilo init --repo chains` (the code's venv active). It
-   writes `.kilo/` at the top of the git repository: `kilo.json` (the server with this
-   machine's Python and repository), the agent `controlm`, the skill `ctmchain` and
-   `vocabulary.md`.
-2. `kilo.json` holds paths of this machine: ask, numbered, whether to keep it out of git
-   (`.kilo/kilo.json` in the data repository's `.gitignore`); the agent, the skill and the
-   vocabulary may be committed for the team.
-3. Fill `vocabulary.md` with the team's words (which attribute «servidor» or «agente» means,
+   writes `.kilo/` at the top of the git repository: the agent `controlm`, which runs
+   `python -m ctmadmin_service` and no other command (Kilo asks before each call that
+   writes), and `vocabulary.md`. No path of this machine is written, so both may be
+   committed for the team. Where MCP servers are allowed and wanted, `--via mcp` writes the
+   MCP setup instead (`kilo.json` with this machine's paths: ask, numbered, whether to keep
+   it out of git).
+2. Fill `vocabulary.md` with the team's words (which attribute «servidor» or «agente» means,
    the nicknames of folders): it stays in the private data repository.
-4. Open Kilo in the data repository with `kilo --agent controlm`; try a question («what does
-   <job> wait for?»), then a change on an environment's branch (never `main`): it previews field by field and asks
-   before `ctmchain_apply`. Nothing is committed by the agent.
-5. In the web UI: `ctmchain serve --assistant` (optionally `--assistant-model
+3. Start Kilo with the code's venv active (`python` must be the venv's) in the data
+   repository: `kilo --agent controlm`. Try a question («what does <job> wait for?»), then a
+   change on an environment's branch (never `main`): it previews field by field and Kilo
+   asks before `python -m ctmadmin_service apply`. Nothing is committed by the agent.
+4. In the web UI: `ctmchain serve --assistant` (optionally `--assistant-model
    provider/model`; default: Kilo's own, the model the company set) starts Kilo with the
-   server; *Assistant* in the header opens the conversation, and every change waits there for
-   *Apply* or *Reject*. On Windows it starts `kilo.cmd` from the PATH; a Kilo elsewhere:
-   `$env:CTMCHAIN_KILO = "C:\path\to\kilo.cmd"`.
-6. `kilo mcp list` shows `ctmchain connected`; if not, run the command of `kilo.json` by hand
-   (`<python> -m controlm_chain_admin mcp --repo <chains>`): it waits on stdin when it works.
+   server, the venv's Python first on its PATH; *Assistant* in the header opens the
+   conversation, and every change waits there for *Apply* or *Reject*. On Windows it starts
+   `kilo.cmd` (or `kilo.exe`) from the PATH; a Kilo elsewhere:
+   `$env:CTMCHAIN_KILO = "C:\path\to\kilo.exe"`.
+5. The agent says it has no tools: run `python -m ctmadmin_service --repo chains help` in the
+   same terminal; `No module named ctmadmin_service` means the venv is not active. Over MCP,
+   `kilo mcp list` must show `ctmchain connected`; `disabled` with «blocked by … security
+   policy» in `kilo mcp list --print-logs --log-level DEBUG` means MCP is not allowed there:
+   use the default setup by command (`ctmchain kilo init --repo chains --force`).
 
 ## Part D — the earlier model (one base, releases)
 

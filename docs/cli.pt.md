@@ -53,4 +53,6 @@ com `--help`. Os comandos que alteram alguma coisa pré-visualizam primeiro e s�
 | Comando | O que faz |
 |---|---|
 | `ctmchain serve [--port N] [--assistant]` | a página web local e a API (`[web]`) |
-| `ctmchain mcp`, `ctmchain menu`, `ctmchain kilo init [--force]` | as ferramentas para um assistente (`[mcp]`) |
+| `ctmchain kilo init [--via service\|mcp] [--force]`, `ctmchain menu` | prepara o Kilo para o assistente: por comando (por omissão) ou por MCP |
+| `python -m ctmadmin_service <ferramenta> ...` | as ferramentas do assistente como comandos, em JSON (`help` lista-as) |
+| `ctmchain mcp` | as mesmas ferramentas por MCP (`[mcp]`) |

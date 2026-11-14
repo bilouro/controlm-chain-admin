@@ -277,7 +277,7 @@ def test_a_long_diff_is_cut_and_says_so(repo: ChainRepo) -> None:
 def test_the_kilo_agent_names_every_tool_and_is_asked_before_each_one_that_writes(
     repo: ChainRepo,
 ) -> None:
-    files = kilo_files(repo.root, sys.executable)
+    files = kilo_files(repo.root, sys.executable, via="mcp")
     agent, config = files[AGENT_FILE], json.loads(files[CONFIG])
 
     assert {f"ctmchain_{tool}" for tool in TOOLS} == set(re.findall(r"ctmchain_[a-z_]+", agent))
@@ -451,7 +451,7 @@ def test_refresh_onto_the_branch_of_one_s_own_whole_or_some_folders(
 def test_the_assistant_is_told_about_a_branch_of_one_s_own(envs: ChainRepo) -> None:
     server = build_server(envs.root)
     described = ChainTools(envs.root).descriptions()["refresh"]
-    agent = kilo_files(envs.root, sys.executable)[AGENT_FILE]
+    agent = kilo_files(envs.root, sys.executable, via="mcp")[AGENT_FILE]
 
     assert "here=true" in described and "partial=true" in described
     for text in (server.instructions or "", agent):
@@ -509,7 +509,7 @@ def test_deliveries_are_kept_listed_packaged_and_removed(envs: ChainRepo) -> Non
 
 def test_the_assistant_is_told_about_deliveries(envs: ChainRepo) -> None:
     server = build_server(envs.root)
-    agent = kilo_files(envs.root, sys.executable)[AGENT_FILE]
+    agent = kilo_files(envs.root, sys.executable, via="mcp")[AGENT_FILE]
     menu = _data(_call(envs.root, "menu"))
 
     assert "keep_delivery" in (server.instructions or "")

@@ -72,7 +72,7 @@ ctmchain = "controlm_chain_admin.cli:main"
 path = "src/controlm_chain_admin/__init__.py"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/controlm_chain_admin"]
+packages = ["src/controlm_chain_admin", "src/ctmadmin_service"]
 # The built web UI is git-ignored; include it in the wheel when present (release workflow builds it).
 artifacts = ["src/controlm_chain_admin/web/static/**"]
 
@@ -93,7 +93,7 @@ select = ["E", "F", "I", "UP", "B", "SIM", "C4", "RUF"]
 
 [tool.mypy]
 python_version = "3.11"
-packages = ["controlm_chain_admin"]
+packages = ["controlm_chain_admin", "ctmadmin_service"]
 mypy_path = "src"
 strict = true
 warn_unused_ignores = true

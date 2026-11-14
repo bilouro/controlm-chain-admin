@@ -397,6 +397,21 @@ or addresses anywhere in this public repository.
     `resources` tool and two capabilities for the assistant. Left: choosing the jobs for
     *Add to jobs…* from the chains table instead of typing them; a resource kept in an
     ordered child list (`children`) is listed by `validate` but not edited here.
+29. **The assistant where MCP is blocked — DONE (2026-11-14)**, found at work: the company's
+    Kilo disables every MCP server by security policy (its log says so), so the agent had
+    no tool and searched the files by hand. The author asked for a module like the
+    company's other authorised ones, called by the assistant as a command. The tools moved
+    to `tools.py` (no `mcp` import); `service.py` and the top-level `ctmadmin_service`
+    package run one per command with JSON out, flags from the tool signatures and the
+    capabilities' schemas, `help` with the rules and commands to copy; `core/previews.py`
+    keeps the steps of a preview so that `apply` takes its id alone. `kilo init` writes the
+    agent by command by default (bash: deny everything but that command, ask before each
+    call that writes; `--via mcp` for the setup of before); `serve --assistant` gives Kilo
+    this Python and the repository; the *Assistant* panel names the tools of the commands
+    and previews an `apply` by command. Tried with a real Kilo and model (the Playwright
+    test of the assistant): help, find, show, preview, apply asked, apply rejected. Left:
+    not tried on the work PC's Kilo (Windows, its shell); the Kilo tools that need ripgrep
+    (skill, glob, grep) stay unusable there, and the agent is told not to need them.
 
 Later, unordered: second-environment import with learning; `diff` of environments and XML
 files with `xmldiffreport`; mapping editor; upstream graph explorer (paused by the author);
