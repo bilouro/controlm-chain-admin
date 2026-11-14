@@ -449,7 +449,7 @@ or addresses anywhere in this public repository.
     *Pushing…* and so on, every other button of the dialog waits, and a status line says
     what runs.
 
-34. **New values for the map — DONE (2026-11-14)**, found at work: a refresh with a user
+34. **New values for the map — DONE (2026-11-14), released in 0.7.3**, found at work: a refresh with a user
     renamed everywhere left the map with the old name, and the comparison counted every job
     as different (on a clone of the real data: 44 jobs before, 1521 after). The author asked
     for an analysis that runs after every refresh and any time, lists the new values of the
@@ -459,14 +459,14 @@ or addresses anywhere in this public repository.
     real data found two more cases, both handled: two entries sharing the old value (a total
     rename changes both), and places where two environments had the same value (a *new
     combination*, its own entry, prefilled). The 1521 came back to 44.
-35. **Follow in every environment — DONE (2026-11-14)**, found at work: after a follow the
+35. **Follow in every environment — DONE (2026-11-14), released in 0.7.3**, found at work: after a follow the
     source had no place and the target none more. 97 in 100 of the real map's pairs differ in
     two to four environments, and a follow changed only the branch checked out. Now one
     commit on the branch of each environment where they differ (never the trunk, said),
     previewed by environment; `--here` for the old way, with the commit subject to use; the
     *Map* page counts places half-way between two followed entries and says the counts are
     of the branches as committed.
-36. **A rehearsal before every release — DONE (2026-11-14)**, asked by the author ("quero
+36. **A rehearsal before every release — DONE (2026-11-14), released in 0.7.3**, asked by the author ("quero
     testes para tudo"): `tests/realdata/test_rehearsal.py` plays the rename, a file of some
     folders onto an environment's branch and a follow everywhere on a temporary clone of the
     private data repository, counts only; run before asking for a release.
