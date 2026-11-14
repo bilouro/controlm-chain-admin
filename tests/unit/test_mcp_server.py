@@ -434,16 +434,18 @@ def test_refresh_onto_the_branch_of_one_s_own_whole_or_some_folders(
 
     onto = _data(_call(envs.root, "refresh", {"xml": str(whole), "here": True}))
     part = _data(_call(envs.root, "refresh", {"xml": str(some), "here": True, "partial": True}))
-    alone = _call(envs.root, "refresh", {"xml": str(some), "partial": True})
+    alone = _data(_call(envs.root, "refresh", {"xml": str(some), "partial": True}))
 
     assert onto.startswith("Import onto work/uat-next (uat) from next.xml: 3 folders, 12 jobs")
     assert "CMDLINE: /opt/p77/bin/a2.ksh -x -> /opt/p77/bin/a3.ksh" in onto
     assert "ctmchain refresh FILE --here --apply" in onto and "env/uat stays as it is" in onto
-    assert "a partial export: the folders it does not have stay" in part
+    assert "some folders only: the folders it does not have stay" in part
     assert "ctmchain refresh FILE --here --partial --apply" in part
     assert "removed" not in part  # the folder it lacks stays
     assert on_bench.is_error and "env/bench holds bench" in on_bench.content[0].text
-    assert alone.is_error and "a branch of your own" in alone.content[0].text
+    # some folders onto the branch of their environment: a package imported there
+    assert alone.startswith("Refresh env/uat (uat) from delivery.xml")
+    assert "ctmchain refresh FILE --partial --apply" in alone and "removed" not in alone
     assert git(envs.root, "rev-parse", "HEAD") == before
     assert git(envs.root, "status", "--porcelain") == ""
 

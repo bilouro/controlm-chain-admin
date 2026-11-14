@@ -856,8 +856,9 @@ stop; `run` turns it into `SystemExit` so the cleanup runs).
   (`POST /api/workspace/branch {name}`: from what is checked out, then checked out) and lists
   the branches that are neither the trunk, an environment's, a release nor the map
   (`branches`). On such a branch the *Refresh* page has *Onto*, set to the checked-out branch
-  (the other choice is the branch of the environment), and *The export holds some folders
-  only*: `&here=true[&partial=true]`. The answer says `work` and `partial`, the words of the
+  (the other choice is the branch of the environment), and *The file holds* (*tell from the
+  file*, *the whole environment*, *some folders only*; since 0.7.2 on any branch):
+  `&here=true[&partial=true|false]`. The answer says `work` and `partial`, the words of the
   page follow them, and once applied a link opens *Compare* on the environment's branch
   against this one. A preview is applied to the branch it was made for only: when another
   branch is checked out meanwhile the page asks for the preview again.
@@ -1044,8 +1045,18 @@ there, and `env/uat` stays as it was: `compare env/uat work/uat-next` is uat aga
 nothing to translate. `--partial` rewrites the folders of the export and leaves the others
 (the export of one folder); without it the export is taken as everything the branch must
 hold. What is refused: `--here` on a branch that holds another environment (`main holds prod:
-an export of uat goes onto env/uat`), on a protected branch or a detached HEAD, and
-`--partial` on the branch of an environment, which holds its full export.
+an export of uat goes onto env/uat`), on a protected branch or a detached HEAD.
+
+**Some folders onto the branch of an environment (story 32, 2026-11-14).** `--partial` was
+refused on an environment's branch, so the package of a few folders imported into bench,
+refreshed onto `env/bench` as a full export, would remove the rest (found at work: 5 folders
+modified, 1872 removals). It is allowed now: the folders of the file replace the branch's,
+the others stay, and the commit says it, `refresh(bench): <file> (some folders)` (the
+subject `held_env` reads is unchanged). `refresh(partial=None)` lets the file tell: fewer
+than half the folders of the branch (`looks_partial`) is some folders only; the API leaves
+`partial` out for that and the *Refresh* page's *The file holds* is *tell from the file* by
+default, applying with the `partial` the preview settled. A full read that would remove
+more than half the folders (`removes_most`) is warned of, in the text and on the page.
 
 **What a branch of your own holds (story 24).** The files are the same on every branch, so
 nothing in the tree says which environment they are of; the name says it for the trunk and for

@@ -114,7 +114,7 @@ describe("RefreshPage", () => {
     expect(await screen.findByText(/env\/uat now holds this export/)).toHaveTextContent("1234567");
     const sent = calls.refresh[1];
     expect([sent?.action, sent?.body]).toEqual(["apply", XML]);
-    expect(sent?.params.toString()).toBe("source=uat_export.xml&commit=true");
+    expect(sent?.params.toString()).toBe("source=uat_export.xml&commit=true&partial=false");
     expect(screen.queryByRole("button", { name: /Overwrite/ })).not.toBeInTheDocument();
   });
 
@@ -184,7 +184,9 @@ describe("RefreshPage", () => {
 
     const done = await screen.findByText(/work\/uat-next now holds this export/);
     expect(done).toHaveTextContent("abcdef1");
-    expect(calls.refresh[1]?.params.toString()).toBe("source=uat_export.xml&commit=true&here=true");
+    expect(calls.refresh[1]?.params.toString()).toBe(
+      "source=uat_export.xml&commit=true&here=true&partial=false",
+    );
     expect(
       screen.getByRole("link", { name: "Compare env/uat with work/uat-next" }),
     ).toHaveAttribute("href", "/compare?base=env%2Fuat&head=work%2Fuat-next");
@@ -194,7 +196,10 @@ describe("RefreshPage", () => {
     onWorkBranch({ partial: true });
     const { user, preview } = await chosen();
 
-    await user.click(await screen.findByRole("checkbox", { name: /some folders only/ }));
+    await user.selectOptions(
+      await screen.findByRole("combobox", { name: "The file holds" }),
+      "some",
+    );
     await user.click(preview);
     await screen.findByRole("heading", { name: /uat_export\.xml/ });
 
@@ -217,9 +222,7 @@ describe("RefreshPage", () => {
     onWorkBranch({ branch: "env/uat", work: false });
     const { user, preview } = await chosen();
 
-    await user.click(await screen.findByRole("checkbox", { name: /some folders only/ }));
     await user.selectOptions(screen.getByRole("combobox", { name: "Onto" }), "env");
-    expect(screen.queryByRole("checkbox", { name: /some folders only/ })).not.toBeInTheDocument();
     await user.click(preview);
     await screen.findByRole("heading", { name: /uat_export\.xml/ });
 
@@ -259,7 +262,7 @@ describe("RefreshPage", () => {
     expect(calls.refresh).toHaveLength(1);
   });
 
-  it("on the branch of an environment there is nothing to choose", async () => {
+  it("on the branch of an environment the file tells what it holds unless said", async () => {
     let asked = 0;
     server.use(
       http.get("/api/workspace", () => {
@@ -273,10 +276,68 @@ describe("RefreshPage", () => {
     await screen.findByRole("heading", { name: /uat_export\.xml/ });
 
     expect(screen.queryByRole("combobox", { name: "Onto" })).not.toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "The file holds" })).toHaveValue("auto");
     expect(calls.refresh[0]?.params.toString()).toBe("source=uat_export.xml");
     expect(preview).toBeEnabled();
     await user.click(screen.getByRole("button", { name: "Overwrite env/uat…" }));
     expect(screen.getByText(/checks env\/uat out/)).toBeInTheDocument();
+  });
+
+  it("says when a file of some folders was read as such, and that the others stay", async () => {
+    server.use(
+      http.post("/api/refresh/:action", () =>
+        HttpResponse.json({
+          ...refresh,
+          partial: true,
+          looks_partial: true,
+          export_folders: 5,
+          branch_folders: 340,
+        }),
+      ),
+    );
+    const { user, preview } = await chosen();
+    await user.click(preview);
+    await screen.findByRole("heading", { name: /uat_export\.xml/ });
+
+    expect(
+      screen.getByText(/holds 5 of the 340 folders of env\/uat: read as some folders only/),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Import onto env/uat…" })).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("warns before a full read that would remove most of the branch", async () => {
+    const removing = {
+      ...refresh,
+      looks_partial: true,
+      removes_most: true,
+      export_folders: 5,
+      branch_folders: 340,
+      comparison: {
+        ...refresh.comparison,
+        summary: {
+          ...refresh.comparison.summary,
+          folders: { ...refresh.comparison.summary.folders, removed: 335 },
+        },
+      },
+    };
+    let said: string | null = "not sent";
+    server.use(
+      http.post("/api/refresh/:action", ({ request }) => {
+        said = new URL(request.url).searchParams.get("partial");
+        return HttpResponse.json(removing);
+      }),
+    );
+    const { user, preview } = await chosen();
+    await user.selectOptions(screen.getByRole("combobox", { name: "The file holds" }), "full");
+    await user.click(preview);
+    await screen.findByRole("heading", { name: /uat_export\.xml/ });
+
+    expect(said).toBe("false");
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "This would remove 335 of the 340 folders of env/uat",
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent("some folders only");
   });
 
   it("asks for the token when the server refuses", async () => {

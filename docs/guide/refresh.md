@@ -28,6 +28,13 @@ ctmchain refresh ../exports/uat.xml --env uat
 - With uncommitted chain files the refresh refuses: commit or discard them first.
 - The same export again changes nothing (`already holds this export`).
 - `--stat` gives the counts only; `--no-commit` leaves the result uncommitted.
-- A file with some folders only (a delivery) is not a full export: it goes onto a
-  [branch of your own](own-branch.md) with `--here --partial`.
+- A file with some folders only (a package you imported into the environment, a delivery)
+  is not a full export: `--partial` replaces the folders it has and leaves the others, on
+  the branch of the environment or on a [branch of your own](own-branch.md) (`--here
+  --partial`). The commit says `(some folders)`. Without `--partial`, the preview says when
+  a file holds less than half the folders of the branch, and warns when it would remove
+  more than half of them.
+- On the *Refresh* page, *The file holds* is *tell from the file* by default: less than
+  half the folders of the branch is read as some folders only, and the page says so. Choose
+  *the whole environment* or *some folders only* to say it yourself.
 - In the web UI: the *Refresh* page.

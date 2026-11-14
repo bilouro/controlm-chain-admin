@@ -21,9 +21,11 @@ not have stay as they are.
 ctmchain refresh ../exports/delivery.xml --here --partial --apply
 ```
 
-Without `--here` a refresh goes onto the environment's branch, whatever is checked out.
-Without `--partial` a file with some folders only is read as a full export and would remove
-the others: the preview shows it.
+Without `--here` a refresh goes onto the environment's branch, whatever is checked out;
+`--partial` works there too, for a package imported into the environment
+([Refresh](refresh.md)). Without `--partial` a file with some folders only is read as a full
+export and would remove the others: the preview says when a file looks like that, and warns
+before it removes more than half the branch.
 
 ## What such a branch holds
 

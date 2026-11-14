@@ -182,6 +182,23 @@ def test_a_partial_export_leaves_the_other_folders_on_the_checked_out_branch(
     assert (root / "folders" / INGEST / "folder.json").is_file()
 
 
+def test_a_file_of_some_folders_is_read_as_such_unless_said_otherwise(api: TestClient) -> None:
+    """A package imported into the environment, refreshed onto its branch: its folders, and
+    the others stay; said to be a full export, the answer warns what it would remove."""
+    assert api.post("/api/refresh/apply", content=NEWER, headers=XML).status_code == 200
+    some = without_folder(without_folder(NEWER, "UP77_INGEST_DAILY"), "UP77_WEEKLY_DAILY")
+
+    told = api.post("/api/refresh/preview", content=some, headers=XML).json()
+    whole = api.post(
+        "/api/refresh/preview", content=some, params={"partial": False}, headers=XML
+    ).json()
+
+    assert (told["branch"], told["partial"], told["looks_partial"]) == ("env/uat", True, True)
+    assert (told["export_folders"], told["branch_folders"]) == (1, 3)
+    assert told["comparison"]["summary"]["folders"]["removed"] == 0
+    assert (whole["partial"], whole["removes_most"]) == (False, True)
+
+
 def test_the_checked_out_branch_of_another_environment_refuses_the_export(
     api: TestClient, root: Path
 ) -> None:
@@ -189,10 +206,6 @@ def test_the_checked_out_branch_of_another_environment_refuses_the_export(
 
     assert refused.status_code == 400
     assert refused.json()["message"] == "main holds prod: an export of uat goes onto env/uat"
-    partial = api.post(
-        "/api/refresh/preview", content=NEWER, params={"partial": True}, headers=XML
-    )
-    assert partial.status_code == 400 and "full export of uat" in partial.json()["message"]
     git(root, "switch", "-q", "-c", "master", "env/uat")
     protected = api.post("/api/refresh/apply", content=NEWER, params={"here": True}, headers=XML)
     assert protected.status_code == 409 and protected.json()["error"] == "ProtectedBranch"

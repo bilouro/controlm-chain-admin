@@ -28,8 +28,8 @@ ambiente**, e leva alterações de um ambiente para outro sabendo exatamente o q
 - **Entregas guardadas.** Guardas itens com um nome, aos poucos, e geras um único ficheiro
   de import com várias quando for altura.
 - **Validação com correções** que a interface do Control-M não oferece.
-- **Três entradas:** a linha de comandos `ctmchain`, uma página web local e ferramentas MCP
-  para um assistente.
+- **Três entradas:** a linha de comandos `ctmchain`, uma página web local e ferramentas para
+  um assistente, por comando (`python -m ctmadmin_service`) ou por MCP.
 
 ## Quickstart
 

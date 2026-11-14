@@ -59,11 +59,13 @@ def branch_exists(root: Path, branch: str) -> bool:
     return True
 
 
-def export_subject(env: str, source: str, *, work: bool = False) -> str:
+def export_subject(env: str, source: str, *, work: bool = False, partial: bool = False) -> str:
     """The subject of the commit that holds an export of ``env``: a ``refresh`` of the
-    environment's branch, an ``import`` onto a branch of one's own. :func:`held_env` reads it
-    back, so the two stay together."""
-    return f"{'import' if work else 'refresh'}({env}): {source}"
+    environment's branch, an ``import`` onto a branch of one's own; ``(some folders)`` when
+    the export held some folders only. :func:`held_env` reads it back, so the two stay
+    together."""
+    some = " (some folders)" if partial else ""
+    return f"{'import' if work else 'refresh'}({env}): {source}{some}"
 
 
 def held_env(root: Path, config: ChainConfig, ref: str) -> str | None:

@@ -13,12 +13,14 @@ description: "Instalar o controlm-chain-admin e montar um repositório de cadeia
 ## Instalar
 
 ```bash
-pip install "controlm-chain-admin[web,mcp]"
+pip install "controlm-chain-admin[web]"
 ctmchain --version
 ```
 
 O núcleo não depende de nada fora da biblioteca padrão. `[web]` junta a página web local
-(`ctmchain serve`), `[mcp]` as ferramentas para um assistente (`ctmchain mcp`).
+(`ctmchain serve`). As ferramentas do assistente vêm com o pacote (`python -m
+ctmadmin_service`); o `[mcp]` junta as mesmas ferramentas por MCP (`ctmchain mcp`), para
+onde os servidores MCP forem permitidos.
 
 ## Do zero
 
@@ -79,9 +81,10 @@ máquina: o servidor só escuta em `127.0.0.1`.
 ## Atualizar
 
 ```bash
-pip install --upgrade "controlm-chain-admin[web,mcp]"
+pip install --upgrade "controlm-chain-admin[web]"
 ```
 
 Uma versão nova lê o repositório de uma anterior tal como está. Reinicia o `ctmchain serve`
-depois de atualizar, e corre `ctmchain kilo init --force` quando as notas da versão disserem
-que o assistente ganhou ferramentas.
+depois de atualizar, e corre `ctmchain kilo init --repo . --force` quando as notas da versão
+disserem que o assistente mudou (a 0.7.0 passou-o do MCP para o comando `python -m
+ctmadmin_service`).

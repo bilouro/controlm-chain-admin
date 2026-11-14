@@ -13,7 +13,7 @@ Exit codes: `0` ok, `1` findings, `2` usage, `3` error.
 | Command | What it does |
 |---|---|
 | `ctmchain init --application APP --envs prod=P,uat=U [--prefixes ...] [--leading-only ...] [--dedupe-jobnames]` | turn a directory into a chain repository |
-| `ctmchain refresh XML [--env ENV] [--apply] [--here] [--partial] [--no-commit] [--stat]` | the export of an environment onto its branch (or onto the branch checked out) |
+| `ctmchain refresh XML [--env ENV] [--apply] [--here] [--partial] [--no-commit] [--stat]` | the export of an environment onto its branch (or onto the branch checked out); `--partial`: some folders only, the others stay |
 | `ctmchain check XML [--env ENV]` | an export against what the repository gives back for that environment |
 | `ctmchain export [--env ENV] -o FILE` | regenerate the XML of the branch checked out |
 | `ctmchain commit [-m MESSAGE]` | commit the chain files, with a message written from what changed |

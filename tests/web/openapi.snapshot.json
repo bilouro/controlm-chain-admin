@@ -2900,6 +2900,12 @@
             "title": "Branch",
             "type": "string"
           },
+          "branch_folders": {
+            "default": 0,
+            "description": "the folders the branch holds now",
+            "title": "Branch Folders",
+            "type": "integer"
+          },
           "commit": {
             "anyOf": [
               {
@@ -2928,12 +2934,24 @@
             "title": "Evidence",
             "type": "array"
           },
+          "export_folders": {
+            "default": 0,
+            "description": "the folders of the application in the export",
+            "title": "Export Folders",
+            "type": "integer"
+          },
           "files_changed": {
             "title": "Files Changed",
             "type": "integer"
           },
           "imported": {
             "$ref": "#/components/schemas/ImportedOut"
+          },
+          "looks_partial": {
+            "default": false,
+            "description": "the export holds less than half the folders of the branch",
+            "title": "Looks Partial",
+            "type": "boolean"
           },
           "new_branch": {
             "description": "the branch is not there yet: apply creates it",
@@ -2943,6 +2961,12 @@
           "partial": {
             "description": "the folders the export does not have stay",
             "title": "Partial",
+            "type": "boolean"
+          },
+          "removes_most": {
+            "default": false,
+            "description": "read as a full export, it removes more than half of the branch",
+            "title": "Removes Most",
             "type": "boolean"
           },
           "source": {
@@ -6428,15 +6452,21 @@
             }
           },
           {
-            "description": "the export holds some folders only and the others stay; not for the branch of an environment, which holds its full export",
+            "description": "the export holds some folders only and the others stay (true), or is a full export (false); left out: a file with less than half the folders of the branch is some folders only",
             "in": "query",
             "name": "partial",
             "required": false,
             "schema": {
-              "default": false,
-              "description": "the export holds some folders only and the others stay; not for the branch of an environment, which holds its full export",
-              "title": "Partial",
-              "type": "boolean"
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "the export holds some folders only and the others stay (true), or is a full export (false); left out: a file with less than half the folders of the branch is some folders only",
+              "title": "Partial"
             }
           }
         ],
@@ -6472,7 +6502,7 @@
                 }
               }
             },
-            "description": "The environment cannot be told, or is another one; the checked-out branch holds another environment; a partial export for the branch of an environment"
+            "description": "The environment cannot be told, or is another one; the checked-out branch holds another environment"
           },
           "401": {
             "description": "Missing or wrong session token"
@@ -6561,15 +6591,21 @@
             }
           },
           {
-            "description": "the export holds some folders only and the others stay; not for the branch of an environment, which holds its full export",
+            "description": "the export holds some folders only and the others stay (true), or is a full export (false); left out: a file with less than half the folders of the branch is some folders only",
             "in": "query",
             "name": "partial",
             "required": false,
             "schema": {
-              "default": false,
-              "description": "the export holds some folders only and the others stay; not for the branch of an environment, which holds its full export",
-              "title": "Partial",
-              "type": "boolean"
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "the export holds some folders only and the others stay (true), or is a full export (false); left out: a file with less than half the folders of the branch is some folders only",
+              "title": "Partial"
             }
           }
         ],
@@ -6605,7 +6641,7 @@
                 }
               }
             },
-            "description": "The environment cannot be told, or is another one; the checked-out branch holds another environment; a partial export for the branch of an environment"
+            "description": "The environment cannot be told, or is another one; the checked-out branch holds another environment"
           },
           "401": {
             "description": "Missing or wrong session token"

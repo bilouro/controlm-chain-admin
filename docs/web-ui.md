@@ -19,7 +19,7 @@ the session token the command printed (open the address it gives, token included
 | **Chains** | the folders and jobs, with predecessors and successors; a folder opens its graph, a job its attributes by group |
 | **Validate** | the findings, by severity and type; choose a type to read what it means; *Resolve* a finding or a selection |
 | **Compare** | two branches or environments; check items to take them, package them, or keep them for a delivery |
-| **Refresh** | the export of an environment onto its branch, or onto a branch of your own |
+| **Refresh** | the export of an environment onto its branch, or onto a branch of your own; whole, or some folders only |
 | **Map** | the letter and branch of each environment, the entries, who follows each, *Follow…*, what the branches show that the map lacks, and the technical attributes |
 | **Deliveries** | what was kept for later and the commits each carries; one import file from one or several |
 | **Resources** | every CONTROL and QUANTITATIVE resource with the jobs that use it; give one to several jobs |
@@ -28,4 +28,5 @@ Every change is previewed first, field by field, and written only when you confi
 is committed for you: the *Commit* button proposes a message from what changed.
 
 The branch dialog (the button with the branch name) switches to the branch of an
-environment, starts a branch of your own, and pushes or pulls.
+environment, starts a branch of your own, and pushes or pulls. While one of these runs, its
+button says so (*Switching…*, *Pushing…*) and the others wait.

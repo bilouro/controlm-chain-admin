@@ -6,6 +6,21 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- A file of some folders goes onto the branch of its environment too (a package imported
+  into bench, refreshed onto `env/bench`): `ctmchain refresh FILE --partial` and *some
+  folders only* on the *Refresh* page replace the folders of the file and leave the others.
+  The commit says `(some folders)`. Before, a partial file there was refused, and read as a
+  full export it removed everything it did not have.
+- The *Refresh* page has *The file holds* on every branch, *tell from the file* by default:
+  a file with less than half the folders of the branch is read as some folders only, and
+  the page says so. A full read that would remove more than half the branch is warned of,
+  on the page and in `ctmchain refresh`.
+- The buttons of the branch dialog say when their action runs (*Switching…*, *Pushing…*,
+  *Pulling…*, *Starting…*) and the others wait, so a second click no longer asks again for
+  what is already being done.
+
 ## [0.7.1] - 2026-11-14
 
 ### Added

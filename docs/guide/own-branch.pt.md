@@ -21,9 +21,11 @@ ficheiro não tem ficam como estão.
 ctmchain refresh ../exports/delivery.xml --here --partial --apply
 ```
 
-Sem `--here` o refresh vai para o branch do ambiente, esteja o que estiver aberto. Sem
-`--partial` um ficheiro só com algumas pastas é lido como export completo e removia as
-outras: a pré-visualização mostra-o.
+Sem `--here` o refresh vai para o branch do ambiente, esteja o que estiver aberto; o
+`--partial` também funciona aí, para um pacote importado no ambiente ([Refresh](refresh.md)).
+Sem `--partial` um ficheiro só com algumas pastas é lido como export completo e removia as
+outras: a pré-visualização diz quando um ficheiro parece assim, e avisa antes de remover
+mais de metade do branch.
 
 ## O que um branch assim contém
 

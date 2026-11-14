@@ -15,12 +15,13 @@ from controlm_chain_admin.core.errors import (
     UncommittedChanges,
 )
 from controlm_chain_admin.core.ops import export_xml, import_xml
-from controlm_chain_admin.core.refresh import refresh
+from controlm_chain_admin.core.refresh import refresh, render_text
 from controlm_chain_admin.core.repo import load_repo, read_json
 from tests.support.envexports import job
 from tests.support.fourenvs import (
     CHAIN,
     INGEST,
+    WEEKLY,
     empty_repo,
     export_of,
     four_branches,
@@ -274,7 +275,7 @@ def test_a_partial_export_keeps_the_folders_it_does_not_have(tmp_path: Path) -> 
     )
 
     assert done.applied and (root / "folders" / INGEST / "folder.json").is_file()
-    assert git(root, "log", "-1", "--format=%s") == "import(uat): delivery.xml"
+    assert git(root, "log", "-1", "--format=%s") == "import(uat): delivery.xml (some folders)"
     assert git(root, "status", "--porcelain") == ""
     again = refresh(
         load_repo(root), delivery, source="delivery.xml", here=True, partial=True, apply=True
@@ -296,9 +297,70 @@ def test_the_branch_of_an_environment_takes_only_its_own_full_export(tmp_path: P
     git(repo.root, "switch", "-q", "env/uat")
     same = refresh(repo, uat, here=True)  # its own branch: the refresh itself
     assert (same.branch, same.work, same.unchanged) == ("env/uat", False, True)
-    for here in (False, True):
-        with pytest.raises(ChainError, match="env/uat holds the full export of uat"):
-            refresh(repo, uat, here=here, partial=True)
+
+
+def _some_folders(repo_root: Path) -> bytes:
+    """uat's export with one of its three folders only, the chain changed: what a package of
+    some folders imported into an environment looks like."""
+    data = uat_ahead("uat", export_of("uat"))
+    for folder in ("UP77_INGEST_DAILY", "UP77_WEEKLY_DAILY"):
+        data = without_folder(data, folder)
+    return data.replace(b"/opt/p77/bin/c.ksh", b"/opt/p77/bin/c2.ksh")
+
+
+def test_some_folders_go_onto_the_branch_of_their_environment_the_others_stay(
+    tmp_path: Path,
+) -> None:
+    """A package imported into an environment: its folders replace the branch's, nothing
+    else goes, and the commit says it was some folders only."""
+    repo = four_branches(tmp_path, change=uat_ahead)
+    package = _some_folders(repo.root)
+
+    preview = refresh(repo, package, source="package.xml", partial=True)
+    done = refresh(repo, package, source="package.xml", partial=True, apply=True)
+
+    assert (preview.branch, preview.work, preview.partial) == ("env/uat", False, True)
+    assert preview.summary["folders"]["removed"] == 0
+    assert [(j.node, j.change) for j in preview.comparison.jobs] == [
+        (f"{CHAIN}/P77_C", "modified")
+    ]
+    assert done.applied and git(repo.root, "branch", "--show-current") == "env/uat"
+    assert git(repo.root, "log", "-1", "--format=%s") == "refresh(uat): package.xml (some folders)"
+    assert (repo.root / "folders" / WEEKLY / "folder.json").is_file()
+    assert (repo.root / "folders" / INGEST / "folder.json").is_file()
+
+
+def test_a_file_with_less_than_half_the_folders_is_read_as_some_folders_when_not_said(
+    tmp_path: Path,
+) -> None:
+    repo = four_branches(tmp_path, change=uat_ahead)  # env/uat holds three folders
+    package = _some_folders(repo.root)
+
+    told = refresh(repo, package, source="package.xml", partial=None)
+    whole = refresh(repo, package, source="package.xml")  # said: a full export
+    full = refresh(repo, uat_ahead("uat", export_of("uat")), source="uat.xml", partial=None)
+
+    assert (told.partial, told.looks_partial) == (True, True)
+    assert (told.export_folders, told.branch_folders) == (1, 3)
+    assert told.summary["folders"]["removed"] == 0 and not told.removes_most
+    assert (whole.partial, whole.looks_partial, whole.removes_most) == (False, True, True)
+    assert whole.summary["folders"]["removed"] == 2
+    assert (full.partial, full.looks_partial, full.removes_most) == (False, False, False)
+
+
+def test_the_refresh_says_when_a_file_looks_like_some_folders_and_what_it_would_remove(
+    tmp_path: Path,
+) -> None:
+    repo = four_branches(tmp_path, change=uat_ahead)
+    package = _some_folders(repo.root)
+
+    whole = render_text(refresh(repo, package, source="package.xml"))
+    some = render_text(refresh(repo, package, source="package.xml", partial=None))
+
+    assert "this export holds 1 of the 3 folders of env/uat: --partial keeps the others" in whole
+    assert "warning: this would remove 2 of the 3 folders of env/uat" in whole
+    assert "some folders only: the folders it does not have stay" in some
+    assert "warning" not in some
 
 
 def test_a_protected_branch_or_a_detached_head_takes_no_export(tmp_path: Path) -> None:

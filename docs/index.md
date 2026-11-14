@@ -28,8 +28,8 @@ and move changes between environments knowing exactly what differs.
 - **Deliveries kept for later.** Put items aside under a name, little by little, and make
   one import file from several when it is time.
 - **Validation with fixes** the Control-M interface does not offer.
-- **Three ways in:** the `ctmchain` command line, a local web UI, and MCP tools for an
-  assistant.
+- **Three ways in:** the `ctmchain` command line, a local web UI, and tools for an
+  assistant, as a command (`python -m ctmadmin_service`) or over MCP.
 
 ## Quickstart
 

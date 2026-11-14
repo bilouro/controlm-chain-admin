@@ -2126,6 +2126,12 @@ export interface components {
        */
       branch: string;
       /**
+       * Branch Folders
+       * @description the folders the branch holds now
+       * @default 0
+       */
+      branch_folders: number;
+      /**
        * Commit
        * @description the commit made by apply
        */
@@ -2139,9 +2145,21 @@ export interface components {
        * @description how the environment was told
        */
       evidence: string[];
+      /**
+       * Export Folders
+       * @description the folders of the application in the export
+       * @default 0
+       */
+      export_folders: number;
       /** Files Changed */
       files_changed: number;
       imported: components["schemas"]["ImportedOut"];
+      /**
+       * Looks Partial
+       * @description the export holds less than half the folders of the branch
+       * @default false
+       */
+      looks_partial: boolean;
       /**
        * New Branch
        * @description the branch is not there yet: apply creates it
@@ -2152,6 +2170,12 @@ export interface components {
        * @description the folders the export does not have stay
        */
       partial: boolean;
+      /**
+       * Removes Most
+       * @description read as a full export, it removes more than half of the branch
+       * @default false
+       */
+      removes_most: boolean;
       /**
        * Source
        * @description the name of the export file
@@ -4155,8 +4179,8 @@ export interface operations {
         commit?: boolean;
         /** @description onto the checked-out branch instead of the environment's: somebody's work, no branch of another environment and no protected one */
         here?: boolean;
-        /** @description the export holds some folders only and the others stay; not for the branch of an environment, which holds its full export */
-        partial?: boolean;
+        /** @description the export holds some folders only and the others stay (true), or is a full export (false); left out: a file with less than half the folders of the branch is some folders only */
+        partial?: boolean | null;
       };
       header?: never;
       path?: never;
@@ -4177,7 +4201,7 @@ export interface operations {
           "application/json": components["schemas"]["RefreshOut"];
         };
       };
-      /** @description The environment cannot be told, or is another one; the checked-out branch holds another environment; a partial export for the branch of an environment */
+      /** @description The environment cannot be told, or is another one; the checked-out branch holds another environment */
       400: {
         headers: {
           [name: string]: unknown;
@@ -4231,8 +4255,8 @@ export interface operations {
         env?: string | null;
         /** @description onto the checked-out branch instead of the environment's: somebody's work, no branch of another environment and no protected one */
         here?: boolean;
-        /** @description the export holds some folders only and the others stay; not for the branch of an environment, which holds its full export */
-        partial?: boolean;
+        /** @description the export holds some folders only and the others stay (true), or is a full export (false); left out: a file with less than half the folders of the branch is some folders only */
+        partial?: boolean | null;
       };
       header?: never;
       path?: never;
@@ -4253,7 +4277,7 @@ export interface operations {
           "application/json": components["schemas"]["RefreshOut"];
         };
       };
-      /** @description The environment cannot be told, or is another one; the checked-out branch holds another environment; a partial export for the branch of an environment */
+      /** @description The environment cannot be told, or is another one; the checked-out branch holds another environment */
       400: {
         headers: {
           [name: string]: unknown;

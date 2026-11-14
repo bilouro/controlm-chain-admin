@@ -8,7 +8,15 @@ import { ChangesBrowser, SummaryCards } from "@/features/compare/ChangesBrowser"
 import { Badge, Button, Card, ErrorBox, Loading, SelectInput } from "@/components/ui";
 
 type Chosen = { name: string; data: ArrayBuffer };
-type Sent = { action: "preview" | "apply"; commit: boolean; here: boolean; partial: boolean };
+/** null: the file tells (less than half the folders of the branch is some folders only) */
+type Sent = {
+  action: "preview" | "apply";
+  commit: boolean;
+  here: boolean;
+  partial: boolean | null;
+};
+type Holds = "auto" | "full" | "some";
+const PARTIAL_OF: Record<Holds, boolean | null> = { auto: null, full: false, some: true };
 type Onto = "here" | "env";
 
 /**
@@ -66,6 +74,36 @@ function Holds({ result }: { result: RefreshOut }) {
         </ul>
       )}
     </section>
+  );
+}
+
+/** Whether the file was read as some folders only, and a warning when a full read empties
+ * most of the branch. */
+function HowRead({ result }: { result: RefreshOut }) {
+  const { branch } = result;
+  const counted = `This export holds ${result.export_folders ?? 0} of the ${result.branch_folders ?? 0} folders of ${branch}`;
+  const folders = result.comparison.summary.folders as Record<string, number> | undefined;
+  const removed = folders?.removed ?? 0;
+  return (
+    <>
+      {result.partial && result.looks_partial && (
+        <p className="text-sm">
+          {counted}: read as some folders only; the others stay as they are.
+        </p>
+      )}
+      {!result.partial && result.looks_partial && !result.removes_most && (
+        <p className="text-sm text-muted">
+          {counted}: choose "some folders only" in The file holds to keep the others.
+        </p>
+      )}
+      {result.removes_most && (
+        <div role="alert" className="rounded-md border border-error/40 bg-error/10 p-3 text-sm">
+          This would remove {removed} of the {result.branch_folders ?? 0} folders of {branch}. If
+          the file is a package of some folders, choose "some folders only" in The file holds and
+          preview again.
+        </div>
+      )}
+    </>
   );
 }
 
@@ -155,6 +193,7 @@ function Result({
           ))}
         </ul>
         <Holds result={result} />
+        <HowRead result={result} />
         {result.applied ? (
           <>
             <p role="status" className="text-sm text-ok">
@@ -219,7 +258,7 @@ export function RefreshPage() {
   const [file, setFile] = useState<Chosen | null>(null);
   const [env, setEnv] = useState("");
   const [onto, setOnto] = useState<Onto>("here");
-  const [isPartial, setIsPartial] = useState(false);
+  const [holds, setHolds] = useState<Holds>("auto");
   const own = ownBranch(workspace.data);
   const here = own !== null && onto === "here";
   const send = useMutation({
@@ -228,7 +267,7 @@ export function RefreshPage() {
       if (env) params.set("env", env);
       if (action === "apply") params.set("commit", String(commit));
       if (here) params.set("here", "true");
-      if (partial) params.set("partial", "true");
+      if (partial !== null) params.set("partial", String(partial));
       return postXml<RefreshOut>(
         `/api/refresh/${encode(action)}?${params.toString()}`,
         file?.data ?? new ArrayBuffer(0),
@@ -247,7 +286,7 @@ export function RefreshPage() {
     setFile(chosen ? { name: chosen.name, data: await readBytes(chosen) } : null);
   };
   const handlePreview = () =>
-    send.mutate({ action: "preview", commit: true, here, partial: here && isPartial });
+    send.mutate({ action: "preview", commit: true, here, partial: PARTIAL_OF[holds] });
   const result = send.data;
   // what was previewed for a branch of your own is applied to the branch checked out then only
   const isStale =
@@ -312,19 +351,22 @@ export function RefreshPage() {
             </SelectInput>
           </label>
         )}
-        {here && (
-          <label className="flex items-center gap-2 pb-1.5 text-sm">
-            <input
-              type="checkbox"
-              checked={isPartial}
-              onChange={(e) => {
-                send.reset();
-                setIsPartial(e.target.checked);
-              }}
-            />
-            The export holds some folders only
-          </label>
-        )}
+        <label className="text-xs text-muted">
+          The file holds
+          <SelectInput
+            aria-label="The file holds"
+            value={holds}
+            onChange={(e) => {
+              send.reset();
+              setHolds(e.target.value as Holds);
+            }}
+            className="block"
+          >
+            <option value="auto">tell from the file</option>
+            <option value="full">the whole environment</option>
+            <option value="some">some folders only</option>
+          </SelectInput>
+        </label>
         <Button disabled={!file || send.isPending} onClick={handlePreview}>
           Preview
         </Button>
@@ -332,7 +374,6 @@ export function RefreshPage() {
           <p className="basis-full text-xs text-muted">
             {own} is a branch of your own: the export goes onto it and the branch of the environment
             stays as it is, so the two can be compared.
-            {isPartial && " The folders the export does not have stay on it."}
           </p>
         )}
       </Card>

@@ -13,7 +13,7 @@ com `--help`. Os comandos que alteram alguma coisa pré-visualizam primeiro e s�
 | Comando | O que faz |
 |---|---|
 | `ctmchain init --application APP --envs prod=P,uat=U [--prefixes ...] [--leading-only ...] [--dedupe-jobnames]` | transforma uma pasta num repositório de cadeias |
-| `ctmchain refresh XML [--env ENV] [--apply] [--here] [--partial] [--no-commit] [--stat]` | o export de um ambiente para o branch dele (ou para o branch aberto) |
+| `ctmchain refresh XML [--env ENV] [--apply] [--here] [--partial] [--no-commit] [--stat]` | o export de um ambiente para o branch dele (ou para o branch aberto); `--partial`: só algumas pastas, as outras ficam |
 | `ctmchain check XML [--env ENV]` | um export contra o que o repositório devolve para esse ambiente |
 | `ctmchain export [--env ENV] -o FICHEIRO` | regenera o XML do branch aberto |
 | `ctmchain commit [-m MENSAGEM]` | faz commit das cadeias, com uma mensagem escrita a partir do que mudou |

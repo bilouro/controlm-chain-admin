@@ -8,13 +8,16 @@ longer has go, and the branch exports the same bytes again.
 An export can also go onto the checked-out branch when that is somebody's work (a branch
 started from an environment's, to see what an export brings before the environment's own
 branch takes it): the environment's branch stays as it is, and the two can be compared.
-There a partial export is taken too: the folders it does not have stay.
+
+An export of some folders only (a package imported into the environment) goes onto either:
+its folders replace the branch's and the others stay. When it is not said, a file with less
+than half the folders of the branch is read that way (:data:`Refresh.looks_partial`).
 """
 
 from __future__ import annotations
 
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
@@ -63,11 +66,24 @@ class Refresh:
     empty: bool = False  # the branch is there and holds no folder yet (the trunk, at first)
     work: bool = False  # the branch is somebody's work, not the environment's own
     partial: bool = False  # the folders the export does not have stay
+    export_folders: int = 0  # the folders of the application in the export
+    branch_folders: int = 0  # the folders the branch holds now
 
     @property
     def subject(self) -> str:
         """The message of the commit that holds the export."""
-        return export_subject(self.env, self.source, work=self.work)
+        return export_subject(self.env, self.source, work=self.work, partial=self.partial)
+
+    @property
+    def looks_partial(self) -> bool:
+        """The export holds less than half the folders of the branch: some folders only."""
+        return looks_partial(self.export_folders, self.branch_folders)
+
+    @property
+    def removes_most(self) -> bool:
+        """Read as a full export, it takes more than half the folders of the branch away."""
+        removed = int(self.summary["folders"].get("removed", 0))
+        return not self.partial and removed * 2 > self.branch_folders > 0
 
     @property
     def unchanged(self) -> bool:
@@ -83,6 +99,10 @@ class Refresh:
             "branch": self.branch,
             "work": self.work,
             "partial": self.partial,
+            "export_folders": self.export_folders,
+            "branch_folders": self.branch_folders,
+            "looks_partial": self.looks_partial,
+            "removes_most": self.removes_most,
             "new_branch": self.new_branch,
             "source": self.source,
             "evidence": list(self.evidence),
@@ -120,18 +140,18 @@ def _environment(repo: ChainRepo, data: bytes, env: str | None) -> tuple[str, tu
     return env, evidence
 
 
-def _target(repo: ChainRepo, env: str, here: bool, partial: bool) -> tuple[str, bool]:
+def looks_partial(export_folders: int, branch_folders: int) -> bool:
+    """Less than half the folders of the branch: an export of some folders only."""
+    return export_folders * 2 < branch_folders
+
+
+def _target(repo: ChainRepo, env: str, here: bool) -> tuple[str, bool]:
     """The branch the export goes onto, and whether that is somebody's work: the branch of
     the environment, or with ``here`` the checked-out one when it holds no environment."""
     config = repo.config
     own = branch_of_env(config, env)
     current = current_branch(repo.root)
     if not here or current == own:
-        if partial:
-            raise ChainError(
-                f"{own} holds the full export of {env}: a partial export goes onto a branch "
-                f"of your own (start one from {own})"
-            )
         return own, False
     if current is None:
         raise GitError("HEAD is detached: check a branch out to import the export onto it")
@@ -141,13 +161,18 @@ def _target(repo: ChainRepo, env: str, here: bool, partial: bool) -> tuple[str, 
     reason = config.git_rules.refusal(current)
     if reason:
         raise ProtectedBranch(reason)
-    held = held_env(repo.root, config, current)
-    if partial and held not in (None, env):
-        raise ChainError(
-            f"{current} holds {held}: some folders of {env} would leave it with two "
-            f"environments; start a branch from {own}"
-        )
     return current, True
+
+
+def _one_environment(repo: ChainRepo, env: str, branch: str) -> None:
+    """Some folders of ``env`` onto a branch of one's own that holds another environment
+    would leave it with two."""
+    held = held_env(repo.root, repo.config, branch)
+    if held not in (None, env):
+        raise ChainError(
+            f"{branch} holds {held}: some folders of {env} would leave it with two "
+            f"environments; start a branch from {branch_of_env(repo.config, env)}"
+        )
 
 
 def _copy(source: Path, target: Path, names: tuple[str, ...]) -> None:
@@ -224,7 +249,7 @@ def refresh(
     apply: bool = False,
     commit: bool = True,
     here: bool = False,
-    partial: bool = False,
+    partial: bool | None = False,
 ) -> Refresh:
     """What the full export ``data`` changes on the branch of its environment.
 
@@ -233,26 +258,32 @@ def refresh(
     tree with ``commit=False``). The same export again changes nothing.
 
     With ``here`` the export goes onto the checked-out branch instead, which must be
-    somebody's work (no environment's branch but the export's own, no protected one); there
-    ``partial`` keeps the folders the export does not have.
+    somebody's work (no environment's branch but the export's own, no protected one).
+
+    ``partial`` keeps the folders the export does not have, on either branch; ``None`` lets
+    the file tell: less than half the folders of the branch is some folders only.
     """
     repo = load_repo(repo.root)
     root = repo.root
     env, evidence = _environment(repo, data, env)
     rules = repo.config.git_rules
-    branch, work = _target(repo, env, here, partial)
+    branch, work = _target(repo, env, here)
     exists = branch_exists(root, branch)
     if apply and chain_changes(root):
         count = chain_changes(root)
         raise UncommittedChanges(
             f"{count} uncommitted chain file(s): commit or discard them before a refresh", count
         )
-    with (
-        _base(root, branch, rules.trunk, exists) as held,
-        memory_dir("imported") as imported,
-    ):
-        _copy(held, imported, _CHAIN if partial else _RULES)
-        report = import_xml(load_repo(imported), data, env, replace_all=not partial)
+    with ExitStack() as stack:
+        held = stack.enter_context(_base(root, branch, rules.trunk, exists))
+        on_branch = len(list((held / "folders").glob("*/folder.json")))
+        imported, report = _imported(stack, held, data, env, partial=bool(partial))
+        if partial is None and looks_partial(len(report.folders), on_branch):
+            partial = True
+            imported, report = _imported(stack, held, data, env, partial=True)
+        partial = bool(partial)
+        if partial and work:
+            _one_environment(repo, env, branch)
         folders, jobs, links, constants, rules_changed, meta, exceptions = diff_snapshots(
             held, imported
         )
@@ -266,13 +297,26 @@ def refresh(
         )  # fmt: skip
         empty = exists and not any((held / "folders").glob("*/folder.json"))
         result = Refresh(env, branch, not exists, source, evidence, comparison, changed,
-                         report, empty=empty, work=work, partial=partial)  # fmt: skip
+                         report, empty=empty, work=work, partial=partial,
+                         export_folders=len(report.folders),
+                         branch_folders=on_branch)  # fmt: skip
         if not apply or result.unchanged:
             return result
         _switch(root, branch, rules.trunk, exists)
         _install(imported, root)
     sha = _commit(root, result.subject) if commit else None
     return replace(result, applied=True, commit=sha)
+
+
+def _imported(
+    stack: ExitStack, held: Path, data: bytes, env: str, *, partial: bool
+) -> tuple[Path, ImportReport]:
+    """The export imported beside what the branch holds: over its folders when ``partial``,
+    else over its rules alone."""
+    imported = stack.enter_context(memory_dir("imported"))
+    _copy(held, imported, _CHAIN if partial else _RULES)
+    report = import_xml(load_repo(imported), data, env, replace_all=not partial)
+    return imported, report
 
 
 def _counts(summary: dict[str, Any]) -> list[str]:
@@ -293,7 +337,18 @@ def render_text(result: Refresh, *, stat: bool = False) -> str:
         f"{len(report.folders)} folders, {report.jobs} jobs in the export"
     ]
     if result.partial:
-        lines.append("  a partial export: the folders it does not have stay")
+        lines.append("  some folders only: the folders it does not have stay")
+    elif result.looks_partial:
+        lines.append(
+            f"  this export holds {result.export_folders} of the {result.branch_folders} "
+            f"folders of {result.branch}: --partial keeps the others"
+        )
+    if result.removes_most:
+        removed = result.summary["folders"].get("removed", 0)
+        lines.append(
+            f"  warning: this would remove {removed} of the {result.branch_folders} folders "
+            f"of {result.branch}"
+        )
     if result.new_branch:
         lines.append(f"  {result.branch} is a new branch, from the rules of the trunk")
     if result.empty:

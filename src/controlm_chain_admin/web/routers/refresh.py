@@ -22,7 +22,7 @@ ERRORS: dict[int | str, dict[str, Any]] = {
     400: {
         "model": ErrorOut,
         "description": "The environment cannot be told, or is another one; the checked-out "
-        "branch holds another environment; a partial export for the branch of an environment",
+        "branch holds another environment",
     },
     401: {"description": "Missing or wrong session token"},
     404: {"model": ErrorOut, "description": "Unknown environment"},
@@ -42,9 +42,10 @@ HERE = Query(
     "no branch of another environment and no protected one",
 )
 PARTIAL = Query(
-    False,
-    description="the export holds some folders only and the others stay; not for the branch "
-    "of an environment, which holds its full export",
+    None,
+    description="the export holds some folders only and the others stay (true), or is a "
+    "full export (false); left out: a file with less than half the folders of the branch is "
+    "some folders only",
 )
 
 
@@ -59,7 +60,7 @@ def preview(
     source: str = SOURCE,
     env: str | None = ENV,
     here: bool = HERE,
-    partial: bool = PARTIAL,
+    partial: bool | None = PARTIAL,
     repo: ChainRepo = Depends(get_repo),
 ) -> RefreshOut:
     result = refresh(repo, data, source=source, env=env, here=here, partial=partial)
@@ -79,7 +80,7 @@ def apply(
     env: str | None = ENV,
     commit: bool = Query(True, description="false leaves the result in the working tree"),
     here: bool = HERE,
-    partial: bool = PARTIAL,
+    partial: bool | None = PARTIAL,
     repo: ChainRepo = Depends(get_repo),
 ) -> RefreshOut:
     with request.app.state.write_lock:

@@ -124,7 +124,7 @@ def test_an_export_onto_the_checked_out_branch_whole_or_partial(
     args = ["refresh", str(part), "--repo", str(root), "--here", "--partial"]
     assert main(args) == 0
     out = capsys.readouterr().out
-    assert "a partial export: the folders it does not have stay" in out
+    assert "some folders only: the folders it does not have stay" in out
     assert "jobs: 1 modified" in out and "removed" not in out
     assert "--apply rewrites the folders of this export on work/uat-next." in out
 
@@ -133,15 +133,17 @@ def test_an_export_onto_the_checked_out_branch_whole_or_partial(
     out = capsys.readouterr().out
     assert (
         "Written on work/uat-next, not committed: review with git diff, then commit it as "
-        '"import(uat): delivery.xml" (the subject says which environment the branch holds).'
+        '"import(uat): delivery.xml (some folders)" (the subject says which environment the '
+        "branch holds)."
     ) in out
 
 
-def test_a_partial_export_is_refused_on_the_branch_of_the_environment(
+def test_some_folders_go_onto_the_branch_of_the_environment_too(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     root = four_branches(tmp_path).root
     xml = write_export(tmp_path, "uat")
 
-    assert main(["refresh", str(xml), "--repo", str(root), "--partial"]) == 3
-    assert "env/uat holds the full export of uat" in capsys.readouterr().err
+    assert main(["refresh", str(xml), "--repo", str(root), "--partial"]) == 0
+    out = capsys.readouterr().out
+    assert out.startswith("Refresh env/uat (uat)") and "some folders only" in out

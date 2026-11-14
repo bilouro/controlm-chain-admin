@@ -435,6 +435,20 @@ or addresses anywhere in this public repository.
     it is worked out from the branch, the commit and the items a delivery keeps. Building a
     delivery by choosing commits was the other reading, not chosen.
 
+32. **Some folders onto the branch of an environment — DONE (2026-11-14), released in
+    0.7.2**, found at work: a package of a few folders of uat, imported into bench, refreshed
+    onto `env/bench`, was read as a full export (5 folders modified, 1872 removals), and
+    `--partial` was refused there. Now `--partial` (and *some folders only*) goes onto the
+    environment's branch too, the commit says `(some folders)`; `refresh(partial=None)` lets
+    the file tell (fewer than half the folders of the branch); the *Refresh* page has *The
+    file holds* (*tell from the file* by default) on every branch, says how it read the
+    file, and warns before a full read that removes more than half the branch.
+33. **The branch dialog says when it works — DONE (2026-11-14), released in 0.7.2**, asked
+    by the author: switching, pushing or pulling gave no sign, and a second click said the
+    branch was checked out already. While an action runs, its button says *Switching…*,
+    *Pushing…* and so on, every other button of the dialog waits, and a status line says
+    what runs.
+
 Later, unordered: second-environment import with learning; `diff` of environments and XML
 files with `xmldiffreport`; mapping editor; upstream graph explorer (paused by the author);
 cycle detection in `validate`; a check for one condition name used by two links. The bilingual

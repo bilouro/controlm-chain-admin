@@ -791,6 +791,14 @@ class RefreshOut(BaseModel):
     )
     work: bool = Field(description="the branch is somebody's work, not the environment's own")
     partial: bool = Field(description="the folders the export does not have stay")
+    export_folders: int = Field(0, description="the folders of the application in the export")
+    branch_folders: int = Field(0, description="the folders the branch holds now")
+    looks_partial: bool = Field(
+        False, description="the export holds less than half the folders of the branch"
+    )
+    removes_most: bool = Field(
+        False, description="read as a full export, it removes more than half of the branch"
+    )
     new_branch: bool = Field(description="the branch is not there yet: apply creates it")
     source: str = Field(description="the name of the export file")
     evidence: list[str] = Field(description="how the environment was told")

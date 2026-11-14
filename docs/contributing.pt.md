@@ -22,9 +22,10 @@ cd web && npm ci && npm run lint && npm run typecheck && npm test && npm run bui
 - **Nunca dados reais.** Nenhum export, nome de job, máquina, utilizador ou endereço real,
   nem sequer num teste. Os dados de teste são de uma aplicação fictícia, `P77`.
 - **O núcleo só depende da biblioteca padrão.** O FastAPI está no extra `[web]`, o servidor
-  MCP no `[mcp]`.
+  MCP no `[mcp]`; o comando do assistente (`ctmadmin_service`) não precisa de mais nada.
 - **Um núcleo, adaptadores finos.** A lógica, incluindo as alterações, está em
-  `controlm_chain_admin.core`; a linha de comandos, a API e o servidor MCP só traduzem.
+  `controlm_chain_admin.core`; a linha de comandos, a API, o servidor MCP e o comando do
+  assistente só traduzem (as ferramentas do assistente são uma classe, `tools.ChainTools`).
 - **Conventional Commits**, um changelog no formato Keep a Changelog, SemVer.
 
 ## A documentação

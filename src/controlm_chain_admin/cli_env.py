@@ -56,7 +56,8 @@ def add_commands(commands: Any) -> None:
     ref.add_argument(
         "--partial",
         action="store_true",
-        help="with --here: the export holds some folders only; the others stay",
+        help="the export holds some folders only (a package imported into the environment): "
+        "its folders replace the branch's, the others stay",
     )
     ref.add_argument("--stat", action="store_true", help="counts only, not every difference")
     ref.add_argument("--format", choices=("text", "json"), default="text")

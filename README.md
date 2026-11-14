@@ -188,9 +188,11 @@ asks for the token the command prints):
 
 - **Refresh**: choose the export of an environment. The page says which environment it is
   and why, what was read, and what differs on its branch, node by node; the branch is
-  overwritten only after you confirm. From a branch of your own (*New branch* in the dialog
+  overwritten only after you confirm. A file of some folders (a package imported into the
+  environment) replaces those folders only: the page tells it from the file, or you say it
+  in *The file holds*. From a branch of your own (*New branch* in the dialog
   of the branch button starts one from the branch that is checked out, `env/uat` say) the
-  export goes *Onto* that branch instead, whole or some folders only, and a link opens
+  export goes *Onto* that branch instead, and a link opens
   *Compare* on the environment's branch against it: what the export brings, before the
   environment's branch takes it. Against the branch of another environment, a branch of
   your own is read as the environment it holds (the one of the last export in its
@@ -256,7 +258,7 @@ reachable.
 py -m venv $HOME\ctmchain-venv
 & $HOME\ctmchain-venv\Scripts\Activate.ps1   # blocked? Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 python -m pip install --upgrade pip
-python -m pip install --upgrade "controlm-chain-admin[web,mcp]"
+python -m pip install --upgrade "controlm-chain-admin[web]"   # [web,mcp] where MCP is allowed
 ctmchain --version
 
 # 2. The data repository, outside the code: the full exports in exports\, the chains in
