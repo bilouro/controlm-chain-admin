@@ -11,7 +11,15 @@ from fastapi.testclient import TestClient
 
 from controlm_chain_admin.web.app import create_app
 from controlm_chain_admin.web.settings import Settings
-from tests.support.fourenvs import GEIENV, HOSTS, SUBJECT, USERS, administrator, four_branches
+from tests.support.fourenvs import (
+    GEIENV,
+    HOSTS,
+    SUBJECT,
+    USERS,
+    administrator,
+    export_of,
+    four_branches,
+)
 from tests.support.gitrepo import git, plain_git_identity
 
 TOKEN = {"X-Ctmchain-Token": "t"}
@@ -200,3 +208,79 @@ def test_following_another_entry_is_a_change_previewed_like_any_other(
     assert added.status_code == 200 and preview.status_code == 200
     assert "of bench follow run_as.9 instead of run_as.1" in preview.json()["summary"]
     assert preview.json()["files"]
+
+
+def test_new_values_after_a_refresh_are_listed_and_put_into_an_entry(derived: TestClient) -> None:
+    """uat renamed its user everywhere: the value is found, its entry suggested, and once
+    chosen nothing is new any more."""
+    renamed = export_of("uat").replace(
+        f'RUN_AS="{USERS["uat"]}"'.encode(), b'RUN_AS="aup77svc"'
+    )
+    xml = {**TOKEN, "Content-Type": "application/xml"}
+    refreshed = derived.post("/api/refresh/apply", content=renamed, headers=xml).json()
+
+    listed = derived.get("/api/envmap/new-values").json()
+    refused = derived.post(
+        "/api/envmap/adopt", json={"key": "RUN_AS", "value": "aup77svc", "entry": "run_as.1"}
+    )
+    adopted = derived.post(
+        "/api/envmap/adopt",
+        json={"key": "RUN_AS", "value": "aup77svc", "entry": "run_as.1"},
+        headers=TOKEN,
+    )
+
+    assert [v["value"] for v in refreshed["new_values"]] == ["aup77svc"]
+    assert listed["env"] == "uat"
+    (new,) = listed["new_values"]
+    assert (new["key"], new["value"], new["suggested"]) == ("RUN_AS", "aup77svc", "run_as.1")
+    assert refused.status_code == 401
+    assert adopted.status_code == 200, adopted.text
+    assert (adopted.json()["old"], adopted.json()["left"]) == (USERS["uat"], 0)
+    assert derived.get("/api/envmap/new-values").json()["new_values"] == []
+
+
+def test_a_new_entry_and_a_value_set_or_left_to_fill(derived: TestClient, root: Path) -> None:
+    git(root, "switch", "-q", "env/uat")
+    added = derived.post(
+        "/api/envmap/adopt", json={"key": "RUN_AS", "value": "aunew", "entry": None},
+        headers=TOKEN,
+    ).json()  # fmt: skip
+    url = f"/api/envmap/entries/{added['entry']}/values/prod"
+    filled = derived.put(url, json={"value": USERS["prod"]}, headers=TOKEN)
+    cleared = derived.put(url, json={"value": None}, headers=TOKEN)
+    unknown = derived.put(
+        f"/api/envmap/entries/{added['entry']}/values/nowhere", json={"value": "x"},
+        headers=TOKEN,
+    )  # fmt: skip
+
+    assert added["to_fill"] == ["prod", "egma", "bench"]
+    entry = next(e for e in filled.json()["entries"] if e["name"] == added["entry"])
+    assert entry["values"] == {"prod": USERS["prod"], "uat": "aunew"}
+    entry = next(e for e in cleared.json()["entries"] if e["name"] == added["entry"])
+    assert entry["values"] == {"uat": "aunew"}
+    assert unknown.status_code == 400 and "unknown environment" in unknown.json()["message"]
+
+
+def test_following_another_entry_in_every_environment(derived: TestClient, root: Path) -> None:
+    """Previewed per environment, then one commit on the branch of each where they differ;
+    the counts move at once."""
+    git(root, "switch", "-q", "env/bench")
+    values = {"prod": USERS["prod"], "uat": "aux77usr", "egma": USERS["egma"], "bench": "abx77usr"}
+    derived.post("/api/envmap/entries", json={"key": "RUN_AS", "name": "run_as.9",
+                                             "values": values}, headers=TOKEN)  # fmt: skip
+    pair = {"entry": "run_as.1", "other": "run_as.9"}
+
+    plan = derived.get("/api/envmap/follow", params=pair).json()
+    refused = derived.post("/api/envmap/follow", json=pair)
+    done = derived.post("/api/envmap/follow", json=pair, headers=TOKEN)
+    counts = derived.get("/api/envmap/followers").json()["followers"]
+
+    assert [(f["env"], f["new"], f["protected"]) for f in plan["follows"]] == [
+        ("uat", "aux77usr", False), ("bench", "abx77usr", False),
+    ]  # fmt: skip
+    assert all(f["places"] > 0 and f["files"] for f in plan["follows"])
+    assert refused.status_code == 401
+    assert done.status_code == 200, done.text
+    assert all(f["commit"] for f in done.json()["follows"])
+    assert counts.get("run_as.1", 0) == 0 and counts["run_as.9"] > 0
+    assert git(root, "status", "--porcelain") == ""

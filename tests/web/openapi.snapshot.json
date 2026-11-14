@@ -29,6 +29,94 @@
         "title": "ActionOut",
         "type": "object"
       },
+      "AdoptRequest": {
+        "properties": {
+          "entry": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the entry that gets it; null: a new entry",
+            "title": "Entry"
+          },
+          "inline": {
+            "default": false,
+            "title": "Inline",
+            "type": "boolean"
+          },
+          "key": {
+            "minLength": 1,
+            "title": "Key",
+            "type": "string"
+          },
+          "value": {
+            "minLength": 1,
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "value"
+        ],
+        "title": "AdoptRequest",
+        "type": "object"
+      },
+      "AdoptedOut": {
+        "properties": {
+          "entry": {
+            "title": "Entry",
+            "type": "string"
+          },
+          "env": {
+            "title": "Env",
+            "type": "string"
+          },
+          "left": {
+            "description": "places of the environment that keep the old value, now in no entry",
+            "title": "Left",
+            "type": "integer"
+          },
+          "new": {
+            "title": "New",
+            "type": "string"
+          },
+          "old": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the value the entry had there, if any",
+            "title": "Old"
+          },
+          "to_fill": {
+            "description": "environments the entry has no value for",
+            "items": {
+              "type": "string"
+            },
+            "title": "To Fill",
+            "type": "array"
+          }
+        },
+        "required": [
+          "entry",
+          "env",
+          "old",
+          "new",
+          "left",
+          "to_fill"
+        ],
+        "title": "AdoptedOut",
+        "type": "object"
+      },
       "ApplyOut": {
         "properties": {
           "deleted": {
@@ -1148,6 +1236,27 @@
         "title": "EffectOut",
         "type": "object"
       },
+      "EntryValueRequest": {
+        "properties": {
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the value; null leaves it to fill",
+            "title": "Value"
+          }
+        },
+        "required": [
+          "value"
+        ],
+        "title": "EntryValueRequest",
+        "type": "object"
+      },
       "EnvBranchOut": {
         "properties": {
           "branch": {
@@ -1175,6 +1284,71 @@
           "remote"
         ],
         "title": "EnvBranchOut",
+        "type": "object"
+      },
+      "EnvFollowOut": {
+        "properties": {
+          "branch": {
+            "title": "Branch",
+            "type": "string"
+          },
+          "commit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "once applied: the commit on the branch",
+            "title": "Commit"
+          },
+          "env": {
+            "title": "Env",
+            "type": "string"
+          },
+          "files": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "new": {
+            "title": "New",
+            "type": "string"
+          },
+          "old": {
+            "title": "Old",
+            "type": "string"
+          },
+          "places": {
+            "description": "places that get the new value on this branch",
+            "title": "Places",
+            "type": "integer"
+          },
+          "protected": {
+            "description": "the trunk: production gets the change by an import file",
+            "title": "Protected",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "env",
+          "branch",
+          "key",
+          "old",
+          "new",
+          "places",
+          "protected",
+          "files"
+        ],
+        "title": "EnvFollowOut",
         "type": "object"
       },
       "EnvMapOut": {
@@ -1700,6 +1874,28 @@
         "title": "FolderSummary",
         "type": "object"
       },
+      "FollowRequest": {
+        "properties": {
+          "entry": {
+            "description": "the entry the places follow now",
+            "minLength": 1,
+            "title": "Entry",
+            "type": "string"
+          },
+          "other": {
+            "description": "the entry of the same key they should follow",
+            "minLength": 1,
+            "title": "Other",
+            "type": "string"
+          }
+        },
+        "required": [
+          "entry",
+          "other"
+        ],
+        "title": "FollowRequest",
+        "type": "object"
+      },
       "FollowersOut": {
         "properties": {
           "environments": {
@@ -1718,6 +1914,15 @@
             "title": "Followers",
             "type": "object"
           },
+          "halfway": {
+            "default": [],
+            "description": "places half-way between two entries: a follow done in some environments only",
+            "items": {
+              "$ref": "#/components/schemas/HalfWayOut"
+            },
+            "title": "Halfway",
+            "type": "array"
+          },
           "unmapped": {
             "description": "places of a mapped key whose values no entry says",
             "title": "Unmapped",
@@ -1730,6 +1935,22 @@
           "unmapped"
         ],
         "title": "FollowersOut",
+        "type": "object"
+      },
+      "FollowsOut": {
+        "properties": {
+          "follows": {
+            "items": {
+              "$ref": "#/components/schemas/EnvFollowOut"
+            },
+            "title": "Follows",
+            "type": "array"
+          }
+        },
+        "required": [
+          "follows"
+        ],
+        "title": "FollowsOut",
         "type": "object"
       },
       "GitStateOut": {
@@ -1841,6 +2062,38 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HalfWayOut": {
+        "properties": {
+          "entries": {
+            "description": "the two entries, by name",
+            "items": {
+              "type": "string"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "like": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "environment -> the entry whose value it has",
+            "title": "Like",
+            "type": "object"
+          },
+          "places": {
+            "description": "how many places have one's values here and the other's there",
+            "title": "Places",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "entries",
+          "places",
+          "like"
+        ],
+        "title": "HalfWayOut",
         "type": "object"
       },
       "ImportedOut": {
@@ -2417,6 +2670,115 @@
         "title": "Neighbour",
         "type": "object"
       },
+      "NewValueOut": {
+        "properties": {
+          "candidates": {
+            "description": "the entries of the same key",
+            "items": {
+              "type": "string"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "env": {
+            "description": "the environment of the branch checked out",
+            "title": "Env",
+            "type": "string"
+          },
+          "inline": {
+            "default": false,
+            "title": "Inline",
+            "type": "boolean"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "known": {
+            "default": false,
+            "description": "the value is in an entry already, with other values elsewhere: a combination of its own (two environments had the same value before)",
+            "title": "Known",
+            "type": "boolean"
+          },
+          "nodes": {
+            "description": "the first nodes that have it",
+            "items": {
+              "type": "string"
+            },
+            "title": "Nodes",
+            "type": "array"
+          },
+          "others": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "default": {},
+            "description": "environment -> what every one of these places has there, where they agree: a new entry takes it",
+            "title": "Others",
+            "type": "object"
+          },
+          "places": {
+            "title": "Places",
+            "type": "integer"
+          },
+          "suggested": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the entry whose values the other environments have there",
+            "title": "Suggested"
+          },
+          "value": {
+            "description": "the value it has, or the word inside the text",
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "env",
+          "value",
+          "places",
+          "nodes",
+          "candidates"
+        ],
+        "title": "NewValueOut",
+        "type": "object"
+      },
+      "NewValuesOut": {
+        "properties": {
+          "env": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the environment of the branch checked out, if any",
+            "title": "Env"
+          },
+          "new_values": {
+            "items": {
+              "$ref": "#/components/schemas/NewValueOut"
+            },
+            "title": "New Values",
+            "type": "array"
+          }
+        },
+        "required": [
+          "env",
+          "new_values"
+        ],
+        "title": "NewValuesOut",
+        "type": "object"
+      },
       "NodeChangeOut": {
         "properties": {
           "after": {
@@ -2957,6 +3319,15 @@
             "description": "the branch is not there yet: apply creates it",
             "title": "New Branch",
             "type": "boolean"
+          },
+          "new_values": {
+            "default": [],
+            "description": "once committed on an environment's branch: its values no entry of the map has",
+            "items": {
+              "$ref": "#/components/schemas/NewValueOut"
+            },
+            "title": "New Values",
+            "type": "array"
           },
           "partial": {
             "description": "the folders the export does not have stay",
@@ -5165,6 +5536,60 @@
         ]
       }
     },
+    "/api/envmap/adopt": {
+      "post": {
+        "operationId": "adopt_api_envmap_adopt_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdoptRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdoptedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "No such entry, a name taken, an unknown environment"
+          },
+          "401": {
+            "description": "Missing or wrong session token"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "A key that cannot be read, or a git error"
+          }
+        },
+        "summary": "Put a new value into an entry (instead of its value there), or into a new one",
+        "tags": [
+          "envmap"
+        ]
+      }
+    },
     "/api/envmap/derive": {
       "get": {
         "operationId": "derive_preview_api_envmap_derive_get",
@@ -5487,6 +5912,195 @@
         ]
       }
     },
+    "/api/envmap/entries/{name}/values/{env}": {
+      "put": {
+        "operationId": "set_value_api_envmap_entries__name__values__env__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "env",
+            "required": true,
+            "schema": {
+              "title": "Env",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EntryValueRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnvMapOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "No such entry, a name taken, an unknown environment"
+          },
+          "401": {
+            "description": "Missing or wrong session token"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "A key that cannot be read, or a git error"
+          }
+        },
+        "summary": "The value of one environment in an entry, or left to fill",
+        "tags": [
+          "envmap"
+        ]
+      }
+    },
+    "/api/envmap/follow": {
+      "get": {
+        "operationId": "follow_preview_api_envmap_follow_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "entry",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "title": "Entry",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "other",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "title": "Other",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FollowsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "No such entry, a name taken, an unknown environment"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "A key that cannot be read, or a git error"
+          }
+        },
+        "summary": "What following another entry changes on the branch of each environment",
+        "tags": [
+          "envmap"
+        ]
+      },
+      "post": {
+        "operationId": "follow_apply_api_envmap_follow_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FollowRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FollowsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "No such entry, a name taken, an unknown environment"
+          },
+          "401": {
+            "description": "Missing or wrong session token"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "A key that cannot be read, or a git error"
+          }
+        },
+        "summary": "Follow another entry in every environment where the two differ: one commit on each branch, none on the trunk",
+        "tags": [
+          "envmap"
+        ]
+      }
+    },
     "/api/envmap/followers": {
       "get": {
         "operationId": "followers_api_envmap_followers_get",
@@ -5523,6 +6137,47 @@
           }
         },
         "summary": "How many places of the environments' branches follow each entry of the map",
+        "tags": [
+          "envmap"
+        ]
+      }
+    },
+    "/api/envmap/new-values": {
+      "get": {
+        "operationId": "list_new_values_api_envmap_new_values_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NewValuesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "No such entry, a name taken, an unknown environment"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "A key that cannot be read, or a git error"
+          }
+        },
+        "summary": "The values of the branch checked out that no entry of the map has for its environment",
         "tags": [
           "envmap"
         ]

@@ -10,16 +10,29 @@ from typing import Any
 from fastapi import APIRouter, Depends, Query, Request
 
 from controlm_chain_admin.core import envmap as core
-from controlm_chain_admin.core.mapcheck import survey
+from controlm_chain_admin.core.mapcheck import (
+    adopt_value,
+    apply_follow_everywhere,
+    follow_everywhere,
+    new_values,
+    set_entry_value,
+    survey,
+)
 from controlm_chain_admin.core.repo import ChainRepo
 from controlm_chain_admin.web.deps import get_repo, require_token
 from controlm_chain_admin.web.schemas import (
+    AdoptedOut,
+    AdoptRequest,
     DerivedOut,
     DeriveRequest,
     EnvMapOut,
     ErrorOut,
     FollowersOut,
+    FollowRequest,
+    FollowsOut,
+    EntryValueRequest,
     MapEntryRequest,
+    NewValuesOut,
     RenameEntryRequest,
     SuggestionsOut,
 )
@@ -149,3 +162,69 @@ def rename_entry(
 @router.delete("/entries/{name}", response_model=EnvMapOut, summary="Drop one entry", **WRITE)
 def remove_entry(name: str, request: Request, repo: ChainRepo = Depends(get_repo)) -> EnvMapOut:
     return _written(request, repo, lambda: core.remove_from_map(repo, name))
+
+
+@router.get(
+    "/new-values",
+    response_model=NewValuesOut,
+    responses=ERRORS,
+    summary="The values of the branch checked out that no entry of the map has for its "
+    "environment",
+)
+def list_new_values(repo: ChainRepo = Depends(get_repo)) -> NewValuesOut:
+    env, found = new_values(repo)
+    return NewValuesOut.model_validate({"env": env, "new_values": [n.to_json() for n in found]})
+
+
+@router.post(
+    "/adopt",
+    response_model=AdoptedOut,
+    summary="Put a new value into an entry (instead of its value there), or into a new one",
+    **WRITE,
+)
+def adopt(body: AdoptRequest, request: Request, repo: ChainRepo = Depends(get_repo)) -> AdoptedOut:
+    with request.app.state.write_lock:
+        done = adopt_value(repo, body.key, body.value, entry=body.entry, inline=body.inline)
+    return AdoptedOut.model_validate(done)
+
+
+@router.put(
+    "/entries/{name}/values/{env}",
+    response_model=EnvMapOut,
+    summary="The value of one environment in an entry, or left to fill",
+    **WRITE,
+)
+def set_value(
+    name: str, env: str, body: EntryValueRequest, request: Request,
+    repo: ChainRepo = Depends(get_repo),
+) -> EnvMapOut:  # fmt: skip
+    return _written(request, repo, lambda: set_entry_value(repo, name, env, body.value))
+
+
+@router.get(
+    "/follow",
+    response_model=FollowsOut,
+    responses=ERRORS,
+    summary="What following another entry changes on the branch of each environment",
+)
+def follow_preview(
+    entry: str = Query(min_length=1), other: str = Query(min_length=1),
+    repo: ChainRepo = Depends(get_repo),
+) -> FollowsOut:  # fmt: skip
+    plan = follow_everywhere(repo, entry, other)
+    return FollowsOut.model_validate({"follows": [follow.to_json() for follow in plan]})
+
+
+@router.post(
+    "/follow",
+    response_model=FollowsOut,
+    summary="Follow another entry in every environment where the two differ: one commit on "
+    "each branch, none on the trunk",
+    **WRITE,
+)
+def follow_apply(
+    body: FollowRequest, request: Request, repo: ChainRepo = Depends(get_repo)
+) -> FollowsOut:
+    with request.app.state.write_lock:
+        done = apply_follow_everywhere(repo, body.entry, body.other)
+    return FollowsOut.model_validate({"follows": done})

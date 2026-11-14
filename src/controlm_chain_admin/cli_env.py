@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +22,7 @@ from controlm_chain_admin.core.repo import load_repo
 from controlm_chain_admin.core.workspace import ensure_editable
 
 EXIT_OK = 0  # the codes of cli.py
+EXIT_USAGE = 2
 
 
 def _repo_option(parser: argparse.ArgumentParser) -> None:
@@ -112,12 +114,41 @@ def _add_envmap(commands: Any) -> None:
     action("followers", cmd_envmap_followers, "how many places follow each entry")
     follow = action(
         "follow", cmd_envmap_follow,
-        "make the jobs that follow one entry follow another, on the branch checked out",
+        "make the jobs that follow one entry follow another, in every environment where the "
+        "two differ (one commit on the branch of each; production gets an import file)",
     )  # fmt: skip
     follow.add_argument("entry", help="the entry the jobs follow now")
     follow.add_argument("other", help="the entry of the same key they should follow")
-    follow.add_argument("--apply", action="store_true", help="write the change (default: preview)")
-    follow.add_argument("--stat", action="store_true", help="list the files, not the diff")
+    follow.add_argument(
+        "--apply", action="store_true", help="commit on each branch (default: preview)"
+    )
+    follow.add_argument(
+        "--here", action="store_true",
+        help="on the branch checked out only, left to review and commit",
+    )  # fmt: skip
+    follow.add_argument("--stat", action="store_true", help="with --here: the files, not the diff")
+    action(
+        "new-values", cmd_envmap_new_values,
+        "the values the branch checked out has and no entry of the map has for its environment "
+        "(after a refresh: a user renamed, a machine replaced)",
+    )  # fmt: skip
+    adopt = action(
+        "adopt", cmd_envmap_adopt,
+        "put a new value of the branch checked out into an entry, or into a new one",
+    )  # fmt: skip
+    adopt.add_argument("key", help="the key, as new-values lists it (RUN_AS, DOMAIL/@SUBJECT)")
+    adopt.add_argument("value", help="the new value (for a word inside a text: the word)")
+    into = adopt.add_mutually_exclusive_group(required=True)
+    into.add_argument("--entry", help="the entry that gets it, instead of its value there")
+    into.add_argument(
+        "--new", action="store_true", help="a new entry; the other environments to fill"
+    )
+    adopt.add_argument("--text", action="store_true", help="a word inside a text")
+    setter = action("set", cmd_envmap_set, "the value of one environment in an entry")
+    setter.add_argument("name", help="the entry")
+    setter.add_argument("env", help="the environment")
+    setter.add_argument("value", nargs="?", help="its value")
+    setter.add_argument("--clear", action="store_true", help="leave it to fill")
 
 
 def cmd_refresh(args: argparse.Namespace) -> int:
@@ -274,6 +305,8 @@ def cmd_envmap_followers(args: argparse.Namespace) -> int:
 
 
 def cmd_envmap_follow(args: argparse.Namespace) -> int:
+    if not args.here:
+        return _follow_everywhere(args)
     repo = load_repo(args.repo)
     if args.apply:
         ensure_editable(repo)
@@ -293,6 +326,85 @@ def cmd_envmap_follow(args: argparse.Namespace) -> int:
         print(f"Applied: {applied.written} written, {applied.deleted} deleted")
     else:
         print("Preview only; re-run with --apply to write.")
+    return EXIT_OK
+
+
+def cmd_envmap_new_values(args: argparse.Namespace) -> int:
+    env, found = mapcheck_mod.new_values(load_repo(args.repo))
+    if args.format == "json":
+        _dump({"env": env, "new_values": [new.to_json() for new in found]})
+        return EXIT_OK
+    if env is None:
+        print("The branch checked out holds no environment: nothing to look for.")
+        return EXIT_OK
+    if not found:
+        print(f"No new value: every value of {env} is in the map.")
+        return EXIT_OK
+    for new in found:
+        word = " (a word inside the text)" if new.inline else ""
+        hint = f"suggested: {new.suggested}" if new.suggested else "no entry fits: --new"
+        print(f"  {new.key} {new.value}{word}  {new.places} place(s)  {hint}")
+        print(f"      e.g. {', '.join(new.nodes)}")
+    print(
+        f"ctmchain envmap adopt KEY VALUE --entry NAME puts one into an entry of {env}; --new "
+        "makes a new entry, the other environments to fill (ctmchain envmap set)."
+    )
+    return EXIT_OK
+
+
+def cmd_envmap_adopt(args: argparse.Namespace) -> int:
+    done = mapcheck_mod.adopt_value(
+        load_repo(args.repo), args.key, args.value,
+        entry=None if args.new else args.entry, inline=args.text,
+    )  # fmt: skip
+    if args.format == "json":
+        _dump(done)
+        return EXIT_OK
+    was = done["old"] if done["old"] is not None else "nothing"
+    print(f"{done['entry']}: {done['env']} {was} -> {done['new']}")
+    if done["to_fill"]:
+        print(f"  to fill: {', '.join(done['to_fill'])} (ctmchain envmap set)")
+    if done["left"]:
+        print(f"  warning: {done['left']} place(s) of {done['env']} still have {was}, now "
+              "in no entry")  # fmt: skip
+    return EXIT_OK
+
+
+def cmd_envmap_set(args: argparse.Namespace) -> int:
+    if args.clear == (args.value is not None):
+        print("give the value, or --clear to leave it to fill", file=sys.stderr)
+        return EXIT_USAGE
+    envmap = mapcheck_mod.set_entry_value(
+        load_repo(args.repo), args.name, args.env, None if args.clear else args.value
+    )
+    said = "to fill" if args.clear else args.value
+    return _written(args, envmap, f"{args.name}: {args.env} {said}")
+
+
+def _follow_everywhere(args: argparse.Namespace) -> int:
+    repo = load_repo(args.repo)
+    if args.apply:
+        done = mapcheck_mod.apply_follow_everywhere(repo, args.entry, args.other)
+        if args.format == "json":
+            _dump({"follows": done})
+            return EXIT_OK
+        for row in done:
+            if row["commit"]:
+                print(f"Committed on {row['branch']}: follow({row['env']}): {args.entry} -> "
+                      f"{args.other} ({row['places']} place(s))")  # fmt: skip
+            elif row["protected"] and row["places"]:
+                print(f"{row['env']} ({row['branch']}): not edited here; production gets "
+                      "the change with an import file (Compare, package)")  # fmt: skip
+        return EXIT_OK
+    plan = mapcheck_mod.follow_everywhere(repo, args.entry, args.other)
+    if args.format == "json":
+        _dump({"follows": [follow.to_json() for follow in plan]})
+        return EXIT_OK
+    for follow in plan:
+        note = " (not edited here: production gets an import file)" if follow.protected else ""
+        print(f"  {follow.env} ({follow.branch}): {follow.places} place(s), {follow.key} "
+              f"{follow.old} -> {follow.new}{note}")  # fmt: skip
+    print("Preview only: --apply commits on the branch of each environment.")
     return EXIT_OK
 
 

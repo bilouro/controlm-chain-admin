@@ -219,9 +219,10 @@ def test_the_command_previews_and_applies(
 
     assert main(["envmap", "followers", "--repo", root]) == 0
     listed = capsys.readouterr().out
-    assert main(["envmap", "follow", "run_as.2", "run_as.1", "--repo", root, "--stat"]) == 0
+    here = ["--repo", root, "--here"]  # the branch checked out only, left to commit
+    assert main(["envmap", "follow", "run_as.2", "run_as.1", *here, "--stat"]) == 0
     preview = capsys.readouterr().out
-    assert main(["envmap", "follow", "run_as.2", "run_as.1", "--repo", root, "--apply"]) == 0
+    assert main(["envmap", "follow", "run_as.2", "run_as.1", *here, "--apply"]) == 0
 
     assert "run_as.2  1 place(s)" in listed
     assert "1 place(s) of bench follow run_as.1 instead of run_as.2" in preview

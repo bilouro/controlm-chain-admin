@@ -6,7 +6,9 @@ import {
   type DeliveriesOut,
   type DerivedOut,
   type EnvMapOut,
+  type NewValuesOut,
   type FollowersOut,
+  type FollowsOut,
   type FolderDetail,
   type GitStateOut,
   type JobDetail,
@@ -207,6 +209,26 @@ export function useFollowers() {
   return useQuery({
     queryKey: [...queryKeys.envmap, "followers"] as const,
     queryFn: () => api<FollowersOut>("/api/envmap/followers"),
+    retry: false,
+  });
+}
+
+/** The values of the branch checked out that no entry of the map has for its environment. */
+export function useNewValues() {
+  return useQuery({
+    queryKey: [...queryKeys.envmap, "new-values"] as const,
+    queryFn: () => api<NewValuesOut>("/api/envmap/new-values"),
+    retry: false,
+  });
+}
+
+/** What following `other` instead of `entry` changes on the branch of each environment. */
+export function useFollowPlan(entry: string, other: string, enabled: boolean) {
+  return useQuery({
+    queryKey: [...queryKeys.envmap, "follow", entry, other] as const,
+    queryFn: () =>
+      api<FollowsOut>(`/api/envmap/follow?${new URLSearchParams({ entry, other }).toString()}`),
+    enabled,
     retry: false,
   });
 }

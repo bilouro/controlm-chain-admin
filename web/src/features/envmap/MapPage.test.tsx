@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { violations } from "@/test/axe";
 import { renderAt } from "@/test/render";
 import { calls, server } from "@/test/server";
+import envmap from "@/test/fixtures/envmap.json";
 import envmapEmpty from "@/test/fixtures/envmap-empty.json";
 import { MapPage } from "./MapPage";
 
@@ -153,7 +154,7 @@ describe("MapPage", () => {
     expect(screen.getByText(/2 places of these keys follow no entry/)).toBeInTheDocument();
   });
 
-  it("makes the jobs of one entry follow another of the same key, as a change to review", async () => {
+  it("follows another entry in every environment where they differ, after a preview", async () => {
     const { user } = await shown();
 
     expect(screen.queryByRole("button", { name: "Follow nodeid.1" })).not.toBeInTheDocument();
@@ -164,13 +165,143 @@ describe("MapPage", () => {
         .getAllByRole("option")
         .map((o) => o.textContent),
     ).toEqual(["run_as.1"]);
-    await user.click(screen.getByRole("button", { name: "Preview the change" }));
+    await user.click(screen.getByRole("button", { name: "Preview" }));
 
-    await waitFor(() => expect(calls.preview.length).toBeGreaterThan(0));
-    expect(calls.preview[calls.preview.length - 1]).toEqual({
-      op: "follow-entry",
-      params: { entry: "run_as.2", other: "run_as.1" },
+    const plan = await screen.findByRole("list", { name: "What the follow changes" });
+    expect(
+      within(plan).getByText(/bench \(env\/bench\): 1 place, RUN_AS abp77adm → abp77proc/),
+    ).toBeInTheDocument();
+    const prod = within(plan)
+      .getAllByRole("listitem")
+      .find((item) => item.textContent?.startsWith("prod (main)"));
+    expect(prod).toHaveTextContent("not edited here: production gets it with an import file");
+    await user.click(screen.getByRole("button", { name: "Follow in 1 environment" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "run_as.2 → run_as.1: committed on env/bench",
+    );
+    expect(calls.envmap[calls.envmap.length - 1]).toEqual({
+      method: "POST",
+      path: "follow",
+      body: { entry: "run_as.2", other: "run_as.1" },
     });
+  });
+
+  it("says the counts are of the branches as committed, and what is half-way", async () => {
+    server.use(
+      http.get("/api/envmap/followers", () =>
+        HttpResponse.json({
+          environments: ["prod", "uat", "egma", "bench"],
+          followers: { "nodeid.1": 11, "run_as.1": 10 },
+          unmapped: 1,
+          halfway: [
+            {
+              entries: ["run_as.1", "run_as.2"],
+              places: 1,
+              like: { prod: "run_as.2", uat: "run_as.1", egma: "run_as.1", bench: "run_as.1" },
+            },
+          ],
+        }),
+      ),
+    );
+    await shown();
+
+    expect(await screen.findByText(/counted on the branches as committed/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/1 place is half-way between run_as.1 and run_as.2: prod like run_as.2/),
+    ).toBeInTheDocument();
+  });
+
+  it("lists the new values of the branch and puts one into the entry suggested", async () => {
+    server.use(
+      http.get("/api/envmap/new-values", () =>
+        HttpResponse.json({
+          env: "uat",
+          new_values: [
+            {
+              key: "RUN_AS",
+              inline: false,
+              env: "uat",
+              value: "aup77svc",
+              places: 10,
+              nodes: ["P77_CHAIN/P77_A"],
+              suggested: "run_as.1",
+              candidates: ["run_as.1", "run_as.2"],
+              known: false,
+              others: { prod: "app77proc", egma: "aep77proc", bench: "abp77proc" },
+            },
+            {
+              key: "RUN_AS",
+              inline: false,
+              env: "uat",
+              value: "aup77adm",
+              places: 1,
+              nodes: ["P77_CHAIN/P77_B"],
+              suggested: null,
+              candidates: ["run_as.1", "run_as.2"],
+              known: true,
+              others: { prod: "aup77adm" },
+            },
+          ],
+        }),
+      ),
+    );
+    const { user } = await shown();
+
+    const section = await screen.findByRole("region", { name: "New values" });
+    expect(section).toHaveTextContent("New values on uat");
+    const row = within(section).getByRole("row", { name: /aup77svc/ });
+    expect(row).toHaveTextContent("10 places");
+    const into = within(row).getByRole("combobox", { name: "Where aup77svc goes" });
+    expect(into).toHaveValue("run_as.1");
+    await user.click(within(row).getByRole("button", { name: "Put into the map" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "run_as.1: uat aup77proc → aup77svc",
+    );
+    expect(calls.envmap[calls.envmap.length - 1]).toEqual({
+      method: "POST",
+      path: "adopt",
+      body: { key: "RUN_AS", value: "aup77svc", inline: false, entry: "run_as.1" },
+    });
+    await user.selectOptions(into, "");
+    await user.click(within(row).getByRole("button", { name: "Put into the map" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("to fill: prod, egma, bench");
+    const combination = within(section).getByRole("row", { name: /aup77adm/ });
+    expect(combination).toHaveTextContent("new combination");
+    const where = within(combination).getByRole("combobox", { name: "Where aup77adm goes" });
+    expect(where).toHaveValue("");
+    expect(
+      within(where).getByRole("option", { name: "a new entry (with prod aup77adm)" }),
+    ).toBeInTheDocument();
+  });
+
+  it("an environment left to fill is filled in place", async () => {
+    server.use(
+      http.get("/api/envmap", () =>
+        HttpResponse.json({
+          ...envmap,
+          entries: [
+            ...envmap.entries,
+            { name: "run_as.3", key: "RUN_AS", values: { uat: "aup77svc" }, inline: false },
+          ],
+        }),
+      ),
+    );
+    const { user } = await shown();
+    const row = screen.getByRole("row", { name: /run_as\.3/ });
+
+    await user.click(within(row).getByRole("button", { name: "Fill egma of run_as.3" }));
+    await user.type(within(row).getByLabelText("egma of run_as.3"), "aep77svc");
+    await user.click(within(row).getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(calls.envmap[calls.envmap.length - 1]).toEqual({
+        method: "PUT",
+        path: "entries/run_as.3/values/egma",
+        body: { value: "aep77svc" },
+      }),
+    );
   });
 
   it("renames an entry", async () => {

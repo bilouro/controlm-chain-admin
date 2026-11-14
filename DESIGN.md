@@ -952,7 +952,8 @@ Assistant
 - `serve --assistant [--assistant-model PROVIDER/MODEL]` — implemented: the web UI with its *Assistant* panel; starts and stops Kilo; repairs the MCP command of `.kilo/kilo.json` when it points at another folder or Python (`kilo.repair_command`). The panel renders the Markdown of an answer (tables, lists, code; `components/Markdown.tsx`, no dependency) and follows its last line. `find` reads a name given with an environment letter without it (`read_as`).
 - `diagnose [<base> <head>] [--files N] [--format text|json] [-o <file>]` — implemented: what this machine costs per small file and per git call, and where one comparison (default: the trunk with the first other environment) spends its time; numbers only (§14.4).
 - `adopt-jobname <FOLDER/JOB> [--keep-names] [--apply]` — implemented: the numbered name of a job becomes its JOBNAME in Control-M too (§8).
-- `envmap followers`, `envmap follow <entry> <other> [--apply] [--stat]` — implemented: who follows each entry of the map, and the jobs of one entry made to follow another on the branch checked out (§14.3).
+- `envmap new-values`, `envmap adopt <key> <value> (--entry NAME | --new)`, `envmap set <entry> <env> (<value> | --clear)` — implemented: the values a branch has that the map does not say, put into an entry (§14.3).
+- `envmap followers`, `envmap follow <entry> <other> [--apply] [--here] [--stat]` — implemented (in every environment where the two differ by default, one commit each; `--here`: the branch checked out only): who follows each entry of the map, and the jobs of one entry made to follow another on the branch checked out (§14.3).
 - `delivery save <name> <head> --item ID... [--base REF] [--note TEXT]`, `delivery list`, `delivery remove <name>`, `delivery package <target> <name>... [-o <file>] [--dry-run]` — implemented: items kept for later, and one import file from several (§14.6).
 - `resources [--name TEXT]`, `set-resource <name> <node>... [--kind control|quantitative] [--set ATTR=VALUE ...]`, `remove-resource <name> <node>...`, `rename-resource <node> <old> <new>` — implemented (story 28): the CONTROL and QUANTITATIVE resources by resource; one given to several jobs at once comes with the attributes the jobs that have it use (`core/resources.py`).
 - `kilo init [--repo DIR] [--dir DIR] [--via service|mcp] [--force]` — implemented: `.kilo/` for Kilo at the top of the git repository: the `controlm` agent running `python -m ctmadmin_service` (default) or the MCP server, agent and skill (`--via mcp`); the vocabulary either way.
@@ -1127,6 +1128,39 @@ that follow `ENTRY` get the value `OTHER` has (a word inside a text is replaced 
 previewed like any change. It shows in *Compare*, reaches the environment as an import
 file, and the map is left alone: once the next export is in, nothing follows `ENTRY` and it
 can be removed.
+
+**Following in every environment, and new values (stories 34 and 35, 2026-11-14).** Found at
+work: of the real map's pairs of one key, 97 in 100 differ in two to four environments, so a
+follow on one branch left places with one entry's values here and the other's there,
+followed by neither: both counts fell to zero. `follow_everywhere` / `apply_follow_everywhere`
+(`envmap follow` by default, `GET`/`POST /api/envmap/follow`, the page's *Follow…*) compute
+the change on the branch of every environment where the two differ, from its commit, and
+commit it there (`follow(<env>): A -> B`; `history.commit_files`: a temporary index over the
+branch's tree, `commit-tree`, `update-ref` from the old sha, no checkout; the branch checked
+out through the working tree, which must be clean); the trunk is never edited (the plan says
+so: production gets an import file). `--here` keeps the follow of the branch checked out,
+left to commit, and says the subject to use. The survey counts a place *half-way*
+(`HalfWay`) between two entries a follow was committed between (the subjects), and says the
+counts are of the branches as committed.
+
+A refresh can bring a value the map does not know (a user renamed everywhere: on a clone of
+the real data, 44 jobs differing between production and uat became 1521). `new_values`
+groups the places of mapped keys that follow no entry, for the environment of the branch
+checked out, by its value there, leaving out those half-way: a value no entry has, or a
+*known* one with other values elsewhere (where two environments had the same value before
+one was renamed); it suggests the entry whose values the other environments have there.
+`adopt_value` puts it into an entry (every entry that had the old value when the old value
+is used nowhere in the environment any more, else the one chosen, saying the places left)
+or into a new entry with what its places agree on elsewhere, the rest to fill
+(`set_entry_value`; an entry may lack environments: it translates nothing there). It runs
+after every committed refresh of an environment's branch (`Refresh.new_values`), and any time
+(`envmap new-values|adopt|set`, `/api/envmap/new-values`, `/adopt`,
+`/entries/{name}/values/{env}`, the *New values* section of the *Map* page). On the clone of
+the real data the 1521 came back to 44.
+
+Before a release, `tests/realdata/test_rehearsal.py` plays these workflows on a temporary clone
+of the private data repository (the rename, a file of some folders, a follow everywhere) and
+prints counts only.
 
 ### 14.4 Real differences (need 9)
 

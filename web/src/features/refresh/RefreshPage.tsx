@@ -107,6 +107,35 @@ function HowRead({ result }: { result: RefreshOut }) {
   );
 }
 
+/** Once applied: the values of the branch no entry of the map has, and where to put them. */
+function NewValuesFound({ result }: { result: RefreshOut }) {
+  const found = result.new_values ?? [];
+  if (!result.applied || found.length === 0) return null;
+  return (
+    <section
+      aria-label="New values for the map"
+      className="space-y-1 rounded-md border border-warning/40 bg-warning/10 p-3 text-sm"
+    >
+      <p>
+        {found.length === 1 ? "1 new value" : `${found.length} new values`} for the map: until each
+        goes into an entry, comparing {result.env} with another environment shows them as
+        differences.
+      </p>
+      <ul className="list-disc pl-5 text-xs">
+        {found.map((value) => (
+          <li key={`${value.key}|${value.value}`}>
+            {value.key} {value.value} — {plural(value.places, "place")}
+            {value.suggested ? ` — suggested: ${value.suggested}` : " — no entry fits: a new one"}
+          </li>
+        ))}
+      </ul>
+      <Link to="/map" className="text-xs text-accent underline">
+        Put them into the map on the Map page
+      </Link>
+    </section>
+  );
+}
+
 /** What applying does, in words: the three cases write different things. */
 function consequence(result: RefreshOut): string {
   const { branch } = result;
@@ -194,6 +223,7 @@ function Result({
         </ul>
         <Holds result={result} />
         <HowRead result={result} />
+        <NewValuesFound result={result} />
         {result.applied ? (
           <>
             <p role="status" className="text-sm text-ok">

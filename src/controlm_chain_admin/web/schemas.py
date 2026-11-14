@@ -708,6 +708,12 @@ class SuggestionsOut(BaseModel):
     suggestions: list[SuggestionOut]
 
 
+class HalfWayOut(BaseModel):
+    entries: list[str] = Field(description="the two entries, by name")
+    places: int = Field(description="how many places have one's values here and the other's there")
+    like: dict[str, str] = Field(description="environment -> the entry whose value it has")
+
+
 class FollowersOut(BaseModel):
     environments: list[str] = Field(description="the environments whose branches were read")
     followers: dict[str, int] = Field(
@@ -715,6 +721,78 @@ class FollowersOut(BaseModel):
         "whose values are the entry's"
     )
     unmapped: int = Field(description="places of a mapped key whose values no entry says")
+    halfway: list[HalfWayOut] = Field(
+        [], description="places half-way between two entries: a follow done in some "
+        "environments only"
+    )  # fmt: skip
+
+
+class NewValueOut(BaseModel):
+    key: str
+    inline: bool = False
+    env: str = Field(description="the environment of the branch checked out")
+    value: str = Field(description="the value it has, or the word inside the text")
+    places: int
+    nodes: list[str] = Field(description="the first nodes that have it")
+    suggested: str | None = Field(
+        None, description="the entry whose values the other environments have there"
+    )
+    candidates: list[str] = Field(description="the entries of the same key")
+    known: bool = Field(
+        False, description="the value is in an entry already, with other values elsewhere: "
+        "a combination of its own (two environments had the same value before)"
+    )  # fmt: skip
+    others: dict[str, str] = Field(
+        {}, description="environment -> what every one of these places has there, where they "
+        "agree: a new entry takes it"
+    )  # fmt: skip
+
+
+class NewValuesOut(BaseModel):
+    env: str | None = Field(description="the environment of the branch checked out, if any")
+    new_values: list[NewValueOut]
+
+
+class AdoptRequest(BaseModel):
+    key: str = Field(min_length=1)
+    value: str = Field(min_length=1)
+    inline: bool = False
+    entry: str | None = Field(None, description="the entry that gets it; null: a new entry")
+
+
+class AdoptedOut(BaseModel):
+    entry: str
+    env: str
+    old: str | None = Field(description="the value the entry had there, if any")
+    new: str
+    left: int = Field(description="places of the environment that keep the old value, now in "
+                      "no entry")  # fmt: skip
+    to_fill: list[str] = Field(description="environments the entry has no value for")
+
+
+class FollowRequest(BaseModel):
+    entry: str = Field(min_length=1, description="the entry the places follow now")
+    other: str = Field(min_length=1, description="the entry of the same key they should follow")
+
+
+class EnvFollowOut(BaseModel):
+    env: str
+    branch: str
+    key: str
+    old: str
+    new: str
+    places: int = Field(description="places that get the new value on this branch")
+    protected: bool = Field(description="the trunk: production gets the change by an import file")
+    files: list[str]
+    commit: str | None = Field(None, description="once applied: the commit on the branch")
+
+
+class FollowsOut(BaseModel):
+    follows: list[EnvFollowOut]
+
+
+class EntryValueRequest(BaseModel):
+    value: str | None = Field(description="the value; null leaves it to fill")
 
 
 class ResourceOut(BaseModel):
@@ -799,6 +877,10 @@ class RefreshOut(BaseModel):
     removes_most: bool = Field(
         False, description="read as a full export, it removes more than half of the branch"
     )
+    new_values: list[NewValueOut] = Field(
+        [], description="once committed on an environment's branch: its values no entry of "
+        "the map has"
+    )  # fmt: skip
     new_branch: bool = Field(description="the branch is not there yet: apply creates it")
     source: str = Field(description="the name of the export file")
     evidence: list[str] = Field(description="how the environment was told")

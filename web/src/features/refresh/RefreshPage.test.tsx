@@ -340,6 +340,41 @@ describe("RefreshPage", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("some folders only");
   });
 
+  it("once applied, says the new values for the map and leads to them", async () => {
+    server.use(
+      http.post("/api/refresh/:action", () =>
+        HttpResponse.json({
+          ...refresh,
+          applied: true,
+          commit: "1234567890abcdef1234567890abcdef12345678",
+          new_values: [
+            {
+              key: "RUN_AS",
+              inline: false,
+              env: "uat",
+              value: "aup77svc",
+              places: 1887,
+              nodes: ["P77_CHAIN/P77_A"],
+              suggested: "run_as.1",
+              candidates: ["run_as.1"],
+              known: false,
+              others: {},
+            },
+          ],
+        }),
+      ),
+    );
+    const { user, preview } = await chosen();
+    await user.click(preview);
+    await screen.findByRole("heading", { name: /uat_export\.xml/ });
+
+    const found = screen.getByRole("region", { name: "New values for the map" });
+    expect(found).toHaveTextContent("RUN_AS aup77svc");
+    expect(found).toHaveTextContent("1887 places");
+    expect(found).toHaveTextContent("suggested: run_as.1");
+    expect(within(found).getByRole("link", { name: /Map/ })).toHaveAttribute("href", "/map");
+  });
+
   it("asks for the token when the server refuses", async () => {
     sessionStorage.clear();
     const { user, preview } = await chosen();

@@ -9,6 +9,7 @@ Needs the ``git`` program; nothing else.
 from __future__ import annotations
 
 import io
+import os
 import subprocess
 import tarfile
 import tempfile
@@ -353,3 +354,35 @@ def snapshot(
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_bytes(content)
         yield target
+
+
+def commit_files(root: Path, branch: str, files: Mapping[str, str | None], message: str) -> str:
+    """Commit ``files`` (path -> text, None to delete) on ``branch`` without checking it out:
+    a temporary index over the branch's tree, a commit on top of it, the branch moved to it
+    only if it is still where it was. The commit's sha."""
+    parent = str(_git(root, "rev-parse", "--verify", f"refs/heads/{branch}")).strip()
+    with tempfile.TemporaryDirectory() as tmp:
+        env = {**os.environ, "GIT_INDEX_FILE": str(Path(tmp) / "index")}
+
+        def run(*args: str, data: bytes | None = None) -> str:
+            count("git_calls")
+            result = subprocess.run(
+                ["git", "-C", str(root), *args], input=data, capture_output=True,
+                check=False, env=env,
+            )  # fmt: skip
+            if result.returncode != 0:
+                stderr = result.stderr.decode("utf-8", "replace").strip()
+                raise GitError(f"git {' '.join(args[:2])}: {stderr or 'failed'}")
+            return result.stdout.decode("utf-8").strip()
+
+        run("read-tree", parent)
+        for path, text in files.items():
+            if text is None:
+                run("update-index", "--force-remove", "--", path)
+                continue
+            blob = run("hash-object", "-w", "--stdin", data=text.encode("utf-8"))
+            run("update-index", "--add", "--cacheinfo", f"100644,{blob},{path}")
+        tree = run("write-tree")
+        commit = run("commit-tree", tree, "-p", parent, "-m", message)
+        run("update-ref", f"refs/heads/{branch}", commit, parent)
+    return commit

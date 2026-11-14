@@ -129,3 +129,22 @@ test("a refresh: the export previewed, then the branch of its environment overwr
   await page.getByRole("button", { name: "Preview" }).click();
   await expect(page.getByText(/Nothing differs: env\/uat already holds this export/)).toBeVisible();
 });
+
+test("the map: a follow in every environment where two entries differ, committed and counted", async ({
+  page,
+}) => {
+  await page.goto(at("/map"));
+  const entries = page.getByRole("table", { name: "Map entries" });
+  const second = entries.getByRole("row", { name: /run_as\.2/ });
+  await expect(second).toContainText("1 place");
+
+  await second.getByRole("button", { name: "Follow run_as.2" }).click();
+  await second.getByRole("button", { name: "Preview" }).click();
+  const plan = second.getByRole("list", { name: "What the follow changes" });
+  await expect(plan).toContainText("bench (env/bench): 1 place");
+  await second.getByRole("button", { name: "Follow in 1 environment" }).click();
+
+  await expect(page.getByRole("status")).toContainText("committed on env/bench");
+  await expect(entries.getByRole("row", { name: /run_as\.2/ })).toContainText("no place");
+  await expect(page.getByRole("region", { name: "New values" })).toBeVisible();
+});

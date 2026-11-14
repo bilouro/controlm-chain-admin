@@ -23,7 +23,8 @@ com `--help`. Os comandos que alteram alguma coisa pré-visualizam primeiro e s�
 | Comando | O que faz |
 |---|---|
 | `ctmchain envmap show\|derive\|suggest\|add\|rename\|remove` | o mapa do que varia |
-| `ctmchain envmap followers`, `ctmchain envmap follow ITEM OUTRO [--apply]` | quem segue cada item; fazer os jobs de um seguirem outro |
+| `ctmchain envmap followers`, `ctmchain envmap follow ITEM OUTRO [--apply] [--here]` | quem segue cada item; fazer os jobs de um seguirem outro, em todos os ambientes onde diferem |
+| `ctmchain envmap new-values`, `ctmchain envmap adopt CHAVE VALOR (--entry NOME \| --new)`, `ctmchain envmap set ITEM AMBIENTE (VALOR \| --clear)` | os valores do branch que o mapa não diz; pôr um num item; preencher um ambiente |
 | `ctmchain compare BASE [HEAD] [--raw] [--prefer ITEM] [--format text\|md\|json]` | o que difere |
 | `ctmchain take HEAD [--list] [--base BASE] [--item ID ...] [--theirs ID ...] [--apply]` | itens de outro branch para o que está aberto |
 | `ctmchain package BASE [HEAD] [--take ID ...] [--env ENV] [-o FICHEIRO] [--dry-run]` | o ficheiro de import |

@@ -6,6 +6,36 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- New values for the map: after a refresh (a user renamed in Control-M, a machine replaced)
+  the values of the branch that no entry of the map says are listed, with how many places
+  have each and the entry they belong to. Put one into that entry, or into a new entry that
+  takes what its places have elsewhere (the rest to fill), and the comparison is as it was.
+  It runs after every refresh of an environment's branch and any time: `ctmchain envmap
+  new-values`, `envmap adopt`, `envmap set`, the *New values* section of the *Map* page, an
+  environment *to fill* filled in place.
+- A rehearsal of the author's workflows on a temporary clone of the real data, before every
+  release (`tests/realdata/test_rehearsal.py`, counts only).
+
+### Changed
+
+- *Follow* changes every environment where the two entries differ: one commit on the branch
+  of each (`follow(<env>): A -> B`), previewed by environment, the counts moving at once.
+  Production is never edited here: the preview says when it differs, and its import file
+  carries the change. `ctmchain envmap follow --here` keeps the follow of the branch checked
+  out only. Before, a follow on one branch of two entries that differ in several
+  environments left the places following neither: both counts fell to zero.
+- The *Map* page says the counts are of the branches as committed, and which places are
+  half-way between two entries (a follow done in some environments only).
+
+### Fixed
+
+- A user renamed everywhere by a refresh no longer leaves the comparison full of
+  differences once it is in the map: every entry that had the old value takes the new one,
+  and places where two environments had the same value get an entry of their own (on a
+  clone of the real data, 1521 jobs differing came back to the 44 of before).
+
 ## [0.7.2] - 2026-11-14
 
 ### Changed

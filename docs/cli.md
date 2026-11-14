@@ -23,7 +23,8 @@ Exit codes: `0` ok, `1` findings, `2` usage, `3` error.
 | Command | What it does |
 |---|---|
 | `ctmchain envmap show\|derive\|suggest\|add\|rename\|remove` | the map of what varies |
-| `ctmchain envmap followers`, `ctmchain envmap follow ENTRY OTHER [--apply]` | who follows each entry; make the jobs of one follow another |
+| `ctmchain envmap followers`, `ctmchain envmap follow ENTRY OTHER [--apply] [--here]` | who follows each entry; make the jobs of one follow another, in every environment where they differ |
+| `ctmchain envmap new-values`, `ctmchain envmap adopt KEY VALUE (--entry NAME \| --new)`, `ctmchain envmap set ENTRY ENV (VALUE \| --clear)` | the values the branch has that the map does not say; put one into an entry; fill an environment |
 | `ctmchain compare BASE [HEAD] [--raw] [--prefer ENTRY] [--format text\|md\|json]` | what differs |
 | `ctmchain take HEAD [--list] [--base BASE] [--item ID ...] [--theirs ID ...] [--apply]` | items of another branch into the checked-out one |
 | `ctmchain package BASE [HEAD] [--take ID ...] [--env ENV] [-o FILE] [--dry-run]` | the import file |

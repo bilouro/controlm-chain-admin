@@ -58,6 +58,12 @@ export type ResourceOut = Schemas["ResourceOut"];
 export type DeliveriesOut = Schemas["DeliveriesOut"];
 export type DeliveryOut = Schemas["DeliveryOut"];
 export type FollowersOut = Schemas["FollowersOut"];
+export type FollowsOut = Schemas["FollowsOut"];
+export type EnvFollowOut = Schemas["EnvFollowOut"];
+export type NewValuesOut = Schemas["NewValuesOut"];
+export type NewValueOut = Schemas["NewValueOut"];
+export type AdoptedOut = Schemas["AdoptedOut"];
+export type HalfWayOut = Schemas["HalfWayOut"];
 export type MapEntryOut = Schemas["MapEntryOut"];
 export type MapEntryRequest = Schemas["MapEntryRequest"];
 export type DerivedOut = Schemas["DerivedOut"];
@@ -123,7 +129,7 @@ function withToken(headers: Record<string, string>): Record<string, string> {
 
 /** Send JSON (or nothing) with the session token: the editing endpoints. */
 export async function sendApi<T>(
-  method: "POST" | "PATCH" | "DELETE",
+  method: "POST" | "PATCH" | "PUT" | "DELETE",
   path: string,
   body?: unknown,
 ): Promise<T> {

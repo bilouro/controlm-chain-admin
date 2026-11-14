@@ -28,6 +28,18 @@ cd web && npm ci && npm run lint && npm run typecheck && npm test && npm run bui
   assistente só traduzem (as ferramentas do assistente são uma classe, `tools.ChainTools`).
 - **Conventional Commits**, um changelog no formato Keep a Changelog, SemVer.
 
+## Antes de uma versão
+
+Os dados de teste sintéticos são regulares; as cadeias reais não. Antes de uma versão, o
+autor ensaia os fluxos que a versão mexe numa cópia temporária do repositório de dados
+privado (nunca no próprio repositório), só com contagens:
+
+```bash
+CTMCHAIN_DATA_REPO=~/dev/controlm-chain-data pytest -m realdata tests/realdata/test_rehearsal.py -s
+```
+
+Um fluxo que uma versão muda ganha lá um cenário primeiro.
+
 ## A documentação
 
 ```bash

@@ -60,7 +60,8 @@ repository of small JSON files:
 | Know what is expected to differ between environments, without it belonging to any of them | `ctmchain envmap derive --apply`, `ctmchain envmap show` (kept on the branch `map`) |
 | Compare two environments by their real differences | `ctmchain compare main env/uat` (`--raw`: as stored) |
 | Give a job whose JOBNAME others share the numbered name the repository calls it, in Control-M too | `ctmchain adopt-jobname FOLDER/JOB2 --apply`, then `ctmchain package` for each environment |
-| Put right an environment set up with another one's value: its jobs follow the right entry of the map | `ctmchain envmap followers`, `ctmchain envmap follow run_as.2 run_as.1 --apply` (on that environment's branch) |
+| Put right environments set up with another value: their jobs follow the right entry of the map | `ctmchain envmap followers`, `ctmchain envmap follow run_as.2 run_as.1 --apply` (one commit on the branch of each environment where they differ) |
+| After a refresh, put the values the map does not know into it (a user renamed, a machine replaced) | `ctmchain envmap new-values`, `ctmchain envmap adopt RUN_AS <value> --entry run_as.1` (also run by every refresh, and on the *Map* page) |
 | Put items aside under a name, today and next week, and make one import file from several when it is time | `ctmchain delivery save "new job" env/uat --item 'job:F/J' --base env/bench`, `ctmchain delivery list`, `ctmchain delivery package env/bench "new job" weekly -o bench_import.xml` |
 | Settle a condition two environments call by different names: keep both, or one takes the other's | `ctmchain compare main env/uat` lists them; `ctmchain package main env/uat --take link:ID -o prod_import.xml` |
 | See the CONTROL and QUANTITATIVE resources by resource, and give one to several jobs at once | `ctmchain resources`, `ctmchain set-resource RQ_AM FOLDER/JOB1 FOLDER/JOB2 --apply` |

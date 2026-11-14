@@ -28,6 +28,18 @@ cd web && npm ci && npm run lint && npm run typecheck && npm test && npm run bui
   command only translate (the assistant's tools are one class, `tools.ChainTools`).
 - **Conventional Commits**, a changelog in the Keep a Changelog format, SemVer.
 
+## Before a release
+
+The synthetic fixtures are regular; real chains are not. Before a release, the maintainer
+plays the workflows the release touches on a temporary clone of the private data
+repository (never the repository itself), counts only:
+
+```bash
+CTMCHAIN_DATA_REPO=~/dev/controlm-chain-data pytest -m realdata tests/realdata/test_rehearsal.py -s
+```
+
+A workflow a release changes gets a scenario there first.
+
 ## The documentation
 
 ```bash

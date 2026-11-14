@@ -1,8 +1,15 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ApiError, encode, sendApi, type EnvMapOut, type MapEntryOut } from "@/lib/api/client";
-import { queryKeys, useEnvMap, useFollowers } from "@/lib/api/queries";
-import { useChanges } from "@/features/changes/changes-context";
+import {
+  ApiError,
+  encode,
+  sendApi,
+  type EnvMapOut,
+  type FollowsOut,
+  type HalfWayOut,
+  type MapEntryOut,
+} from "@/lib/api/client";
+import { queryKeys, useEnvMap, useFollowers, useFollowPlan } from "@/lib/api/queries";
 import { TokenForm } from "@/features/changes/TokenForm";
 import {
   Badge,
@@ -19,6 +26,7 @@ import {
   Th,
 } from "@/components/ui";
 import { DerivePanel } from "./DerivePanel";
+import { NewValues } from "./NewValues";
 import { TechnicalAttributes } from "./TechnicalAttributes";
 import type { MapWrite, Submit } from "./writes";
 
@@ -67,11 +75,14 @@ function EntryActions({
   submit,
   isPending,
 }: Omit<RowProps, "envs"> & { siblings: MapEntryOut[] }) {
-  const { propose } = useChanges();
   const [mode, setMode] = useState<"rename" | "remove" | "follow" | null>(null);
   const [name, setName] = useState(entry.name);
   const [other, setOther] = useState(siblings[0]?.name ?? "");
-  const close = () => setMode(null);
+  const [isPreviewing, setIsPreviewing] = useState(false);
+  const close = () => {
+    setMode(null);
+    setIsPreviewing(false);
+  };
   const path = `entries/${encode(entry.name)}`;
   if (mode === "follow") {
     return (
@@ -79,7 +90,10 @@ function EntryActions({
         <SelectInput
           aria-label={`Entry the jobs of ${entry.name} should follow`}
           value={other}
-          onChange={(e) => setOther(e.target.value)}
+          onChange={(e) => {
+            setOther(e.target.value);
+            setIsPreviewing(false);
+          }}
         >
           {siblings.map((sibling) => (
             <option key={sibling.name} value={sibling.name}>
@@ -90,17 +104,23 @@ function EntryActions({
         <Button
           size="sm"
           disabled={!other}
-          title="On the branch checked out: its jobs that follow this entry get the value of the other one"
-          onClick={() => {
-            propose({ op: "follow-entry", params: { entry: entry.name, other } });
-            close();
-          }}
+          title="What changes on the branch of each environment where the two entries differ"
+          onClick={() => setIsPreviewing(true)}
         >
-          Preview the change
+          Preview
         </Button>
         <Button size="sm" variant="ghost" onClick={close}>
           Cancel
         </Button>
+        {isPreviewing && (
+          <FollowPlan
+            entry={entry.name}
+            other={other}
+            submit={submit}
+            isPending={isPending}
+            onDone={close}
+          />
+        )}
       </span>
     );
   }
@@ -187,6 +207,131 @@ function EntryActions({
   );
 }
 
+/** What a follow changes on the branch of each environment, and the button that commits it. */
+function FollowPlan({
+  entry,
+  other,
+  submit,
+  isPending,
+  onDone,
+}: {
+  entry: string;
+  other: string;
+  submit: Submit;
+  isPending: boolean;
+  onDone: () => void;
+}) {
+  const plan = useFollowPlan(entry, other, true);
+  if (plan.isPending) return <Loading what="what the follow changes" />;
+  if (plan.isError) return <ErrorBox error={plan.error} />;
+  const follows = plan.data.follows;
+  const committed = follows.filter((f) => !f.protected && f.places > 0);
+  return (
+    <div className="basis-full space-y-2 rounded-md border border-border p-2 text-xs">
+      <ul aria-label="What the follow changes" className="space-y-0.5">
+        {follows.map((f) => (
+          <li key={f.env}>
+            {f.env} ({f.branch}): {places(f.places)}, {f.key} {f.old} → {f.new}
+            {f.protected && (
+              <span className="text-muted">
+                {" "}
+                — not edited here: production gets it with an import file (Compare, package)
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+      <p className="text-muted">
+        One commit on the branch of each environment; their Control-M gets the change with an import
+        file (Compare). The counts move at once.
+      </p>
+      <Button
+        size="sm"
+        disabled={isPending || committed.length === 0}
+        onClick={() =>
+          submit({
+            method: "POST",
+            path: "follow",
+            body: { entry, other },
+            done: "",
+            doneFrom: (answer) => {
+              const done = (answer as FollowsOut).follows.filter((f) => f.commit);
+              return `${entry} → ${other}: committed on ${done.map((f) => f.branch).join(", ")}`;
+            },
+            after: onDone,
+          })
+        }
+      >
+        Follow in {committed.length} environment{committed.length === 1 ? "" : "s"}
+      </Button>
+    </div>
+  );
+}
+
+/** A value of an entry, or a button to fill it when the entry has none for that environment. */
+function ValueCell({
+  entry,
+  env,
+  submit,
+  isPending,
+}: {
+  entry: MapEntryOut;
+  env: string;
+  submit: Submit;
+  isPending: boolean;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [value, setValue] = useState("");
+  const shown = entry.values[env];
+  if (shown !== undefined) return <>{shown}</>;
+  if (!isEditing) {
+    return (
+      <Button
+        size="sm"
+        variant="ghost"
+        aria-label={`Fill ${env} of ${entry.name}`}
+        onClick={() => setIsEditing(true)}
+      >
+        to fill
+      </Button>
+    );
+  }
+  return (
+    <span className="flex items-center gap-1">
+      <TextInput
+        aria-label={`${env} of ${entry.name}`}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        className="w-28"
+      />
+      <Button
+        size="sm"
+        disabled={isPending || !value.trim()}
+        onClick={() =>
+          submit({
+            method: "PUT",
+            path: `entries/${encode(entry.name)}/values/${encode(env)}`,
+            body: { value: value.trim() },
+            done: `${entry.name}: ${env} ${value.trim()}`,
+            after: () => setIsEditing(false),
+          })
+        }
+      >
+        Save
+      </Button>
+    </span>
+  );
+}
+
+function halfwayLine(half: HalfWayOut): string {
+  const [first, second] = half.entries;
+  const envs = Object.entries(half.like)
+    .filter(([, name]) => name === second)
+    .map(([env]) => env);
+  const verb = half.places === 1 ? "is" : "are";
+  return `${places(half.places)} ${verb} half-way between ${first} and ${second}: ${envs.join(", ")} like ${second}`;
+}
+
 function Entries({
   map,
   submit,
@@ -231,7 +376,7 @@ function Entries({
                 </Td>
                 {envs.map((env) => (
                   <Td key={env} className="break-all font-mono text-xs">
-                    {entry.values[env] ?? "—"}
+                    <ValueCell entry={entry} env={env} submit={submit} isPending={isPending} />
                   </Td>
                 ))}
                 <Td className="whitespace-nowrap text-xs text-muted">
@@ -255,6 +400,15 @@ function Entries({
           </tbody>
         </Table>
       )}
+      <p className="border-t border-border px-3 py-2 text-xs text-muted">
+        Followed by: counted on the branches as committed, where every environment has the
+        entry&apos;s value.
+      </p>
+      {(followers.data?.halfway ?? []).map((half) => (
+        <p key={half.entries.join("|")} className="px-3 py-1 text-xs text-warning">
+          {halfwayLine(half)}
+        </p>
+      ))}
       {unmapped > 0 && (
         <p className="border-t border-border px-3 py-2 text-xs text-muted">
           {places(unmapped)} of these keys follow no entry: the Validation page lists them.
@@ -345,8 +499,8 @@ export function MapPage() {
   const write = useMutation({
     mutationFn: (w: MapWrite) => sendApi<unknown>(w.method, `/api/envmap/${w.path}`, w.body),
     onMutate: () => setDone(null),
-    onSuccess: (_result, w) => {
-      setDone(w.done);
+    onSuccess: (result, w) => {
+      setDone(w.doneFrom ? w.doneFrom(result) : w.done);
       w.after?.();
       return queryClient.invalidateQueries({ queryKey: queryKeys.envmap });
     },
@@ -377,6 +531,7 @@ export function MapPage() {
       {map.data && (
         <>
           <Environments map={map.data} />
+          <NewValues submit={submit} isPending={write.isPending} />
           <Entries map={map.data} submit={submit} isPending={write.isPending} />
           <AddEntry
             envs={Object.keys(map.data.letters)}

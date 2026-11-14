@@ -92,6 +92,34 @@ async function mapWrite(request: Request, path: string) {
   return null;
 }
 
+/** What following ``other`` changes, by environment: bench differs, production too. */
+function followPlan(other: string) {
+  return [
+    {
+      env: "prod",
+      branch: "main",
+      key: "RUN_AS",
+      old: "app77adm",
+      new: other === "run_as.1" ? "app77proc" : "x",
+      places: 1,
+      protected: true,
+      files: ["folders/P77_CHAIN/jobs/P77_B.json"],
+      commit: null,
+    },
+    {
+      env: "bench",
+      branch: "env/bench",
+      key: "RUN_AS",
+      old: "abp77adm",
+      new: "abp77proc",
+      places: 1,
+      protected: false,
+      files: ["folders/P77_CHAIN/jobs/P77_B.json"],
+      commit: null,
+    },
+  ];
+}
+
 export const deliveriesKept = {
   deliveries: [
     {
@@ -199,6 +227,45 @@ export const handlers = [
       unmapped: 2,
     }),
   ),
+  http.get("/api/envmap/new-values", () => HttpResponse.json({ env: "bench", new_values: [] })),
+  http.post("/api/envmap/adopt", async ({ request }) => {
+    const denied = await mapWrite(request, "adopt");
+    const body = calls.envmap[calls.envmap.length - 1]?.body as { entry: string | null };
+    return (
+      denied ??
+      HttpResponse.json({
+        entry: body?.entry ?? "run_as.3",
+        env: "uat",
+        old: body?.entry ? "aup77proc" : null,
+        new: "aup77svc",
+        left: 0,
+        to_fill: body?.entry ? [] : ["prod", "egma", "bench"],
+      })
+    );
+  }),
+  http.put("/api/envmap/entries/:name/values/:env", async ({ request, params }) => {
+    const denied = await mapWrite(
+      request,
+      `entries/${String(params.name)}/values/${String(params.env)}`,
+    );
+    return denied ?? HttpResponse.json(envmap);
+  }),
+  http.get("/api/envmap/follow", ({ request }) => {
+    const url = new URL(request.url);
+    return HttpResponse.json({ follows: followPlan(url.searchParams.get("other") ?? "") });
+  }),
+  http.post("/api/envmap/follow", async ({ request }) => {
+    const denied = await mapWrite(request, "follow");
+    return (
+      denied ??
+      HttpResponse.json({
+        follows: followPlan("run_as.1").map((f) => ({
+          ...f,
+          commit: f.protected ? null : "abcdef1234567890",
+        })),
+      })
+    );
+  }),
   http.post("/api/envmap/entries", async ({ request }) => {
     const denied = await mapWrite(request, "entries");
     return denied ?? HttpResponse.json(envmap);

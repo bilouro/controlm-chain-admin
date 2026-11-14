@@ -32,6 +32,7 @@ from controlm_chain_admin.core.environments import (
     export_subject,
     held_env,
 )
+from controlm_chain_admin.core.envmap import read_map
 from controlm_chain_admin.core.errors import (
     ChainError,
     GitError,
@@ -68,6 +69,8 @@ class Refresh:
     partial: bool = False  # the folders the export does not have stay
     export_folders: int = 0  # the folders of the application in the export
     branch_folders: int = 0  # the folders the branch holds now
+    #: once committed on an environment's branch: values of mapped keys no entry has for it
+    new_values: tuple[dict[str, Any], ...] = ()
 
     @property
     def subject(self) -> str:
@@ -103,6 +106,7 @@ class Refresh:
             "branch_folders": self.branch_folders,
             "looks_partial": self.looks_partial,
             "removes_most": self.removes_most,
+            "new_values": list(self.new_values),
             "new_branch": self.new_branch,
             "source": self.source,
             "evidence": list(self.evidence),
@@ -305,7 +309,12 @@ def refresh(
         _switch(root, branch, rules.trunk, exists)
         _install(imported, root)
     sha = _commit(root, result.subject) if commit else None
-    return replace(result, applied=True, commit=sha)
+    found: tuple[dict[str, Any], ...] = ()
+    if sha and not work and read_map(root, repo.config).entries:
+        from controlm_chain_admin.core.mapcheck import new_values  # it reads the branches
+
+        found = tuple(new.to_json() for new in new_values(load_repo(root))[1])
+    return replace(result, applied=True, commit=sha, new_values=found)
 
 
 def _imported(
@@ -326,6 +335,19 @@ def _counts(summary: dict[str, Any]) -> list[str]:
         if parts:
             lines.append(f"  {kind}: {', '.join(parts)}")
     return lines
+
+
+def _new_values_lines(result: Refresh) -> list[str]:
+    found = result.new_values
+    if not found:
+        return []
+    said = ", ".join(f"{v['key']} {v['value']}" for v in found[:3])
+    more = f" and {len(found) - 3} more" if len(found) > 3 else ""
+    count = f"{len(found)} new value{'s' if len(found) > 1 else ''}"
+    return [
+        f"{count} for the map ({said}{more}): ctmchain envmap new-values, or New values on "
+        "the Map page, puts each into an entry"
+    ]
 
 
 def render_text(result: Refresh, *, stat: bool = False) -> str:
@@ -383,6 +405,7 @@ def render_text(result: Refresh, *, stat: bool = False) -> str:
         lines.append(f"Nothing written: --apply overwrites {result.branch} with this export.")
     elif result.commit:
         lines.append(f"Committed on {result.branch}: {result.subject}")
+        lines += _new_values_lines(result)
     elif result.work:
         lines.append(
             f"Written on {result.branch}, not committed: review with git diff, then commit it "
