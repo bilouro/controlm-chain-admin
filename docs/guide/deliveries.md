@@ -35,6 +35,9 @@ writes it. It is the same file as taking the same items at once.
 
 - A delivery is **tied to the commit** it was made from: the file it gives is the same
   whenever it is made. The list says *its branch moved since* when it did.
+- The list says **the commits it carries**: those of its branch since the last export, up
+  to the commit it was kept from, that changed its items (a folder counts all its jobs).
+  The commits that touched them after it was kept come apart, marked *not in it*.
 - An item the target **already has** is packaged all the same, with its folder: what you
   chose goes in the file.
 - Two deliveries that give one place **two values** are refused, naming the second. Nothing

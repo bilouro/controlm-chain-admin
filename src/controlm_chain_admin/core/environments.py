@@ -15,7 +15,8 @@ from controlm_chain_admin.core.history import WORKTREE, _git
 from controlm_chain_admin.core.repo import ChainConfig
 
 #: the subject of the commit that holds an export (:func:`export_subject`)
-_EXPORT_SUBJECT = re.compile(r"^(refresh|import)\(([^)]+)\): ")
+#: the subject of a commit that holds an export (:func:`export_subject`)
+EXPORT_SUBJECT = re.compile(r"^(refresh|import)\(([^)]+)\): ")
 
 
 def branch_of_env(config: ChainConfig, env: str) -> str:
@@ -82,14 +83,14 @@ def held_env(root: Path, config: ChainConfig, ref: str) -> str | None:
     try:
         subjects = str(
             _git(
-                root, "log", "--first-parent", "-E", f"--grep={_EXPORT_SUBJECT.pattern}",
+                root, "log", "--first-parent", "-E", f"--grep={EXPORT_SUBJECT.pattern}",
                 "--format=%s", f"{rev}^{{commit}}", "--",
             )
         )  # fmt: skip
     except GitError:  # no such ref, no commit yet, not a git repository
         return None
     for subject in subjects.splitlines():  # --grep also matches a line of the body
-        found = _EXPORT_SUBJECT.match(subject)
+        found = EXPORT_SUBJECT.match(subject)
         if found and found[2] in config.environments:
             # where no branch holds the environment the subject is somebody's own wording
             env = str(found[2])

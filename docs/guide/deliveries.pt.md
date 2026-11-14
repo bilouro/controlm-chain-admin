@@ -35,6 +35,9 @@ escreve. É o mesmo ficheiro que levar os mesmos itens de uma vez.
 
 - Uma entrega fica **presa ao commit** de onde foi feita: gera sempre o mesmo ficheiro. A
   lista diz *its branch moved since* quando o branch mudou depois.
+- A lista diz **os commits que ela leva**: os do seu branch desde o último export, até ao
+  commit em que foi guardada, que mudaram os seus itens (uma pasta conta com todos os seus
+  jobs). Os commits que lhes mexeram depois de guardada vêm à parte, marcados *not in it*.
 - Um item que o destino **já tem** igual vai no ficheiro na mesma, com a pasta dele: o que
   escolheste sai.
 - Duas entregas que dão **dois valores** ao mesmo sítio são recusadas, com o nome da

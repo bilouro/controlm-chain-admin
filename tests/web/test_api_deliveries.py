@@ -48,6 +48,8 @@ def test_a_delivery_is_kept_listed_and_removed(api: TestClient) -> None:
     assert (row["count"], row["environment"], row["moved"], row["note"]) == (
         1, "uat", False, "for Friday",
     )  # fmt: skip
+    # the new job came with uat's export: no commit of somebody's own carries it
+    assert (row["commits"], row["commits_after"]) == ([], [])
     assert gone.status_code == 200 and gone.json() == {"deliveries": []}
 
 

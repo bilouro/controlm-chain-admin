@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ApiError, encode, sendApi, type DeliveryOut } from "@/lib/api/client";
+import { ApiError, encode, sendApi, type CommitOut, type DeliveryOut } from "@/lib/api/client";
 import { queryKeys, useDeliveries, useDeliveryPackage, useEnvMap } from "@/lib/api/queries";
 import { TokenForm } from "@/features/changes/TokenForm";
 import {
@@ -32,6 +32,49 @@ function Origin({ delivery }: { delivery: DeliveryOut }) {
       </span>
       {delivery.moved && <Badge tone="warning">its branch moved since</Badge>}
     </span>
+  );
+}
+
+function CommitLine({ commit }: { commit: CommitOut }) {
+  return (
+    <li>
+      <span className="font-mono text-muted">{commit.sha.slice(0, 7)}</span> {commit.subject}{" "}
+      <span className="text-muted">
+        ({commit.date.slice(0, 10)}, {commit.author})
+      </span>
+    </li>
+  );
+}
+
+/** The commits that changed what the delivery holds, and apart those after it was kept. */
+function Commits({ delivery }: { delivery: DeliveryOut }) {
+  const carried = delivery.commits ?? [];
+  const later = delivery.commits_after ?? [];
+  if (carried.length === 0 && later.length === 0) {
+    return <span className="text-xs text-muted">no commit of its own</span>;
+  }
+  return (
+    <details>
+      <summary className="cursor-pointer text-sm">
+        {carried.length === 1 ? "1 commit" : `${carried.length} commits`}
+        {later.length > 0 && <Badge tone="warning">{later.length} after it was kept</Badge>}
+      </summary>
+      <ul aria-label={`Commits of ${delivery.name}`} className="mt-1 space-y-0.5 text-xs">
+        {carried.map((commit) => (
+          <CommitLine key={commit.sha} commit={commit} />
+        ))}
+      </ul>
+      {later.length > 0 && (
+        <>
+          <p className="mt-2 text-xs text-muted">After it was kept, not in it:</p>
+          <ul aria-label={`After ${delivery.name} was kept`} className="space-y-0.5 text-xs">
+            {later.map((commit) => (
+              <CommitLine key={commit.sha} commit={commit} />
+            ))}
+          </ul>
+        </>
+      )}
+    </details>
   );
 }
 
@@ -150,6 +193,7 @@ export function DeliveriesPage() {
                 <Th>Name</Th>
                 <Th>From</Th>
                 <Th>Holds</Th>
+                <Th>Commits</Th>
                 <Th>Kept</Th>
                 <Th>
                   <span className="sr-only">Actions</span>
@@ -185,6 +229,9 @@ export function DeliveriesPage() {
                         ))}
                       </ul>
                     </details>
+                  </Td>
+                  <Td>
+                    <Commits delivery={delivery} />
                   </Td>
                   <Td className="whitespace-nowrap text-xs text-muted">{delivery.saved}</Td>
                   <Td>

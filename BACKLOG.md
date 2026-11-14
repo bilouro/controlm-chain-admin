@@ -413,6 +413,28 @@ or addresses anywhere in this public repository.
     not tried on the work PC's Kilo (Windows, its shell); the Kilo tools that need ripgrep
     (skill, glob, grep) stay unusable there, and the agent is told not to need them.
 
+30. **The list of changes and its details, both in view — DONE (2026-11-14), released in 0.7.1**, asked by the author
+    (2026-11-14, at work): on *Compare* the list of changed folders and jobs and the panel of
+    details are part of the page, so after scrolling down the list and choosing an item the
+    details change at the top, out of view. On a wide screen: (1) the list scrolls by itself,
+    the height of the window, with its filter buttons kept on top; (2) the details stay in
+    view beside it, scrolling by themselves, back to the top when another item is chosen;
+    (3) the item selected is scrolled into view in the list. A narrow screen keeps one panel
+    under the other. `ChangesBrowser` is shared, so *Refresh* (*What differs*) gets it too;
+    the folder page is not touched. Checked in a browser by the Playwright test (the list and
+    the details scroll by themselves on a wide screen, not on a narrow one).
+
+31. **The commits a delivery carries — DONE (2026-11-14), released in 0.7.1**, asked by the author: the
+    *Deliveries* page shows the items of a delivery (folders, jobs) but not the work in it.
+    Each delivery lists the commits of its branch, up to the commit it was kept from and
+    since the last export that entered that branch (`refresh(...)`/`import(...)`, left out),
+    that touched the files of its items (a folder: all its jobs; a job or one of its
+    attributes: the job's file); and, apart, the commits that touched them after it was kept
+    ("not in it", what *its branch moved since* means). A *Commits* column on the page; the
+    same in `ctmchain delivery list` and the assistant's `deliveries`. Nothing is migrated:
+    it is worked out from the branch, the commit and the items a delivery keeps. Building a
+    delivery by choosing commits was the other reading, not chosen.
+
 Later, unordered: second-environment import with learning; `diff` of environments and XML
 files with `xmldiffreport`; mapping editor; upstream graph explorer (paused by the author);
 cycle detection in `validate`; a check for one condition name used by two links. The bilingual

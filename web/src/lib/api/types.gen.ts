@@ -1150,6 +1150,18 @@ export interface components {
        * @description the ref they were chosen against; null when they were picked from the chain
        */
       base?: string | null;
+      /**
+       * Commits
+       * @description the commits of its branch since the last export, up to the one it was kept from, that changed its items; newest first
+       * @default []
+       */
+      commits: components["schemas"]["CommitOut"][];
+      /**
+       * Commits After
+       * @description the commits that changed its items after it was kept: not in it
+       * @default []
+       */
+      commits_after: components["schemas"]["CommitOut"][];
       /** Count */
       count: number;
       /**

@@ -106,6 +106,8 @@ export const deliveriesKept = {
       count: 1,
       environment: "uat",
       moved: false,
+      commits: [],
+      commits_after: [],
     },
     {
       name: "weekly",
@@ -119,6 +121,24 @@ export const deliveriesKept = {
       count: 2,
       environment: "uat",
       moved: true,
+      commits: [
+        {
+          sha: "3333333ccccccc",
+          subject: "feat: a longer wait on the weekly jobs",
+          author: "A. Person",
+          date: "2026-11-09T10:00:00+00:00",
+          merge: false,
+        },
+      ],
+      commits_after: [
+        {
+          sha: "4444444ddddddd",
+          subject: "feat: one more change",
+          author: "A. Person",
+          date: "2026-11-11T09:00:00+00:00",
+          merge: false,
+        },
+      ],
     },
   ],
 };

@@ -152,6 +152,71 @@ def test_a_delivery_is_tied_to_the_commit_it_was_made_from(repo: ChainRepo) -> N
     assert any("env/uat moved since 'command of A' was kept" in w for w in package.warnings)
 
 
+def _change(repo: ChainRepo, node: str, attributes: dict[str, str], message: str) -> None:
+    uat = load_repo(repo.root)
+    apply(uat, set_attributes(uat, node, attributes))
+    commit_all(repo.root, message)
+
+
+def test_a_delivery_lists_the_commits_that_changed_what_it_holds(repo: ChainRepo) -> None:
+    """The work in it: the commits of its branch since the last export, on its items only;
+    and, apart, what touched them after it was kept."""
+    git(repo.root, "switch", "-q", UAT)
+    _change(repo, f"{CHAIN}/P77_A", {"MAXWAIT": "3"}, "feat: wait longer on A")
+    _change(repo, f"{INGEST}/P77_INGEST_LOAD", {"MAXWAIT": "4"}, "feat: another folder")
+    save_delivery(repo, "job A", UAT, [f"job:{CHAIN}/P77_A"], base=BENCH, today=TODAY)
+    save_delivery(repo, "attribute", UAT, [CMD], base=BENCH, today=TODAY)
+    save_delivery(repo, "the folder", UAT, [f"folder:{CHAIN}"], today=TODAY)
+    save_delivery(repo, "a link", UAT, ["link:nope"], today=TODAY)
+    _change(repo, f"{CHAIN}/P77_A", {"MAXRERUN": "2"}, "feat: after it was kept")
+    git(repo.root, "switch", "-q", "main")
+
+    rows = {row["name"]: row for row in listed(repo)}
+
+    def subjects(name: str, key: str = "commits") -> list[str]:
+        return [commit["subject"] for commit in rows[name][key]]
+
+    assert subjects("job A") == ["feat: wait longer on A"]  # not the export, not elsewhere
+    assert subjects("attribute") == ["feat: wait longer on A"]  # the file of the job
+    assert subjects("the folder") == ["feat: wait longer on A"]
+    assert subjects("job A", "commits_after") == ["feat: after it was kept"]
+    assert rows["a link"]["commits"] == [] and rows["a link"]["commits_after"] == []
+    commit = rows["job A"]["commits"][0]
+    assert len(commit["sha"]) == 40 and commit["author"] and commit["date"].startswith("20")
+
+
+def test_the_list_says_the_commits_of_each_delivery(
+    repo: ChainRepo, capsys: pytest.CaptureFixture[str]
+) -> None:
+    git(repo.root, "switch", "-q", UAT)
+    _change(repo, f"{CHAIN}/P77_A", {"MAXWAIT": "3"}, "feat: wait longer on A")
+    save_delivery(repo, "job A", UAT, [f"job:{CHAIN}/P77_A"], today=TODAY)
+    _change(repo, f"{CHAIN}/P77_A", {"MAXRERUN": "2"}, "feat: after it was kept")
+    capsys.readouterr()
+
+    assert main(["delivery", "list", "--repo", str(repo.root)]) == 0
+
+    out = capsys.readouterr().out
+    first = git(repo.root, "rev-parse", "--short=7", f"{UAT}~1")
+    assert f"      commit {first} feat: wait longer on A (" in out
+    assert "      after it was kept, not in it: " in out and "feat: after it was kept" in out
+
+
+def test_a_delivery_of_a_branch_of_ones_own_starts_at_the_export_it_holds(
+    repo: ChainRepo,
+) -> None:
+    git(repo.root, "switch", "-q", "-c", "work/mine", UAT)
+    _change(repo, f"{CHAIN}/P77_A", {"MAXWAIT": "3"}, "feat: mine")
+    save_delivery(repo, "mine", "work/mine", [f"job:{CHAIN}/P77_A"], today=TODAY)
+    git(repo.root, "switch", "-q", "main")
+
+    (row,) = [row for row in listed(repo) if row["name"] == "mine"]
+
+    # the branch started from uat's: the export of uat in its history is where it begins
+    assert [c["subject"] for c in row["commits"]] == ["feat: mine"]
+    assert row["commits_after"] == []
+
+
 def test_a_delivery_is_removed_by_its_name(repo: ChainRepo) -> None:
     save_delivery(repo, "one", UAT, [NEW], today=TODAY)
     save_delivery(repo, "two", UAT, [CMD], today=TODAY)

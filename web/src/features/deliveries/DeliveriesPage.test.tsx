@@ -37,6 +37,25 @@ describe("DeliveriesPage", () => {
     expect(await violations(container)).toEqual([]);
   });
 
+  it("says the commits each delivery carries, and those after it was kept apart", async () => {
+    const { user } = await shown();
+    const table = screen.getByRole("table", { name: "Deliveries kept" });
+
+    const first = within(table).getByRole("row", { name: /new job/ });
+    expect(first).toHaveTextContent("no commit of its own");
+    const second = within(table).getByRole("row", { name: /weekly/ });
+    await user.click(within(second).getByText("1 commit"));
+    const carried = within(second).getByRole("list", { name: "Commits of weekly" });
+    expect(carried).toHaveTextContent("3333333");
+    expect(carried).toHaveTextContent("feat: a longer wait on the weekly jobs");
+    expect(carried).toHaveTextContent("2026-11-09");
+    expect(carried).toHaveTextContent("A. Person");
+    const later = within(second).getByRole("list", { name: "After weekly was kept" });
+    expect(second).toHaveTextContent("After it was kept, not in it:");
+    expect(second).toHaveTextContent("1 after it was kept");
+    expect(later).toHaveTextContent("feat: one more change");
+  });
+
   it("says how a delivery is kept when there is none", async () => {
     server.use(http.get("/api/deliveries", () => HttpResponse.json({ deliveries: [] })));
     renderAt(<DeliveriesPage />, { path: "/deliveries" });

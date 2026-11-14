@@ -89,7 +89,15 @@ def cmd_list(args: argparse.Namespace) -> int:
         print(f"  {row['name']}  {row['count']} item(s) of {origin}  {row['saved']}{moved}")
         if row["note"]:
             print(f"      {row['note']}")
+        for commit in row["commits"]:
+            print(f"      commit {_commit(commit)}")
+        for commit in row["commits_after"]:
+            print(f"      after it was kept, not in it: {_commit(commit)}")
     return EXIT_OK
+
+
+def _commit(commit: dict[str, str]) -> str:
+    return f"{commit['sha'][:7]} {commit['subject']} ({commit['date'][:10]}, {commit['author']})"
 
 
 def cmd_remove(args: argparse.Namespace) -> int:

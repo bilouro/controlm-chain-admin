@@ -1213,7 +1213,13 @@ no environment, and is written by plumbing, so no checkout changes (`write_branc
 keeps the other files of the branch; the cache of comparisons is keyed on the map itself,
 so keeping a delivery does not empty it). A delivery is tied to its commit: the file it
 gives is the same whenever it is made, and when its ref moved since, the list and the
-package say so.
+package say so. The list also gives the commits it carries (`delivery_commits`, story 31):
+those of its branch since the last export commit there (`refresh(...)`/`import(...)`,
+`EXPORT_SUBJECT`), up to its commit, that touched the files of its items (`item_paths`: a
+folder's directory, a job's file for a job and what is inside it, `folder.json` for what
+is the folder's own; beyond 100 files, by folder), the export commits left out; and apart
+the commits that touched them after it was kept (`commits_after`). Worked out each time
+from what a delivery keeps: nothing is migrated.
 
 `build_delivery(target, names)` (`ctmchain delivery package`, `GET /api/deliveries/package`,
 the *Deliveries* page) makes one package for a target branch: the target as it is, with the

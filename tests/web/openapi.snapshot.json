@@ -788,6 +788,24 @@
             "description": "the ref they were chosen against; null when they were picked from the chain",
             "title": "Base"
           },
+          "commits": {
+            "default": [],
+            "description": "the commits of its branch since the last export, up to the one it was kept from, that changed its items; newest first",
+            "items": {
+              "$ref": "#/components/schemas/CommitOut"
+            },
+            "title": "Commits",
+            "type": "array"
+          },
+          "commits_after": {
+            "default": [],
+            "description": "the commits that changed its items after it was kept: not in it",
+            "items": {
+              "$ref": "#/components/schemas/CommitOut"
+            },
+            "title": "Commits After",
+            "type": "array"
+          },
           "count": {
             "title": "Count",
             "type": "integer"

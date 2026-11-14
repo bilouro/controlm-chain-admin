@@ -297,8 +297,9 @@ class ChainTools:
                          "name has this text. set-resource and remove-resource (capabilities) "
                          "change them. Read only.",
             "deliveries": "The deliveries kept for later: items put aside under a name, with "
-                          "the branch and the commit they come from and whether that branch "
-                          "moved since. Read only.",
+                          "the branch and the commit they come from, whether that branch "
+                          "moved since, the commits that changed its items (commits) and "
+                          "those after it was kept, not in it (commits_after). Read only.",
             "keep_delivery": "Keep items for later under a name, once the user agreed: head is "
                              "the branch (tag, commit) they come from, items their ids as "
                              "takeable gives them (job:FOLDER/JOB, attr:FOLDER/JOB@NAME, "

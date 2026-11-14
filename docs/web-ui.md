@@ -21,7 +21,7 @@ the session token the command printed (open the address it gives, token included
 | **Compare** | two branches or environments; check items to take them, package them, or keep them for a delivery |
 | **Refresh** | the export of an environment onto its branch, or onto a branch of your own |
 | **Map** | the letter and branch of each environment, the entries, who follows each, *Follow…*, what the branches show that the map lacks, and the technical attributes |
-| **Deliveries** | what was kept for later; one import file from one or several |
+| **Deliveries** | what was kept for later and the commits each carries; one import file from one or several |
 | **Resources** | every CONTROL and QUANTITATIVE resource with the jobs that use it; give one to several jobs |
 
 Every change is previewed first, field by field, and written only when you confirm. Nothing

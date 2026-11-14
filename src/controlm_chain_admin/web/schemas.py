@@ -742,6 +742,13 @@ class DeliveryOut(BaseModel):
     count: int
     environment: str | None = Field(None, description="the environment its commit holds")
     moved: bool = Field(description="its ref is elsewhere now: the delivery has what it had")
+    commits: list[CommitOut] = Field(
+        [], description="the commits of its branch since the last export, up to the one it was "
+        "kept from, that changed its items; newest first"
+    )  # fmt: skip
+    commits_after: list[CommitOut] = Field(
+        [], description="the commits that changed its items after it was kept: not in it"
+    )
 
 
 class DeliveriesOut(BaseModel):

@@ -6,6 +6,19 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- The commits a delivery carries: the *Deliveries* page (a *Commits* column),
+  `ctmchain delivery list` and the assistant's `deliveries` give, for each one, the commits
+  of its branch since the last export that changed its items, and apart those that touched
+  them after it was kept (not in it).
+
+### Changed
+
+- On a wide screen the list of changed folders and jobs and the details of the one chosen
+  each scroll by themselves and stay in view (*Compare*, and *What differs* on *Refresh*):
+  choosing an item far down the list no longer leaves its details out of view at the top.
+
 ## [0.7.0] - 2026-11-14
 
 ### Added

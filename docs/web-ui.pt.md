@@ -21,7 +21,7 @@ token de sessão que o comando imprimiu (abre o endereço que ele dá, com o tok
 | **Compare** | dois branches ou ambientes; marcas itens para os levar, empacotar ou guardar numa entrega |
 | **Refresh** | o export de um ambiente para o branch dele, ou para um branch teu |
 | **Map** | a letra e o branch de cada ambiente, os itens, quem segue cada um, *Follow…*, o que os branches mostram e o mapa não tem, e os atributos técnicos |
-| **Deliveries** | o que ficou guardado; um ficheiro de import com uma ou várias |
+| **Deliveries** | o que ficou guardado e os commits que cada uma leva; um ficheiro de import com uma ou várias |
 | **Resources** | cada recurso CONTROL e QUANTITATIVE com os jobs que o usam; dar um a vários jobs |
 
 Cada alteração é pré-visualizada primeiro, campo a campo, e só é escrita quando confirmas.

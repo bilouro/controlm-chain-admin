@@ -28,10 +28,10 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
-from controlm_chain_admin.core.environments import held_env
+from controlm_chain_admin.core.environments import EXPORT_SUBJECT, held_env
 from controlm_chain_admin.core.envmap import branch_file, write_branch_file
 from controlm_chain_admin.core.errors import ChainError, InvalidChange, ModelError, TakeConflict
-from controlm_chain_admin.core.history import resolve
+from controlm_chain_admin.core.history import CommitInfo, _git, resolve
 from controlm_chain_admin.core.links import (
     build_links,
     collect_conditions,
@@ -171,9 +171,82 @@ def _moved(root: Path, delivery: Delivery) -> bool:
         return True
 
 
+#: beyond this many files, the commits are looked for by folder: a command line has a limit
+PATHS_AT_MOST = 100
+_SEP = "\x1f"
+
+
+def item_paths(items: Sequence[str]) -> list[str]:
+    """The files the changes of the items are in: a folder's directory for a folder, a job's
+    file for a job and for what is inside it, ``folder.json`` for what is the folder's own.
+    Items that are in no folder (a link, a constant) have none."""
+    paths: list[str] = []
+    for item in items:
+        kind, _, rest = item.partition(":")
+        if kind == "exception":
+            rest = rest.partition("@")[2]
+        elif kind in ("attr", "var", "rel", "group"):
+            rest = rest.rpartition("@")[0]
+        elif kind not in _IN_A_FOLDER:
+            continue
+        folder, _, job = rest.partition("/")
+        if not folder:
+            continue
+        if kind == "folder":
+            path = f"folders/{folder}"
+        elif job:
+            path = f"folders/{folder}/jobs/{job}.json"
+        else:
+            path = f"folders/{folder}/folder.json"
+        if path not in paths:
+            paths.append(path)
+    if len(paths) > PATHS_AT_MOST:
+        return list(dict.fromkeys("/".join(p.split("/")[:2]) for p in paths))
+    return paths
+
+
+def _log(root: Path, revisions: str, paths: Sequence[str]) -> list[CommitInfo]:
+    out = _git(root, "log", f"--format=%H{_SEP}%s{_SEP}%an{_SEP}%cI", revisions, "--", *paths)
+    commits = []
+    for line in str(out).splitlines():
+        sha, subject, author, date = line.split(_SEP)
+        commits.append(CommitInfo(sha, subject, author, date))
+    return commits
+
+
+def _last_export(root: Path, sha: str) -> str | None:
+    """The nearest commit of ``sha``'s history that holds an export: where its work begins."""
+    out = _git(root, "log", "-E", f"--grep={EXPORT_SUBJECT.pattern}", "--format=%H%x1f%s", sha)
+    for line in str(out).splitlines():
+        found, _, subject = line.partition(_SEP)
+        if EXPORT_SUBJECT.match(subject):  # --grep also matches a line of the body
+            return found
+    return None
+
+
+def delivery_commits(root: Path, delivery: Delivery) -> dict[str, list[dict[str, Any]]]:
+    """The commits that changed what the delivery holds: those of its branch since the last
+    export, up to the commit it was kept from (the exports left out), and apart those that
+    touched the same files after it was kept, which are not in it. Newest first."""
+    paths = item_paths(delivery.items)
+    if not paths:
+        return {"commits": [], "commits_after": []}
+    since = _last_export(root, delivery.sha)
+    kept = _log(root, f"{since}..{delivery.sha}" if since else delivery.sha, paths)
+    try:
+        now = resolve(root, delivery.head).sha
+    except ChainError:
+        now = None
+    after = _log(root, f"{delivery.sha}..{now}", paths) if now and now != delivery.sha else []
+    return {
+        "commits": [c.to_json() for c in kept if not EXPORT_SUBJECT.match(c.subject)],
+        "commits_after": [c.to_json() for c in after],
+    }
+
+
 def listed(repo: ChainRepo) -> list[dict[str, Any]]:
     """The deliveries as they are shown: with the environment each comes from, how many items
-    it has, and whether its ref moved since it was kept."""
+    it has, whether its ref moved since it was kept, and the commits it carries."""
     rows = []
     for delivery in read_deliveries(repo.root, repo.config):
         try:
@@ -186,6 +259,7 @@ def listed(repo: ChainRepo) -> list[dict[str, Any]]:
                 "count": len(delivery.items),
                 "environment": env,
                 "moved": _moved(repo.root, delivery),
+                **delivery_commits(repo.root, delivery),
             }
         )
     return rows
