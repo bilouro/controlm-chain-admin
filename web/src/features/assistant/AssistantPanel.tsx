@@ -1,4 +1,11 @@
-import { useState, type FormEvent, type KeyboardEvent } from "react";
+import {
+  useCallback,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+} from "react";
 import {
   ApiError,
   type ApprovalOut,
@@ -7,8 +14,8 @@ import {
 } from "@/lib/api/client";
 import { TokenForm } from "@/features/changes/TokenForm";
 import { DiffView } from "@/components/DiffView";
+import { Markdown } from "@/components/Markdown";
 import { Badge, Button, ErrorBox, Loading } from "@/components/ui";
-import { cn } from "@/lib/utils";
 import { useAssistantStatus, useConversation } from "./use-assistant";
 
 type Props = {
@@ -72,14 +79,14 @@ function Parts({ parts }: { parts: AssistantPartOut[] }) {
             </ul>
           );
         }
-        return (
-          <p
-            key={index}
-            className={cn("whitespace-pre-wrap text-sm", first?.kind === "error" && "text-error")}
-          >
-            {first?.text}
-          </p>
-        );
+        if (first?.kind === "error") {
+          return (
+            <p key={index} className="whitespace-pre-wrap text-sm text-error">
+              {first.text}
+            </p>
+          );
+        }
+        return <Markdown key={index} text={first?.text ?? ""} />;
       })}
     </>
   );
@@ -168,6 +175,30 @@ function Approval({
   );
 }
 
+/** How near the end still counts as being on the last line. */
+const END_SLACK = 24;
+
+/**
+ * Keeps a scrolling box on its last line while the reader is there: what arrives is followed;
+ * once they scroll up it stays where they are, until they come back to the end.
+ */
+function useFollowEnd(changes: unknown) {
+  const box = useRef<HTMLDivElement>(null);
+  const isAtEnd = useRef(true);
+  const handleScroll = useCallback(() => {
+    const el = box.current;
+    if (el) isAtEnd.current = el.scrollHeight - el.scrollTop - el.clientHeight <= END_SLACK;
+  }, []);
+  const toEnd = useCallback(() => {
+    isAtEnd.current = true;
+  }, []);
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (el && isAtEnd.current) el.scrollTop = el.scrollHeight;
+  }, [changes]);
+  return { box, handleScroll, toEnd };
+}
+
 function Chat({ pollMs }: { pollMs: number }) {
   const { conversation, waiting, send, answer, stop, restart } = useConversation(pollMs);
   const [draft, setDraft] = useState("");
@@ -175,10 +206,12 @@ function Chat({ pollMs }: { pollMs: number }) {
   const working = waiting;
   const thinking = working && (data?.approvals.length ?? 0) === 0;
   const needsToken = send.error instanceof ApiError && send.error.status === 401;
+  const { box, handleScroll, toEnd } = useFollowEnd(data);
 
   const submit = () => {
     const text = draft.trim();
     if (!text || working) return;
+    toEnd(); // what you just said, and its answer, are what you want to see
     send.mutate(text, { onSuccess: () => setDraft("") });
   };
   const handleSubmit = (event: FormEvent) => {
@@ -200,6 +233,8 @@ function Chat({ pollMs }: { pollMs: number }) {
         </Button>
       </div>
       <div
+        ref={box}
+        onScroll={handleScroll}
         role="log"
         aria-label="Conversation"
         className="min-h-0 flex-1 space-y-3 overflow-auto p-3"

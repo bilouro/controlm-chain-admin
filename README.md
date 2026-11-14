@@ -297,6 +297,9 @@ the repeated ones a numeric suffix; `package` and `export` give the original nam
 `ctmchain serve --assistant` starts `kilo serve` itself, with the model Kilo is set to
 (`--assistant-model provider/model` for another one, `kilo models` lists them) and stops it
 with the server. A `kilo` that is not on the PATH: `$env:CTMCHAIN_KILO = "C:\path\to\kilo.cmd"`.
+`.kilo/kilo.json` holds the full path of the repository and of Python: when the folder moved,
+`serve --assistant` repairs it as it starts (with `kilo` alone: `ctmchain kilo init --force`).
+The panel shows the answer's tables, lists and code as such and follows its last line.
 
 ### Where only PyPI is reachable
 

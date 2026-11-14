@@ -6,6 +6,26 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- The assistant's answers are shown formatted: tables as tables, lists, headings, blocks of
+  code, bold and inline code. Your own messages stay as you wrote them.
+- A job named as Control-M shows it, with the letter of its environment (`UP77_LOAD`), is
+  found: `find` (the MCP tool) reads it without the letter when the text as given finds
+  nothing, and says so (`read_as`). The agent's rules say it too (`kilo init --force`).
+
+### Fixed
+
+- The assistant had no ctmchain tool after the repository folder moved (or the virtual
+  environment was made again): `.kilo/kilo.json` kept the old paths. `ctmchain serve
+  --assistant` now points the MCP server at the current folder and Python when it starts.
+
+### Changed
+
+- The assistant's conversation follows its last line: what arrives is scrolled to while you
+  are at the end, stays put once you scroll up to read, and follows again when you scroll
+  back down or send a message.
+
 ## [0.6.1] - 2026-11-13
 
 ### Changed

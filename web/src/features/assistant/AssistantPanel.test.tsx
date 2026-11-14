@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { afterEach, describe, expect, it } from "vitest";
@@ -316,6 +316,73 @@ describe("AssistantPanel", () => {
     };
 
     await waitFor(() => expect(repoReads).toBeGreaterThan(before));
+  });
+
+  it("shows a table of the answer as a table, and your own message as you wrote it", async () => {
+    assistant();
+    const userEvents = userEvent.setup();
+    renderAt(<AssistantPanel onClose={() => {}} pollMs={POLL} />);
+
+    const box = await screen.findByRole("textbox", { name: "Message" });
+    await userEvents.type(box, "why **this** | that?{Enter}");
+    const log = screen.getByRole("log", { name: "Conversation" });
+    expect(await within(log).findByText("why **this** | that?")).toBeInTheDocument();
+    conversation = {
+      ...conversation,
+      busy: false,
+      messages: [
+        ...conversation.messages,
+        {
+          id: "msg_table",
+          role: "assistant",
+          parts: [{ kind: "text", text: "| Job | Field |\n|---|---|\n| **P77_B** | CONTROL |" }],
+        },
+      ],
+    };
+
+    const table = await within(log).findByRole("table");
+    expect(within(table).getByRole("columnheader", { name: "Field" })).toBeInTheDocument();
+    expect(within(table).getByText("P77_B").tagName).toBe("STRONG");
+  });
+
+  it("follows the last line while you are on it, and stays where you scrolled up to", async () => {
+    assistant();
+    const userEvents = userEvent.setup();
+    renderAt(<AssistantPanel onClose={() => {}} pollMs={POLL} />);
+    const said = (text: string): AssistantMessageOut => ({
+      id: `msg_${text}`,
+      role: "assistant",
+      parts: [{ kind: "text", text }],
+    });
+    const more = (text: string) => {
+      conversation = { ...conversation, messages: [...conversation.messages, said(text)] };
+    };
+    const log = await screen.findByRole("log", { name: "Conversation" });
+    // the browser's measures, which the test page does not have: 100 high, the text longer
+    let height = 100;
+    Object.defineProperty(log, "clientHeight", { get: () => 100 });
+    Object.defineProperty(log, "scrollHeight", { get: () => height });
+    Object.defineProperty(log, "scrollTop", { value: 0, writable: true });
+
+    await userEvents.type(await screen.findByRole("textbox", { name: "Message" }), "Go{Enter}");
+    height = 500;
+    more("first");
+    expect(await within(log).findByText("first")).toBeInTheDocument();
+    await waitFor(() => expect(log.scrollTop).toBe(500));
+
+    log.scrollTop = 100; // scrolled up to read
+    fireEvent.scroll(log);
+    height = 900;
+    more("second");
+    expect(await within(log).findByText("second")).toBeInTheDocument();
+    expect(log.scrollTop).toBe(100);
+
+    log.scrollTop = 800; // back on the last line
+    fireEvent.scroll(log);
+    height = 1200;
+    more("third");
+    expect(await within(log).findByText("third")).toBeInTheDocument();
+    await waitFor(() => expect(log.scrollTop).toBe(1200));
   });
 
   it("closes", async () => {

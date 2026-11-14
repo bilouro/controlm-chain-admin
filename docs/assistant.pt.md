@@ -17,6 +17,25 @@ kilo --agent controlm             # ou: ctmchain serve --assistant
 Depois de uma atualização que traga ferramentas novas, corre
 `ctmchain kilo init --repo . --force`: reescreve o agente e mantém o teu `vocabulary.md`.
 
+## Quando o assistente não tem ferramentas
+
+O `.kilo/kilo.json` arranca o servidor com o caminho completo do repositório e do Python.
+Uma pasta que mudou de sítio, ou um ambiente virtual refeito, deixa-o a apontar para lado
+nenhum: o assistente diz então que as ferramentas ctmchain não estão disponíveis e procura
+nos ficheiros à mão. O `ctmchain serve --assistant` corrige o caminho sozinho ao arrancar;
+só com o `kilo`, corre `ctmchain kilo init --repo . --force`. Para ver o erro, arranca o
+servidor à mão: tem de ficar à espera, em silêncio.
+
+```bash
+python -m controlm_chain_admin mcp --repo .
+```
+
+Pede "chama ctmchain_menu e diz-me o que devolve": a lista de capacidades quer dizer que as
+ferramentas estão lá.
+
+Um job pode ser dito como o Control-M o mostra, com a letra do ambiente (`UP77_LOAD`): é
+encontrado como `P77_LOAD`, o nome guardado aqui.
+
 ## O que podes pedir
 
 - "O que é que uat tem que produção não tem?"

@@ -921,7 +921,7 @@ Inspection
 Assistant
 - `menu [<capability>] [--format text|json]` — implemented: what can be asked in plain words, from `core/capabilities.json` (§11, *Assistant*).
 - `mcp [--repo DIR]` — implemented: the MCP server over stdio for an assistant (the `[mcp]` extra).
-- `serve --assistant [--assistant-model PROVIDER/MODEL]` — implemented: the web UI with its *Assistant* panel; starts and stops Kilo.
+- `serve --assistant [--assistant-model PROVIDER/MODEL]` — implemented: the web UI with its *Assistant* panel; starts and stops Kilo; repairs the MCP command of `.kilo/kilo.json` when it points at another folder or Python (`kilo.repair_command`). The panel renders the Markdown of an answer (tables, lists, code; `components/Markdown.tsx`, no dependency) and follows its last line. `find` reads a name given with an environment letter without it (`read_as`).
 - `diagnose [<base> <head>] [--files N] [--format text|json] [-o <file>]` — implemented: what this machine costs per small file and per git call, and where one comparison (default: the trunk with the first other environment) spends its time; numbers only (§14.4).
 - `adopt-jobname <FOLDER/JOB> [--keep-names] [--apply]` — implemented: the numbered name of a job becomes its JOBNAME in Control-M too (§8).
 - `envmap followers`, `envmap follow <entry> <other> [--apply] [--stat]` — implemented: who follows each entry of the map, and the jobs of one entry made to follow another on the branch checked out (§14.3).

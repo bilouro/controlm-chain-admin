@@ -17,6 +17,25 @@ kilo --agent controlm             # or: ctmchain serve --assistant
 After an upgrade that brings new tools, run `ctmchain kilo init --repo . --force`: it
 rewrites the agent and keeps your `vocabulary.md`.
 
+## When the assistant has no tools
+
+`.kilo/kilo.json` starts the server with the full path of the repository and of Python. A
+folder that moved, or a virtual environment made again, leaves it pointing nowhere: the
+assistant then says the ctmchain tools are not available and searches the files by hand.
+`ctmchain serve --assistant` repairs the path by itself when it starts; with `kilo` alone,
+run `ctmchain kilo init --repo . --force`. To see the error, start the server by hand: it
+must wait in silence.
+
+```bash
+python -m controlm_chain_admin mcp --repo .
+```
+
+Ask "call ctmchain_menu and tell me what it returns": the list of capabilities means the
+tools are there.
+
+A job can be named as Control-M shows it, with the letter of its environment (`UP77_LOAD`):
+it is found as `P77_LOAD`, the name kept here.
+
 ## What you can ask
 
 - "What does uat have that production has not?"
