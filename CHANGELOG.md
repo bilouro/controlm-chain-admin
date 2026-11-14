@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-11-14
+
 ### Changed
 
 - A file of some folders goes onto the branch of its environment too (a package imported
@@ -823,7 +825,8 @@ First release on PyPI.
 - On Windows, unknown `/api/...` paths and missing assets were answered with the app instead of
   404 (the static files handler sees `\` separators there).
 
-[Unreleased]: https://github.com/bilouro/controlm-chain-admin/compare/v0.7.1...HEAD
+[Unreleased]: https://github.com/bilouro/controlm-chain-admin/compare/v0.7.2...HEAD
+[0.7.2]: https://github.com/bilouro/controlm-chain-admin/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/bilouro/controlm-chain-admin/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/bilouro/controlm-chain-admin/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/bilouro/controlm-chain-admin/compare/v0.6.0...v0.6.1
