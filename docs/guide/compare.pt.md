@@ -49,4 +49,6 @@ Cada ambiente pode manter o seu nome, ou um fica com o do outro
 
 Na página *Compare*, escolhes *Base* e *Head* e carregas em **Compare**: nada corre até
 carregares, e a comparação anterior fica visível enquanto a nova é calculada. Uma
-comparação entre dois commits fica guardada, por isso pedi-la outra vez é imediato.
+comparação entre dois commits fica guardada, por isso pedi-la outra vez é imediato. Num
+ecrã largo, a lista das pastas e jobs alterados e os detalhes do escolhido rolam cada um
+por si e ficam à vista: escolhes um item lá em baixo na lista e os detalhes estão ao lado.

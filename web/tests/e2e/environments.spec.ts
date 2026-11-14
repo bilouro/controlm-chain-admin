@@ -56,6 +56,25 @@ test("between two environments: an entry preferred, an item packaged for the bas
   await expect(page.getByRole("dialog", { name: "Review change" })).toBeVisible();
 });
 
+test("the list of changes and its details each scroll by themselves on a wide screen", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1400, height: 700 });
+  await page.goto(at("/compare?base=env/bench&head=env/uat"));
+  const list = page.getByRole("list", { name: "Changed folders and jobs" });
+  const details = page.getByRole("region", { name: "Change details" });
+  await expect(list).toBeVisible();
+
+  await expect(list.locator("xpath=..")).toHaveCSS("overflow-y", "auto");
+  await expect(details).toHaveCSS("position", "sticky");
+  await expect(details).toHaveCSS("overflow-y", "auto");
+
+  // a narrow screen keeps one under the other, scrolled with the page
+  await page.setViewportSize({ width: 700, height: 900 });
+  await expect(details).toHaveCSS("position", "static");
+  await expect(list.locator("xpath=..")).toHaveCSS("overflow-y", "visible");
+});
+
 test("a branch of one's own: started from uat's, an export onto it, compared with uat's", async ({
   page,
 }) => {

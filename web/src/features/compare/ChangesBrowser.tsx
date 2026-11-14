@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import type {
   CommitOut,
@@ -305,11 +305,28 @@ export function ChangesBrowser({
   const visible = groups.flatMap((g) => (g.folderChange ? [g.folderChange, ...g.jobs] : g.jobs));
   const current = visible.find((n) => n.node === selected) ?? visible[0] ?? null;
   const commits = useMemo(() => new Map(result.commits.map((c) => [c.sha, c])), [result]);
+  const listRef = useRef<HTMLUListElement>(null);
+  const detailsRef = useRef<HTMLElement>(null);
+  const shown = current?.node;
+  useEffect(() => {
+    // another change: its details from the top, not where the last one was scrolled to
+    if (detailsRef.current) detailsRef.current.scrollTop = 0;
+  }, [shown]);
+  useEffect(() => {
+    // the change chosen (in the address, or by a click) is in view in the list
+    if (!selected) return;
+    listRef.current?.querySelector('[aria-current="true"]')?.scrollIntoView?.({ block: "nearest" });
+  }, [selected]);
   if (nodes.length === 0) return <Empty>{emptyText}</Empty>;
   return (
-    <div className="grid gap-4 lg:grid-cols-[22rem_1fr]">
-      <div className="space-y-2">
-        <div className="flex flex-wrap gap-1" role="group" aria-label="Filter by change">
+    // on a wide screen the list and the details each scroll by themselves and stay in view
+    <div className="grid gap-4 lg:grid-cols-[22rem_1fr] lg:items-start">
+      <div className="space-y-2 lg:sticky lg:top-4 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto">
+        <div
+          className="flex flex-wrap gap-1 rounded-md bg-surface lg:sticky lg:top-0 lg:z-10 lg:pb-1"
+          role="group"
+          aria-label="Filter by change"
+        >
           <Button
             size="sm"
             variant={filter === null ? "primary" : "ghost"}
@@ -336,6 +353,7 @@ export function ChangesBrowser({
           })}
         </div>
         <ul
+          ref={listRef}
           className="divide-y divide-border rounded-md border border-border"
           aria-label="Changed folders and jobs"
         >
@@ -378,13 +396,19 @@ export function ChangesBrowser({
           ))}
         </ul>
       </div>
-      <Card className="p-4">
-        {current ? (
-          <NodeDetail node={current} head={head} openable={openable} commits={commits} />
-        ) : (
-          <Empty>Select a change.</Empty>
-        )}
-      </Card>
+      <section
+        ref={detailsRef}
+        aria-label="Change details"
+        className="lg:sticky lg:top-4 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto"
+      >
+        <Card className="p-4">
+          {current ? (
+            <NodeDetail node={current} head={head} openable={openable} commits={commits} />
+          ) : (
+            <Empty>Select a change.</Empty>
+          )}
+        </Card>
+      </section>
     </div>
   );
 }

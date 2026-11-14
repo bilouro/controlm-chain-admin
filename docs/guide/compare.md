@@ -49,4 +49,7 @@ Each environment may keep its own name, or one takes the other's
 
 On the *Compare* page, choose *Base* and *Head* and press **Compare**: nothing runs until
 you do, and the last comparison stays in view while the next one is worked out. A
-comparison of two commits is kept, so asking for it again is immediate.
+comparison of two commits is kept, so asking for it again is immediate. On a wide screen
+the list of changed folders and jobs and the details of the one chosen each scroll by
+themselves and stay in view: choose an item far down the list and its details are beside
+it.

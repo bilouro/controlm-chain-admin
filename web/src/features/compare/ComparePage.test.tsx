@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { violations } from "@/test/axe";
 import type { GitStateOut } from "@/lib/api/client";
 import { renderAt } from "@/test/render";
@@ -106,6 +106,40 @@ describe("ComparePage", () => {
     expect(rows.some((r) => /added.*P77_CHECK-P77_B_OK/.test(r.textContent ?? ""))).toBe(true);
     await user.click(screen.getByRole("button", { name: "P77_DELTA renamed" }));
     expect(screen.getByText("was P77_CHAIN/P77_D")).toBeInTheDocument();
+  });
+
+  describe("the list and the details, both in view", () => {
+    const scrolled: Element[] = [];
+    const original = Element.prototype.scrollIntoView;
+    afterEach(() => {
+      Element.prototype.scrollIntoView = original;
+      scrolled.length = 0;
+    });
+
+    it("the change chosen in the address is scrolled into view in the list", async () => {
+      Element.prototype.scrollIntoView = vi.fn(function (this: Element) {
+        scrolled.push(this);
+      });
+      renderAt(<ComparePage />, { path: "/compare?node=P77_CHAIN%2FP77_C" });
+      await screen.findByRole("heading", { name: "P77_CHAIN/P77_C" });
+
+      const list = screen.getByRole("list", { name: "Changed folders and jobs" });
+      const chosen = within(list).getByRole("button", { name: "P77_C modified" });
+      await waitFor(() => expect(scrolled).toContain(chosen));
+    });
+
+    it("choosing another change shows its details from the top", async () => {
+      const user = userEvent.setup();
+      renderAt(<ComparePage />, { path: "/compare?node=P77_CHAIN%2FP77_C" });
+      await screen.findByRole("heading", { name: "P77_CHAIN/P77_C" });
+      const details = screen.getByRole("region", { name: "Change details" });
+      Object.defineProperty(details, "scrollTop", { value: 300, writable: true });
+
+      await user.click(screen.getByRole("button", { name: "P77_DELTA renamed" }));
+
+      await screen.findByText("was P77_CHAIN/P77_D");
+      expect(details.scrollTop).toBe(0);
+    });
   });
 
   it("filters the list by kind of change", async () => {
