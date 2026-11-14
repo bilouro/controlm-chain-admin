@@ -6,7 +6,7 @@ on that agent in prod?", "what does P77_B wait for?"), as JSON-ready dictionarie
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterator, Mapping, Sequence
 from typing import Any
 
 from controlm_chain_admin.core.constants import resolve_json
@@ -40,14 +40,43 @@ def find_nodes(
         attribute.upper() if attribute else None,
         value.casefold() if value else None,
     )
+    nodes = list(_nodes(repo, env))
+    matches = _matches(nodes, wanted)
+    read_as = None if matches or not text else _without_letter(repo, text)
+    if read_as is not None:
+        matches = _matches(nodes, (read_as["text"].casefold(), *wanted[1:]))
+    result: dict[str, Any] = {
+        "total": len(matches),
+        "matches": matches[:limit],
+        "truncated": len(matches) > limit,
+    }
+    return result | {"read_as": read_as} if read_as is not None and matches else result
+
+
+def _matches(
+    nodes: Sequence[tuple[NodeRef, Mapping[str, Any]]],
+    wanted: tuple[str | None, str | None, str | None],
+) -> list[dict[str, Any]]:
     matches = []
-    for ref, data in _nodes(repo, env):
+    for ref, data in nodes:
         matched = _match(ref, data, *wanted)
         if matched:
             kind = "job" if ref.job is not None else "folder"
             name = data.get(_NAME_FIELDS[kind][0], ref.job or ref.folder)
             matches.append({"node": _node_id(ref), "kind": kind, "name": name, "matched": matched})
-    return {"total": len(matches), "matches": matches[:limit], "truncated": len(matches) > limit}
+    return matches
+
+
+def _without_letter(repo: ChainRepo, text: str) -> dict[str, str] | None:
+    """The text as the repository keeps it when it was given as Control-M has it, with the
+    letter of an environment in front (``UP77_LOAD``): the names here carry no letter."""
+    letters = {letter: env for env, letter in repo.env_letters().items() if letter}
+    pattern = repo.config.letter_rule.lettered_pattern(tuple(letters))
+    found = pattern.search(text) if pattern else None
+    if pattern is None or found is None:
+        return None
+    letter = found.group("letter").upper()
+    return {"text": pattern.sub("", text).upper(), "letter": letter, "env": letters[letter]}
 
 
 def describe_node(repo: ChainRepo, node: str, env: str | None = None) -> dict[str, Any]:

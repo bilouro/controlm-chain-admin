@@ -19,6 +19,7 @@ from controlm_chain_admin.core.kilo import (
     VOCABULARY_FILE,
     kilo_files,
     project_dir,
+    repair_command,
     write_files,
 )
 from controlm_chain_admin.core.repo import ChainRepo, load_repo
@@ -110,6 +111,8 @@ def start_assistant(repo: ChainRepo, model: str | None) -> Any:
     if not (target / CONFIG).exists():
         for written in write_files(target, kilo_files(repo.root, sys.executable)):
             print(f"{written.action} {written.path}")
+    elif repair_command(target, repo.root, sys.executable):
+        print(f"updated {CONFIG}: the MCP server pointed at another folder or Python")
     kilo = start_kilo(target)
     shown = model or "Kilo's own"
     print(f"Assistant: Kilo (agent {AGENT}, model {shown}) at {kilo.url}")

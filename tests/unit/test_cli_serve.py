@@ -142,6 +142,26 @@ def test_serve_with_the_assistant_keeps_the_kilo_files_there(
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="the fake kilo is a shell script")
+def test_serve_with_the_assistant_points_the_mcp_server_at_a_repository_that_moved(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = _repo(tmp_path)
+    _fake_kilo(tmp_path, monkeypatch)
+    assert main(["kilo", "init", "--repo", str(root)]) == 0
+    path = root / ".kilo" / "kilo.json"
+    config = json.loads(path.read_text("utf-8"))
+    config["mcp"]["ctmchain"]["command"][-1] = str(tmp_path / "where-it-was")
+    path.write_text(json.dumps(config), "utf-8")
+    capsys.readouterr()
+
+    assert main(["serve", "--repo", str(root), "--no-browser", "--check", "--assistant"]) == 0
+
+    assert "updated .kilo/kilo.json" in capsys.readouterr().out
+    command = json.loads(path.read_text("utf-8"))["mcp"]["ctmchain"]["command"]
+    assert command[0] == sys.executable and command[-1] == str(root.resolve())
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="the fake kilo is a shell script")
 def test_serve_with_an_assistant_that_cannot_start_says_where_its_log_is(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:

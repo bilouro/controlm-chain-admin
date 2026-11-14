@@ -67,6 +67,16 @@ class LetterRule:
         alt = self._alternation()
         return re.compile(rf"(?<![A-Za-z0-9])(?:(?P<letter>[A-Z])(?={alt})|(?={alt}))")
 
+    def lettered_pattern(self, letters: Sequence[str]) -> re.Pattern[str] | None:
+        """One of ``letters`` in front of a prefix at a token boundary, whatever the case: a
+        name as somebody types it. None when the rule is off or no letter is known."""
+        chosen = "".join(re.escape(letter) for letter in letters)
+        if not (self.enabled and chosen):
+            return None
+        return re.compile(
+            rf"(?<![A-Za-z0-9])(?P<letter>[{chosen}])(?={self._alternation()})", re.IGNORECASE
+        )
+
     def bare_pattern(self) -> re.Pattern[str]:
         """A bare prefix at a token boundary (export side)."""
         return re.compile(rf"(?<![A-Za-z0-9])(?={self._alternation()})")

@@ -44,6 +44,19 @@ def test_find_by_part_of_a_name_ignores_case(repo: ChainRepo) -> None:
     }
 
 
+def test_find_reads_a_name_given_with_the_letter_of_an_environment(repo: ChainRepo) -> None:
+    """In Control-M the job is UP77_INGEST_LOAD; here the name is kept without the letter."""
+    found = find_nodes(repo, text="up77_ingest_load")
+
+    assert [m["node"] for m in found["matches"]] == ["P77_INGEST_DAILY/P77_INGEST_LOAD"]
+    assert found["read_as"] == {"text": "P77_INGEST_LOAD", "letter": "U", "env": "uat"}
+
+
+def test_find_keeps_the_text_as_given_when_it_finds_something(repo: ChainRepo) -> None:
+    assert "read_as" not in find_nodes(repo, text="ingest_l")
+    assert "read_as" not in find_nodes(repo, text="XP77_NOTHING")  # X is no environment
+
+
 def test_find_a_folder_by_its_name(repo: ChainRepo) -> None:
     found = find_nodes(repo, text="P77_INGEST_DAILY")
 

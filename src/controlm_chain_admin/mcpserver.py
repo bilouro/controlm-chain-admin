@@ -284,7 +284,9 @@ class ChainTools:
             "menu": "What can be asked and how: every capability with an example; "
                     "capability=<id> gives its parameters and rules. Start here.",
             "find": "Find jobs and folders by part of a name (text), an attribute and part of "
-                    "its value, or a value in any attribute; env: as that environment has them.",
+                    "its value, or a value in any attribute; env: as that environment has them. "
+                    "Names are kept without the environment letter: a text given with it "
+                    "(UP77_LOAD) is read without (read_as says so).",
             "show": "One job (FOLDER/JOB) or folder (FOLDER/): fields, variables, what it waits "
                     "for and releases, exceptions by environment; env: as that one has it.",
             "condition": "One condition by its name: who emits it (from), waits for it (to), "

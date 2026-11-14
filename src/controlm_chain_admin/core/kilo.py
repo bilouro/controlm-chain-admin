@@ -107,6 +107,27 @@ def write_files(target: Path, files: dict[str, str], *, force: bool = False) -> 
     return report
 
 
+def repair_command(target: Path, repo_root: Path, python: str) -> bool:
+    """Point the MCP server of ``.kilo/kilo.json`` at this repository and this Python when it
+    points elsewhere (the folder moved, the virtual environment was made again): Kilo would
+    start a server that cannot run, and the assistant would have no tool. True when the file
+    was rewritten; the rest of it, and a command that is not ours, stay as they are."""
+    path = target / CONFIG
+    try:
+        config = json.loads(path.read_text("utf-8"))
+        server = config["mcp"]["ctmchain"]
+        current = server["command"]
+    except (OSError, ValueError, KeyError, TypeError):
+        return False
+    wanted = [python, "-m", "controlm_chain_admin", "mcp", "--repo", str(repo_root.resolve())]
+    ours = isinstance(current, list) and current[1:4] == wanted[1:4]
+    if not ours or current == wanted:
+        return False
+    server["command"] = wanted
+    path.write_text(json.dumps(config, indent=2, ensure_ascii=False) + "\n", "utf-8", newline="\n")
+    return True
+
+
 def _workflow() -> str:
     return "\n".join(f"- {rule}" for rule in load_catalogue().workflow)
 
@@ -161,6 +182,9 @@ description: {SKILL_DESCRIPTION}
 1. ctmchain_menu lists what can be asked; ctmchain_menu with capability=<id> gives its
    parameters, rules and an example.
 2. ctmchain_find and ctmchain_show give the exact nodes (FOLDER/JOB, FOLDER/) and values.
+   The names here carry no environment letter: a job the user calls UP77_LOAD (as Control-M
+   shows it in uat) is P77_LOAD. Drop the letter before you look; ctmchain_find does it too
+   and says so in read_as.
 3. ctmchain_preview with steps [{{"do": "<capability>", "params": {{...}}}}] shows each field
    before -> after; tell the user.
 4. ctmchain_apply with the same steps and the preview_id writes it once the user approves it
