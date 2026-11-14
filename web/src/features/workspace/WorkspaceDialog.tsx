@@ -42,6 +42,29 @@ function closeHint(release: ReleaseOut | undefined, workspace: WorkspaceOut): st
 }
 
 /** Releases: where edits go, from a release branch started from the trunk back to it. */
+/** What a button says while its action runs: the click was taken, nothing to press again. */
+const WORKING: Record<string, string> = {
+  switch: "Switching",
+  push: "Pushing",
+  pull: "Pulling",
+  stash: "Stashing",
+  pop: "Restoring",
+  discard: "Discarding",
+  update: "Updating",
+  close: "Closing",
+  release: "Starting",
+  branch: "Starting",
+  installed: "Marking",
+};
+
+function workingOn(request: WorkspaceAction): string {
+  const doing = WORKING[request.action] ?? "Working";
+  const branch = request.body?.branch;
+  return request.action === "switch" && typeof branch === "string"
+    ? `${doing} to ${branch}…`
+    : `${doing}…`;
+}
+
 export function WorkspaceDialog({ onClose }: { onClose: () => void }) {
   const workspace = useWorkspace();
   const action = useWorkspaceAction();
@@ -68,6 +91,13 @@ export function WorkspaceDialog({ onClose }: { onClose: () => void }) {
     action.mutate(request, { onSuccess: onDone });
   };
   const data = workspace.data;
+  const busy = action.isPending ? action.variables : undefined;
+  /** The label of a button: what it says, or that its action is running. */
+  const says = (request: WorkspaceAction, idle: string) =>
+    busy?.action === request.action &&
+    (request.body?.branch === undefined || busy.body?.branch === request.body.branch)
+      ? `${WORKING[request.action] ?? "Working"}…`
+      : idle;
   const needsToken = action.error instanceof ApiError && action.error.status === 401;
   const current = data?.releases.find((r) => r.name === data.release);
   const hint = data ? closeHint(current, data) : null;
@@ -83,9 +113,10 @@ export function WorkspaceDialog({ onClose }: { onClose: () => void }) {
         size="sm"
         variant="ghost"
         aria-label={`Switch to ${branch}`}
+        disabled={action.isPending}
         onClick={() => switchTo(branch)}
       >
-        Switch
+        {says({ action: "switch", body: { branch } }, "Switch")}
       </Button>
     );
 
@@ -134,10 +165,20 @@ export function WorkspaceDialog({ onClose }: { onClose: () => void }) {
               {data.changes > 0 && (
                 <div className="flex flex-wrap items-center gap-2 text-sm">
                   <span>{plural(data.changes, "uncommitted chain file")}</span>
-                  <Button size="sm" variant="ghost" onClick={() => run({ action: "stash" })}>
-                    Stash changes
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={action.isPending}
+                    onClick={() => run({ action: "stash" })}
+                  >
+                    {says({ action: "stash" }, "Stash changes")}
                   </Button>
-                  <Button size="sm" variant="danger" onClick={() => setIsDiscarding(true)}>
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    disabled={action.isPending}
+                    onClick={() => setIsDiscarding(true)}
+                  >
                     Discard changes…
                   </Button>
                 </div>
@@ -151,12 +192,13 @@ export function WorkspaceDialog({ onClose }: { onClose: () => void }) {
                     <Button
                       size="sm"
                       variant="danger"
+                      disabled={action.isPending}
                       onClick={() =>
                         pending.data &&
                         run({ action: "discard", body: { fingerprint: pending.data.fingerprint } })
                       }
                     >
-                      Discard {plural(data.changes, "file")}
+                      {says({ action: "discard" }, `Discard ${plural(data.changes, "file")}`)}
                     </Button>
                   ) : (
                     <Loading what="changes" />
@@ -174,9 +216,13 @@ export function WorkspaceDialog({ onClose }: { onClose: () => void }) {
                   </span>
                   <Button
                     size="sm"
+                    disabled={action.isPending}
                     onClick={() => run({ action: "switch", body: { branch: target, stash: true } })}
                   >
-                    Stash {plural(data.changes, "change")} and switch
+                    {says(
+                      { action: "switch", body: { branch: target } },
+                      `Stash ${plural(data.changes, "change")} and switch`,
+                    )}
                   </Button>
                   <Button size="sm" variant="ghost" onClick={() => setTarget(null)}>
                     Cancel
@@ -220,16 +266,24 @@ export function WorkspaceDialog({ onClose }: { onClose: () => void }) {
               {data.release && (
                 <div className="flex flex-wrap items-center gap-2">
                   {current && current.trunk_behind > 0 && (
-                    <Button size="sm" variant="ghost" onClick={() => run({ action: "update" })}>
-                      Update from {data.trunk} ({plural(current.trunk_behind, "commit")})
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={action.isPending}
+                      onClick={() => run({ action: "update" })}
+                    >
+                      {says(
+                        { action: "update" },
+                        `Update from ${data.trunk} (${plural(current.trunk_behind, "commit")})`,
+                      )}
                     </Button>
                   )}
                   <Button
                     size="sm"
-                    disabled={!current?.closable}
+                    disabled={!current?.closable || action.isPending}
                     onClick={() => run({ action: "close" })}
                   >
-                    Close release
+                    {says({ action: "close" }, "Close release")}
                   </Button>
                   {hint && <span className="text-xs text-muted">{hint}</span>}
                 </div>
@@ -336,7 +390,7 @@ export function WorkspaceDialog({ onClose }: { onClose: () => void }) {
                   )
                 }
               >
-                Start release
+                {says({ action: "release" }, "Start release")}
               </Button>
             </section>
 
@@ -368,7 +422,7 @@ export function WorkspaceDialog({ onClose }: { onClose: () => void }) {
                   )
                 }
               >
-                Start branch
+                {says({ action: "branch" }, "Start branch")}
               </Button>
             </section>
 
@@ -387,7 +441,7 @@ export function WorkspaceDialog({ onClose }: { onClose: () => void }) {
                         size="sm"
                         variant="ghost"
                         aria-label={`Restore ${saved.ref}`}
-                        disabled={!data.editable || data.changes > 0}
+                        disabled={!data.editable || data.changes > 0 || action.isPending}
                         title={
                           !data.editable
                             ? "Restore it on a release"
@@ -413,11 +467,20 @@ export function WorkspaceDialog({ onClose }: { onClose: () => void }) {
                       ? `${data.upstream} · ${data.ahead} to push · ${data.behind} to pull`
                       : `${data.remote} · ${data.branch ?? "HEAD"} not pushed yet`}
                   </span>
-                  <Button size="sm" variant="ghost" onClick={() => run({ action: "pull" })}>
-                    Pull
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={action.isPending}
+                    onClick={() => run({ action: "pull" })}
+                  >
+                    {says({ action: "pull" }, "Pull")}
                   </Button>
-                  <Button size="sm" disabled={!data.branch} onClick={() => run({ action: "push" })}>
-                    Push
+                  <Button
+                    size="sm"
+                    disabled={!data.branch || action.isPending}
+                    onClick={() => run({ action: "push" })}
+                  >
+                    {says({ action: "push" }, "Push")}
                   </Button>
                 </>
               ) : (
@@ -431,6 +494,11 @@ export function WorkspaceDialog({ onClose }: { onClose: () => void }) {
         {action.isError && !needsToken && <ErrorBox error={action.error} />}
         {needsToken && (
           <TokenForm onToken={() => action.variables && action.mutate(action.variables)} />
+        )}
+        {busy && (
+          <p role="status" className="text-sm text-muted">
+            {workingOn(busy)}
+          </p>
         )}
         {action.isSuccess && (
           <p role="status" className="text-sm text-ok">

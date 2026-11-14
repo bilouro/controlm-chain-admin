@@ -244,6 +244,69 @@ describe("BranchButton", () => {
     expect(within(dialog).queryByRole("row", { name: /environment/ })).not.toBeInTheDocument();
   });
 
+  it("while an action runs its button says so and no other can be pressed", async () => {
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      http.get("/api/workspace", () => HttpResponse.json(workspaceEnvs)),
+      http.post("/api/workspace/:action", async () => {
+        await gate;
+        return HttpResponse.json({ message: "Switched to env/uat", workspace: workspaceEnvs });
+      }),
+    );
+    const user = userEvent.setup();
+    renderAt(<BranchButton />);
+    await user.click(await screen.findByRole("button", { name: /env\/bench/ }));
+    const dialog = await screen.findByRole("dialog", { name: "Releases" });
+    const branches = within(dialog).getByRole("table", { name: "Releases" });
+    const uat = within(branches).getByRole("row", { name: /env\/uat/ });
+    const egma = within(branches).getByRole("row", { name: /env\/egma/ });
+
+    await user.click(within(uat).getByRole("button", { name: "Switch to env/uat" }));
+
+    const busy = within(uat).getByRole("button", { name: "Switch to env/uat" });
+    expect(busy).toHaveTextContent("Switching…");
+    expect(busy).toBeDisabled();
+    expect(within(egma).getByRole("button", { name: "Switch to env/egma" })).toBeDisabled();
+    expect(within(dialog).getByRole("button", { name: "Start branch" })).toBeDisabled();
+    expect(within(dialog).getByRole("status")).toHaveTextContent("Switching to env/uat…");
+
+    release();
+
+    expect(await within(dialog).findByText("Switched to env/uat")).toBeInTheDocument();
+    expect(within(egma).getByRole("button", { name: "Switch to env/egma" })).toBeEnabled();
+  });
+
+  it("push and pull say they are working", async () => {
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      http.get("/api/workspace", () =>
+        HttpResponse.json({ ...workspaceMain, remote: "origin", upstream: "origin/main" }),
+      ),
+      http.post("/api/workspace/:action", async () => {
+        await gate;
+        return HttpResponse.json({ message: "Pushed main", workspace: workspaceMain });
+      }),
+    );
+    const user = userEvent.setup();
+    renderAt(<BranchButton />);
+    await user.click(await screen.findByRole("button", { name: /main/ }));
+    const dialog = await screen.findByRole("dialog", { name: "Releases" });
+
+    await user.click(within(dialog).getByRole("button", { name: "Push" }));
+
+    expect(within(dialog).getByRole("button", { name: "Pushing…" })).toBeDisabled();
+    expect(within(dialog).getByRole("button", { name: "Pull" })).toBeDisabled();
+    expect(within(dialog).getByRole("status")).toHaveTextContent("Pushing…");
+    release();
+    expect(await within(dialog).findByText("Pushed main")).toBeInTheDocument();
+  });
+
   it("pushes and pulls when there is a remote", async () => {
     server.use(
       http.get("/api/workspace", () =>
