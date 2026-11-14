@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-11-14
+
 ### Added
 
 - The commits a delivery carries: the *Deliveries* page (a *Commits* column),
@@ -806,7 +808,8 @@ First release on PyPI.
 - On Windows, unknown `/api/...` paths and missing assets were answered with the app instead of
   404 (the static files handler sees `\` separators there).
 
-[Unreleased]: https://github.com/bilouro/controlm-chain-admin/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/bilouro/controlm-chain-admin/compare/v0.7.1...HEAD
+[0.7.1]: https://github.com/bilouro/controlm-chain-admin/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/bilouro/controlm-chain-admin/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/bilouro/controlm-chain-admin/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/bilouro/controlm-chain-admin/compare/v0.5.0...v0.6.0
